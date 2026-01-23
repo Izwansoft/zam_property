@@ -1,0 +1,36 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies
+**/node_modules/
+
+# Build outputs / caches
+**/dist/
+**/build/
+**/.next/
+**/.turbo/
+**/.cache/
+**/.eslintcache
+**/coverage/
+
+# Env files (keep examples only)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Prisma / generated
+**/prisma/generated/
+
+# Temporary
+**/tmp/
+**/*.tmp

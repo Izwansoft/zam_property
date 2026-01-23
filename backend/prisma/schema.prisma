@@ -1,0 +1,1111 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuid_ossp(map: "uuid-ossp")]
+}
+
+model ChargeEvent {
+  id              String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String     @map("tenant_id") @db.Uuid
+  chargeType      ChargeType @map("charge_type")
+  amount          Decimal    @db.Decimal(10, 2)
+  currency        String     @default("MYR")
+  eventType       String     @map("event_type")
+  resourceType    String     @map("resource_type")
+  resourceId      String     @map("resource_id") @db.Uuid
+  pricingConfigId String?    @map("pricing_config_id") @db.Uuid
+  pricingRuleId   String?    @map("pricing_rule_id") @db.Uuid
+  metadata        Json?
+  processed       Boolean    @default(false)
+  processedAt     DateTime?  @map("processed_at")
+  invoiceId       String?    @map("invoice_id") @db.Uuid
+  createdAt       DateTime   @map("created_at") @default(now())
+  updatedAt       DateTime   @map("updated_at") @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("charge_events")
+  @@index([chargeType])
+  @@index([eventType])
+  @@index([invoiceId])
+  @@index([processed])
+  @@index([resourceType, resourceId])
+  @@index([tenantId])
+}
+
+model EntitlementSnapshot {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @unique @db.Uuid
+  entitlements Json
+  planId       String?  @map("plan_id") @db.Uuid
+  overrides    Json?
+  computedAt   DateTime @map("computed_at") @default(now())
+  expiresAt    DateTime @map("expires_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan?  @relation(fields: [planId], references: [id])
+
+  @@map("entitlement_snapshots")
+  @@index([expiresAt])
+  @@index([tenantId])
+}
+
+model EventLog {
+  id            String   @id @db.Uuid
+  eventType     String   @map("event_type")
+  eventVersion  String   @map("event_version") @default("1.0")
+  tenantId      String?  @map("tenant_id") @db.Uuid
+  correlationId String   @map("correlation_id")
+  causationId   String?  @map("causation_id") @db.Uuid
+  actorType     String   @map("actor_type")
+  actorId       String?  @map("actor_id") @db.Uuid
+  payload       Json
+  metadata      Json?
+  occurredAt    DateTime @map("occurred_at")
+  createdAt     DateTime @map("created_at") @default(now())
+
+  @@map("event_logs")
+  @@index([correlationId])
+  @@index([eventType, occurredAt])
+  @@index([occurredAt])
+  @@index([tenantId, occurredAt])
+}
+
+model InteractionMessage {
+  id            String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  interactionId String  @map("interaction_id") @db.Uuid
+  senderType    String  @map("sender_type")
+  senderId      String? @map("sender_id") @db.Uuid
+  senderName    String  @map("sender_name")
+  message       String
+  isInternal    Boolean @map("is_internal") @default(false)
+  createdAt     DateTime @map("created_at") @default(now())
+
+  interaction Interaction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+
+  @@map("interaction_messages")
+  @@index([createdAt])
+  @@index([interactionId])
+}
+
+model Interaction {
+  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  vendorId        String            @map("vendor_id") @db.Uuid
+  listingId       String            @map("listing_id") @db.Uuid
+  verticalType    String            @map("vertical_type")
+  interactionType InteractionType   @map("interaction_type")
+  contactName     String            @map("contact_name")
+  contactEmail    String            @map("contact_email")
+  contactPhone    String?           @map("contact_phone")
+  message         String?
+  bookingData     Json?             @map("booking_data")
+  status          InteractionStatus @default(NEW)
+  source          String            @default("web")
+  referrer        String?
+  createdAt       DateTime          @map("created_at") @default(now())
+  updatedAt       DateTime          @map("updated_at") @updatedAt
+  contactedAt     DateTime?         @map("contacted_at")
+  closedAt        DateTime?         @map("closed_at")
+
+  messages InteractionMessage[]
+  listing  Listing @relation(fields: [listingId], references: [id])
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  vendor   Vendor  @relation(fields: [vendorId], references: [id])
+
+  @@map("interactions")
+  @@index([createdAt])
+  @@index([listingId])
+  @@index([status])
+  @@index([tenantId])
+  @@index([vendorId])
+}
+
+model Invoice {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String        @map("tenant_id") @db.Uuid
+  externalId       String        @map("external_id")
+  externalProvider String        @map("external_provider")
+  subscriptionId   String?       @map("subscription_id") @db.Uuid
+  customerId       String?       @map("customer_id")
+  amount           Decimal       @db.Decimal(10, 2)
+  currency         String        @default("MYR") @db.VarChar(3)
+  status           InvoiceStatus @default(DRAFT)
+  dueDate          DateTime?     @map("due_date")
+  paidAt           DateTime?     @map("paid_at")
+  invoiceUrl       String?       @map("invoice_url")
+  invoicePdf       String?       @map("invoice_pdf")
+  metadata         Json?
+  createdAt        DateTime      @map("created_at") @default(now())
+  updatedAt        DateTime      @map("updated_at") @updatedAt
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+  @@index([externalId])
+  @@index([status])
+  @@index([subscriptionId])
+  @@index([tenantId])
+}
+
+model ListingMedia {
+  id               String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  listingId        String          @map("listing_id") @db.Uuid
+  filename         String
+  mimeType         String          @map("mime_type")
+  size             Int
+  mediaType        MediaType       @map("media_type") @default(IMAGE)
+  storageKey       String          @map("storage_key") @unique
+  cdnUrl           String?         @map("cdn_url")
+  thumbnailKey     String?         @map("thumbnail_key")
+  thumbnailUrl     String?         @map("thumbnail_url")
+  processingStatus String          @map("processing_status") @default("pending")
+  metadata         Json?
+  visibility       MediaVisibility @default(PUBLIC)
+  sortOrder        Int             @map("sort_order") @default(0)
+  isPrimary        Boolean         @map("is_primary") @default(false)
+  altText          String?         @map("alt_text")
+  createdAt        DateTime        @map("created_at") @default(now())
+  updatedAt        DateTime        @map("updated_at") @updatedAt
+  deletedAt        DateTime?       @map("deleted_at")
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listing_media")
+  @@index([listingId])
+  @@index([mediaType])
+  @@index([tenantId])
+}
+
+model Listing {
+  id            String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  vendorId      String        @map("vendor_id") @db.Uuid
+  verticalType  String        @map("vertical_type")
+  schemaVersion String        @map("schema_version") @default("1.0")
+  title         String
+  description   String?
+  slug          String
+  price         Decimal?      @db.Decimal(15, 2)
+  currency      String        @default("MYR")
+  priceType     String?       @map("price_type")
+  location      Json?
+  attributes    Json          @default("{}")
+  status        ListingStatus @default(DRAFT)
+  publishedAt   DateTime?     @map("published_at")
+  expiresAt     DateTime?     @map("expires_at")
+  isFeatured    Boolean       @map("is_featured") @default(false)
+  featuredUntil DateTime?     @map("featured_until")
+  viewCount     Int           @map("view_count") @default(0)
+  createdAt     DateTime      @map("created_at") @default(now())
+  updatedAt     DateTime      @map("updated_at") @updatedAt
+  deletedAt     DateTime?     @map("deleted_at")
+
+  interactions Interaction[]
+  media        ListingMedia[]
+  stats        ListingStats[]
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor       Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviews      Review[]
+
+  @@map("listings")
+  @@unique([tenantId, slug])
+  @@index([expiresAt])
+  @@index([isFeatured])
+  @@index([publishedAt])
+  @@index([status])
+  @@index([tenantId])
+  @@index([vendorId])
+  @@index([verticalType])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANALYTICS (PART 21)
+// Daily, pre-aggregated counters. Written asynchronously via BullMQ (analytics.process).
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ListingStats {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  listingId     String   @map("listing_id") @db.Uuid
+  vendorId      String   @map("vendor_id") @db.Uuid
+  verticalType  String   @map("vertical_type")
+  date          DateTime @db.Date
+  viewsCount    Int      @map("views_count") @default(0)
+  inquiriesCount Int     @map("inquiries_count") @default(0)
+  leadsCount    Int      @map("leads_count") @default(0)
+  enquiriesCount Int     @map("enquiries_count") @default(0)
+  bookingsCount Int      @map("bookings_count") @default(0)
+  createdAt     DateTime @map("created_at") @default(now())
+  updatedAt     DateTime @map("updated_at") @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("listing_stats")
+  @@unique([tenantId, listingId, date])
+  @@index([tenantId, date])
+  @@index([vendorId, date])
+  @@index([listingId, date])
+  @@index([verticalType, date])
+}
+
+model VendorStats {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  vendorId       String   @map("vendor_id") @db.Uuid
+  date           DateTime @db.Date
+  viewsCount     Int      @map("views_count") @default(0)
+  inquiriesCount Int      @map("inquiries_count") @default(0)
+  leadsCount     Int      @map("leads_count") @default(0)
+  enquiriesCount Int      @map("enquiries_count") @default(0)
+  bookingsCount  Int      @map("bookings_count") @default(0)
+  createdAt      DateTime @map("created_at") @default(now())
+  updatedAt      DateTime @map("updated_at") @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_stats")
+  @@unique([tenantId, vendorId, date])
+  @@index([tenantId, date])
+  @@index([vendorId, date])
+}
+
+model Media {
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  ownerType        String           @map("owner_type")
+  ownerId          String           @map("owner_id") @db.Uuid
+  filename         String
+  mimeType         String           @map("mime_type")
+  size             Int
+  mediaType        MediaType        @map("media_type")
+  storageKey       String           @map("storage_key") @unique
+  cdnUrl           String?          @map("cdn_url")
+  thumbnailKey     String?          @map("thumbnail_key")
+  thumbnailUrl     String?          @map("thumbnail_url")
+  processingStatus ProcessingStatus @map("processing_status") @default(PENDING)
+  metadata         Json?
+  visibility       MediaVisibility  @default(PUBLIC)
+  sortOrder        Int              @map("sort_order") @default(0)
+  isPrimary        Boolean          @map("is_primary") @default(false)
+  createdAt        DateTime         @map("created_at") @default(now())
+  updatedAt        DateTime         @map("updated_at") @updatedAt
+  deletedAt        DateTime?        @map("deleted_at")
+
+  @@map("media")
+  @@index([mediaType])
+  @@index([ownerType, ownerId])
+  @@index([storageKey])
+  @@index([tenantId])
+}
+
+model NotificationPreference {
+  id               String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String              @map("user_id") @db.Uuid
+  notificationType NotificationType    @map("notification_type")
+  channel          NotificationChannel
+  enabled          Boolean             @default(true)
+  createdAt        DateTime            @map("created_at") @default(now())
+  updatedAt        DateTime            @map("updated_at") @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+  @@unique([userId, notificationType, channel])
+  @@index([userId])
+}
+
+model NotificationTemplate {
+  id           String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String              @map("tenant_id") @db.Uuid
+  type         NotificationType
+  channel      NotificationChannel
+  name         String
+  description  String?
+  subject      String?
+  bodyTemplate String              @map("body_template")
+  locale       String              @default("en")
+  isActive     Boolean             @map("is_active") @default(true)
+  isDefault    Boolean             @map("is_default") @default(false)
+  variables    Json?
+  createdAt    DateTime            @map("created_at") @default(now())
+  updatedAt    DateTime            @map("updated_at") @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+
+  @@map("notification_templates")
+  @@unique([tenantId, type, channel, locale])
+  @@index([channel])
+  @@index([isActive])
+  @@index([tenantId])
+  @@index([type])
+}
+
+model Notification {
+  id           String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  userId       String             @map("user_id") @db.Uuid
+  type         NotificationType
+  channel      NotificationChannel
+  status       NotificationStatus @default(PENDING)
+  title        String
+  body         String
+  data         Json?
+  sentAt       DateTime?          @map("sent_at")
+  readAt       DateTime?          @map("read_at")
+  failedAt     DateTime?          @map("failed_at")
+  errorMessage String?            @map("error_message")
+  templateId   String?            @map("template_id") @db.Uuid
+  eventId      String?            @map("event_id")
+  resourceType String?            @map("resource_type")
+  resourceId   String?            @map("resource_id") @db.Uuid
+  retryCount   Int                @map("retry_count") @default(0)
+  createdAt    DateTime           @map("created_at") @default(now())
+  updatedAt    DateTime           @map("updated_at") @updatedAt
+
+  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+  @@index([channel])
+  @@index([createdAt])
+  @@index([status])
+  @@index([tenantId])
+  @@index([type])
+  @@index([userId])
+}
+
+model PaymentEvent {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  externalId       String   @map("external_id") @unique
+  externalProvider String   @map("external_provider")
+  eventType        String   @map("event_type")
+  resourceType     String   @map("resource_type")
+  resourceId       String   @map("resource_id")
+  processed        Boolean  @default(false)
+  processedAt      DateTime? @map("processed_at")
+  payload          Json
+  error            String?
+  retryCount       Int      @map("retry_count") @default(0)
+  createdAt        DateTime @map("created_at") @default(now())
+  updatedAt        DateTime @map("updated_at") @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("payment_events")
+  @@index([eventType])
+  @@index([externalId])
+  @@index([processed])
+  @@index([tenantId])
+}
+
+model PaymentMethod {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  externalId       String   @map("external_id")
+  externalProvider String   @map("external_provider")
+  type             String
+  last4            String?
+  brand            String?
+  expiryMonth      Int?     @map("expiry_month")
+  expiryYear       Int?     @map("expiry_year")
+  isDefault        Boolean  @map("is_default") @default(false)
+  metadata         Json?
+  createdAt        DateTime @map("created_at") @default(now())
+  updatedAt        DateTime @map("updated_at") @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("payment_methods")
+  @@index([externalId])
+  @@index([isDefault])
+  @@index([tenantId])
+}
+
+model Plan {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name         String
+  slug         String   @unique
+  description  String?
+  priceMonthly Decimal? @map("price_monthly") @db.Decimal(10, 2)
+  priceYearly  Decimal? @map("price_yearly") @db.Decimal(10, 2)
+  currency     String   @default("MYR")
+  entitlements Json
+  isActive     Boolean  @map("is_active") @default(true)
+  isPublic     Boolean  @map("is_public") @default(true)
+  createdAt    DateTime @map("created_at") @default(now())
+  updatedAt    DateTime @map("updated_at") @updatedAt
+
+  subscriptions Subscription[]
+  entitlementSnapshots EntitlementSnapshot[]
+
+  @@map("plans")
+  @@index([isActive])
+  @@index([slug])
+}
+
+model PricingConfig {
+  id          String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  model       PricingModel
+  name        String
+  description String?
+  isActive    Boolean      @map("is_active") @default(true)
+  config      Json
+  verticalId  String?      @map("vertical_id")
+  createdAt   DateTime     @map("created_at") @default(now())
+  updatedAt   DateTime     @map("updated_at") @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rules PricingRule[]
+
+  @@map("pricing_configs")
+  @@index([isActive])
+  @@index([model])
+  @@index([tenantId])
+  @@index([verticalId])
+}
+
+model PricingRule {
+  id              String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  pricingConfigId String     @map("pricing_config_id") @db.Uuid
+  name            String
+  description     String?
+  eventType       String     @map("event_type")
+  chargeType      ChargeType @map("charge_type")
+  amount          Decimal    @db.Decimal(10, 2)
+  currency        String     @default("MYR")
+  conditions      Json?
+  isActive        Boolean    @map("is_active") @default(true)
+  createdAt       DateTime   @map("created_at") @default(now())
+  updatedAt       DateTime   @map("updated_at") @updatedAt
+
+  pricingConfig PricingConfig @relation(fields: [pricingConfigId], references: [id], onDelete: Cascade)
+
+  @@map("pricing_rules")
+  @@index([eventType])
+  @@index([isActive])
+  @@index([pricingConfigId])
+}
+
+model Review {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  targetType     String       @map("target_type")
+  targetId       String       @map("target_id") @db.Uuid
+  verticalType   String       @map("vertical_type")
+  reviewerRef    String       @map("reviewer_ref")
+  rating         Int
+  title          String?
+  content        String?
+  status         ReviewStatus @default(PENDING)
+  moderatedAt    DateTime?    @map("moderated_at")
+  moderatedBy    String?      @map("moderated_by") @db.Uuid
+  moderationNote String?      @map("moderation_note")
+  responseText   String?      @map("response_text")
+  respondedAt    DateTime?    @map("responded_at")
+  createdAt      DateTime     @map("created_at") @default(now())
+  updatedAt      DateTime     @map("updated_at") @updatedAt
+  vendorId       String?      @map("vendor_id") @db.Uuid
+  listingId      String?      @map("listing_id") @db.Uuid
+
+  listing Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor  Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+  @@index([createdAt])
+  @@index([rating])
+  @@index([status])
+  @@index([targetType, targetId])
+  @@index([tenantId])
+}
+
+model Subscription {
+  id                 String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String             @map("tenant_id") @unique @db.Uuid
+  planId             String             @map("plan_id") @db.Uuid
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  externalId         String?            @map("external_id")
+  externalProvider   String?            @map("external_provider")
+  overrides          Json?
+  createdAt          DateTime           @map("created_at") @default(now())
+  updatedAt          DateTime           @map("updated_at") @updatedAt
+  cancelledAt        DateTime?          @map("cancelled_at")
+
+  invoices Invoice[]
+  plan     Plan     @relation(fields: [planId], references: [id])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+  @@index([planId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model TenantDomain {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  domain    String   @unique
+  isPrimary Boolean  @map("is_primary") @default(false)
+  verified  Boolean  @default(false)
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_domains")
+  @@index([tenantId])
+}
+
+model TenantSettings {
+  id       String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId String   @map("tenant_id") @unique @db.Uuid
+  features Json     @default("{}")
+  locale   String   @default("en")
+  currency String   @default("MYR")
+  timezone String   @default("Asia/Kuala_Lumpur")
+  createdAt DateTime @map("created_at") @default(now())
+  updatedAt DateTime @map("updated_at") @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+model TenantVertical {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  verticalId      String   @map("vertical_id") @db.Uuid
+  configOverrides Json?    @map("config_overrides")
+  customFields    Json?    @map("custom_fields")
+  listingLimit    Int?     @map("listing_limit")
+  isEnabled       Boolean  @map("is_enabled") @default(true)
+  enabledAt       DateTime @map("enabled_at") @default(now())
+  disabledAt      DateTime? @map("disabled_at")
+  createdAt       DateTime @map("created_at") @default(now())
+  updatedAt       DateTime @map("updated_at") @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vertical VerticalDefinition @relation(fields: [verticalId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_verticals")
+  @@unique([tenantId, verticalId])
+  @@index([isEnabled])
+  @@index([tenantId])
+  @@index([verticalId])
+}
+
+model Tenant {
+  id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name             String
+  slug             String       @unique
+  status           TenantStatus @default(ACTIVE)
+  enabledVerticals String[]     @default([])
+  branding         Json?
+  createdAt        DateTime     @map("created_at") @default(now())
+  updatedAt        DateTime     @map("updated_at") @updatedAt
+  deletedAt        DateTime?    @map("deleted_at")
+
+  chargeEvents         ChargeEvent[]
+  interactions         Interaction[]
+  invoices             Invoice[]
+  listings             Listing[]
+  notificationTemplates NotificationTemplate[]
+  notifications        Notification[]
+  paymentEvents        PaymentEvent[]
+  paymentMethods       PaymentMethod[]
+  pricingConfigs       PricingConfig[]
+  reviews              Review[]
+  subscription         Subscription?
+  domains              TenantDomain[]
+  settings             TenantSettings?
+  tenantVerticals      TenantVertical[]
+  users                User[]
+  vendors              Vendor[]
+  listingStats         ListingStats[]
+  vendorStats          VendorStats[]
+  entitlementSnapshot  EntitlementSnapshot?
+
+  featureFlagOverrides   FeatureFlagOverride[]
+  featureFlagUserTargets FeatureFlagUserTarget[]
+  experimentOptIns       ExperimentTenantOptIn[]
+  auditLogs              AuditLog[]
+
+  @@map("tenants")
+  @@index([slug])
+  @@index([status])
+}
+
+model UsageCounter {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  metricKey   String   @map("metric_key")
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  count       Int      @default(0)
+  createdAt   DateTime @map("created_at") @default(now())
+  updatedAt   DateTime @map("updated_at") @updatedAt
+
+  @@map("usage_counters")
+  @@unique([tenantId, metricKey, periodStart])
+  @@index([metricKey])
+  @@index([periodStart])
+  @@index([tenantId])
+}
+
+model User {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String     @map("tenant_id") @db.Uuid
+  email        String
+  passwordHash String     @map("password_hash")
+  fullName     String     @map("full_name")
+  phone        String?
+  role         Role
+  status       UserStatus @default(ACTIVE)
+  isSystem     Boolean    @map("is_system") @default(false)
+  createdAt    DateTime   @map("created_at") @default(now())
+  updatedAt    DateTime   @map("updated_at") @updatedAt
+  deletedAt    DateTime?  @map("deleted_at")
+  vendorId     String?    @map("vendor_id") @db.Uuid
+
+  notificationPreferences NotificationPreference[]
+  notifications           Notification[]
+  tenant                  Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor                  Vendor?                 @relation(fields: [vendorId], references: [id])
+
+  featureFlagTargets FeatureFlagUserTarget[]
+
+  @@map("users")
+  @@unique([tenantId, email])
+  @@index([email])
+  @@index([status])
+  @@index([tenantId])
+  @@index([vendorId])
+}
+
+model VendorProfile {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  vendorId      String   @map("vendor_id") @unique @db.Uuid
+  businessRegNo String?  @map("business_reg_no")
+  taxId         String?  @map("tax_id")
+  addressLine1  String?  @map("address_line1")
+  addressLine2  String?  @map("address_line2")
+  city          String?
+  state         String?
+  postalCode    String?  @map("postal_code")
+  country       String?  @default("MY")
+  logoUrl       String?  @map("logo_url")
+  bannerUrl     String?  @map("banner_url")
+  socialLinks   Json?    @map("social_links")
+  operatingHours Json?   @map("operating_hours")
+  metadata      Json?
+  createdAt     DateTime @map("created_at") @default(now())
+  updatedAt     DateTime @map("updated_at") @updatedAt
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_profiles")
+}
+
+model VendorSettings {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  vendorId             String   @map("vendor_id") @unique @db.Uuid
+  emailNotifications   Boolean  @map("email_notifications") @default(true)
+  smsNotifications     Boolean  @map("sms_notifications") @default(false)
+  leadNotifications    Boolean  @map("lead_notifications") @default(true)
+  autoResponseEnabled  Boolean  @map("auto_response_enabled") @default(false)
+  autoResponseMessage  String?  @map("auto_response_message")
+  showPhone            Boolean  @map("show_phone") @default(true)
+  showEmail            Boolean  @map("show_email") @default(true)
+  settings             Json?
+  createdAt            DateTime @map("created_at") @default(now())
+  updatedAt            DateTime @map("updated_at") @updatedAt
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@map("vendor_settings")
+}
+
+model Vendor {
+  id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  name             String
+  slug             String
+  description      String?
+  vendorType       VendorType   @map("vendor_type") @default(INDIVIDUAL)
+  email            String?
+  phone            String?
+  website          String?
+  status           VendorStatus @default(PENDING)
+  verifiedAt       DateTime?    @map("verified_at")
+  approvedBy       String?      @map("approved_by") @db.Uuid
+  approvedAt       DateTime?    @map("approved_at")
+  rejectedBy       String?      @map("rejected_by") @db.Uuid
+  rejectedAt       DateTime?    @map("rejected_at")
+  rejectionReason  String?      @map("rejection_reason")
+  createdAt        DateTime     @map("created_at") @default(now())
+  updatedAt        DateTime     @map("updated_at") @updatedAt
+  deletedAt        DateTime?    @map("deleted_at")
+
+  interactions Interaction[]
+  listings     Listing[]
+  reviews      Review[]
+  users        User[]
+  profile      VendorProfile?
+  settings     VendorSettings?
+  listingStats ListingStats[]
+  vendorStats  VendorStats[]
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("vendors")
+  @@unique([tenantId, slug])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model VerticalDefinition {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  type             String   @unique
+  name             String
+  description      String?
+  icon             String?
+  color            String?
+  attributeSchema  Json
+  validationRules  Json
+  searchMapping    Json
+  supportedStatuses String[] @default(["DRAFT", "PUBLISHED", "EXPIRED", "ARCHIVED"])
+  displayMetadata  Json?
+  schemaVersion    String   @map("schema_version") @default("1.0")
+  isActive         Boolean  @map("is_active") @default(true)
+  isCore           Boolean  @map("is_core") @default(false)
+  createdAt        DateTime @map("created_at") @default(now())
+  updatedAt        DateTime @map("updated_at") @updatedAt
+
+  tenantVerticals TenantVertical[]
+
+  @@map("vertical_definitions")
+  @@index([isActive])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FEATURE FLAGS & EXPERIMENTS (PART 24)
+// Safe, reversible, tenant-aware change management.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model FeatureFlag {
+  id                String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  key               String          @unique @db.VarChar(120)
+  type              FeatureFlagType @default(BOOLEAN) @map("type")
+  description       String
+  owner             String
+  defaultValue      Boolean         @map("default_value") @default(false)
+  rolloutPercentage Int?            @map("rollout_percentage")
+  allowedVerticals  String[]        @map("allowed_verticals") @default([])
+  allowedRoles      Role[]          @map("allowed_roles") @default([])
+  reviewAt          DateTime?       @map("review_at")
+  expiresAt         DateTime?       @map("expires_at")
+  isArchived        Boolean         @map("is_archived") @default(false)
+  createdAt         DateTime        @map("created_at") @default(now())
+  updatedAt         DateTime        @map("updated_at") @updatedAt
+
+  overrides   FeatureFlagOverride[]
+  userTargets FeatureFlagUserTarget[]
+  experiments Experiment[]
+
+  @@map("feature_flags")
+  @@index([isArchived])
+  @@index([key])
+}
+
+model FeatureFlagOverride {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  featureFlagId     String   @map("feature_flag_id") @db.Uuid
+  tenantId          String?  @map("tenant_id") @db.Uuid
+  verticalType      String?  @map("vertical_type")
+  role              Role?
+  isEmergency       Boolean  @map("is_emergency") @default(false)
+  value             Boolean
+  rolloutPercentage Int?     @map("rollout_percentage")
+  createdAt         DateTime @map("created_at") @default(now())
+  updatedAt         DateTime @map("updated_at") @updatedAt
+
+  featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+  tenant      Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("feature_flag_overrides")
+  @@index([featureFlagId])
+  @@index([tenantId])
+  @@index([verticalType])
+  @@index([role])
+  @@index([isEmergency])
+  @@unique([featureFlagId, tenantId, verticalType, role, isEmergency])
+}
+
+model FeatureFlagUserTarget {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  featureFlagId String   @map("feature_flag_id") @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  value         Boolean  @default(true)
+  createdAt     DateTime @map("created_at") @default(now())
+  updatedAt     DateTime @map("updated_at") @updatedAt
+
+  featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("feature_flag_user_targets")
+  @@unique([featureFlagId, tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model Experiment {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  key            String   @unique @db.VarChar(120)
+  description    String
+  owner          String
+  successMetrics String?  @map("success_metrics")
+  variants       Json
+  startsAt       DateTime @map("starts_at")
+  endsAt         DateTime @map("ends_at")
+  isActive       Boolean  @map("is_active") @default(true)
+  featureFlagId  String?  @map("feature_flag_id") @db.Uuid
+  createdAt      DateTime @map("created_at") @default(now())
+  updatedAt      DateTime @map("updated_at") @updatedAt
+
+  featureFlag FeatureFlag?          @relation(fields: [featureFlagId], references: [id], onDelete: SetNull)
+  tenantOptIns ExperimentTenantOptIn[]
+
+  @@map("experiments")
+  @@index([isActive])
+  @@index([startsAt])
+  @@index([endsAt])
+}
+
+model ExperimentTenantOptIn {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  experimentId String   @map("experiment_id") @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  createdAt    DateTime @map("created_at") @default(now())
+  updatedAt    DateTime @map("updated_at") @updatedAt
+
+  experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("experiment_tenant_opt_ins")
+  @@unique([experimentId, tenantId])
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOGS (PART 22)
+// Append-only, tamper-resistant, tenant-aware audit trail.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String?       @map("tenant_id") @db.Uuid
+  actorType   AuditActorType @map("actor_type")
+  actorId     String?       @map("actor_id") @db.Uuid
+  actorEmail  String?       @map("actor_email")
+  actionType  String        @map("action_type") @db.VarChar(100)
+  targetType  String        @map("target_type") @db.VarChar(100)
+  targetId    String?       @map("target_id") @db.Uuid
+  oldValue    Json?         @map("old_value")
+  newValue    Json?         @map("new_value")
+  metadata    Json?
+  ipAddress   String?       @map("ip_address") @db.VarChar(45)
+  userAgent   String?       @map("user_agent")
+  requestId   String?       @map("request_id") @db.Uuid
+  timestamp   DateTime      @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+  @@index([tenantId, timestamp])
+  @@index([actorId, timestamp])
+  @@index([actionType, timestamp])
+  @@index([targetType, targetId])
+  @@index([timestamp])
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  ADMIN
+  ANONYMOUS
+}
+
+enum ChargeType {
+  SUBSCRIPTION
+  LEAD
+  INTERACTION
+  COMMISSION
+  LISTING
+  ADDON
+  OVERAGE
+}
+
+enum FeatureFlagType {
+  BOOLEAN
+  PERCENTAGE
+}
+
+enum InteractionStatus {
+  NEW
+  CONTACTED
+  CONFIRMED
+  CLOSED
+  INVALID
+}
+
+enum InteractionType {
+  LEAD
+  ENQUIRY
+  BOOKING
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+enum MediaVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+  SMS
+  PUSH
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum NotificationType {
+  LISTING_PUBLISHED
+  LISTING_EXPIRED
+  INTERACTION_NEW
+  INTERACTION_MESSAGE
+  REVIEW_SUBMITTED
+  REVIEW_APPROVED
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_EXPIRING
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  VENDOR_APPROVED
+  VENDOR_SUSPENDED
+  SYSTEM_ALERT
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+enum PricingModel {
+  SAAS
+  LEAD_BASED
+  COMMISSION
+  LISTING_BASED
+  HYBRID
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+enum Role {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  VENDOR_ADMIN
+  VENDOR_STAFF
+  CUSTOMER
+  GUEST
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELLED
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum VendorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum VendorType {
+  INDIVIDUAL
+  COMPANY
+}

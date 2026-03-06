@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
-import { TenantContextService } from '@core/tenant-context/tenant-context.service';
+import { PartnerContextService } from '@core/partner-context/partner-context.service';
 import { UsageCounterRecord } from '../types/subscription.types';
 
 @Injectable()
 export class UsageRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   /**
@@ -19,13 +19,13 @@ export class UsageRepository {
     periodEnd: Date,
     amount: number = 1,
   ): Promise<UsageCounterRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // Upsert pattern for idempotency
     return this.prisma.usageCounter.upsert({
       where: {
-        tenantId_metricKey_periodStart: {
-          tenantId,
+        partnerId_metricKey_periodStart: {
+          partnerId,
           metricKey,
           periodStart,
         },
@@ -36,7 +36,7 @@ export class UsageRepository {
         },
       },
       create: {
-        tenantId,
+        partnerId,
         metricKey,
         periodStart,
         periodEnd,
@@ -49,12 +49,12 @@ export class UsageRepository {
    * Get current usage for a metric
    */
   async getCurrent(metricKey: string, periodStart: Date): Promise<UsageCounterRecord | null> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.usageCounter.findUnique({
       where: {
-        tenantId_metricKey_periodStart: {
-          tenantId,
+        partnerId_metricKey_periodStart: {
+          partnerId,
           metricKey,
           periodStart,
         },
@@ -66,11 +66,11 @@ export class UsageRepository {
    * Get usage history for a metric
    */
   async getHistory(metricKey: string, fromDate: Date, toDate: Date): Promise<UsageCounterRecord[]> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.usageCounter.findMany({
       where: {
-        tenantId,
+        partnerId,
         metricKey,
         periodStart: {
           gte: fromDate,
@@ -84,14 +84,14 @@ export class UsageRepository {
   }
 
   /**
-   * Get all usage for current tenant in a period
+   * Get all usage for current partner in a period
    */
   async getAllForPeriod(periodStart: Date, periodEnd: Date): Promise<UsageCounterRecord[]> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.usageCounter.findMany({
       where: {
-        tenantId,
+        partnerId,
         periodStart: {
           gte: periodStart,
           lte: periodEnd,
@@ -107,14 +107,14 @@ export class UsageRepository {
    * Reset usage counter for a new period
    */
   async reset(metricKey: string, oldPeriodStart: Date): Promise<void> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // We don't actually delete - historical data is preserved
     // New periods are created via increment()
     // This method is here for completeness but typically not used
     await this.prisma.usageCounter.deleteMany({
       where: {
-        tenantId,
+        partnerId,
         metricKey,
         periodStart: oldPeriodStart,
       },
@@ -125,12 +125,12 @@ export class UsageRepository {
    * Get total usage across all metrics for analytics
    */
   async getTotalsByMetric(fromDate: Date, toDate: Date): Promise<Record<string, number>> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     const results = await this.prisma.usageCounter.groupBy({
       by: ['metricKey'],
       where: {
-        tenantId,
+        partnerId,
         periodStart: {
           gte: fromDate,
           lte: toDate,

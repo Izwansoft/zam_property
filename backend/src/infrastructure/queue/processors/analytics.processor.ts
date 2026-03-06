@@ -51,7 +51,7 @@ export class AnalyticsProcessor extends WorkerHost {
       queue: QUEUE_NAMES.ANALYTICS_PROCESS,
       jobId: job.id,
       jobType: name,
-      tenantId: data.tenantId,
+      partnerId: data.partnerId,
     });
 
     try {
@@ -109,7 +109,7 @@ export class AnalyticsProcessor extends WorkerHost {
    * Stores event and updates real-time counters in Redis.
    */
   private async handleEventTrack(job: Job<EventTrackJob>): Promise<JobResult> {
-    const { tenantId, eventType, eventCategory, entityId, entityType, properties, timestamp } =
+    const { partnerId, eventType, eventCategory, entityId, entityType, properties, timestamp } =
       job.data;
 
     this.logger.debug(`Tracking event: ${eventType} for ${entityType}:${entityId}`);
@@ -122,14 +122,14 @@ export class AnalyticsProcessor extends WorkerHost {
     const dateKey = this.getDateKey(timestamp);
 
     // Increment daily counter
-    const counterKey = `${this.COUNTER_PREFIX}:${tenantId}:${eventType}:${dateKey}`;
+    const counterKey = `${this.COUNTER_PREFIX}:${partnerId}:${eventType}:${dateKey}`;
     await redis.incr(counterKey);
     await redis.expire(counterKey, 86400 * 30); // Keep for 30 days
 
     await job.updateProgress(30);
 
     // 2. Update entity-specific counters
-    const entityCounterKey = `${this.COUNTER_PREFIX}:${tenantId}:${entityType}:${entityId}:${eventType}`;
+    const entityCounterKey = `${this.COUNTER_PREFIX}:${partnerId}:${entityType}:${entityId}:${eventType}`;
     await redis.incr(entityCounterKey);
     await redis.expire(entityCounterKey, 86400 * 90); // Keep for 90 days
 
@@ -147,7 +147,7 @@ export class AnalyticsProcessor extends WorkerHost {
       timestamp,
     });
 
-    const eventSetKey = `${this.EVENT_PREFIX}:${tenantId}:${dateKey}`;
+    const eventSetKey = `${this.EVENT_PREFIX}:${partnerId}:${dateKey}`;
     await redis.zadd(eventSetKey, Date.parse(timestamp), eventData);
     await redis.expire(eventSetKey, 86400 * 7); // Keep for 7 days
 
@@ -160,7 +160,7 @@ export class AnalyticsProcessor extends WorkerHost {
 
     // 4. Emit event for real-time dashboards
     this.eventEmitter.emit('analytics.event_tracked', {
-      tenantId,
+      partnerId,
       eventType,
       entityId,
       entityType,
@@ -172,7 +172,7 @@ export class AnalyticsProcessor extends WorkerHost {
     return {
       success: true,
       message: `Event ${eventType} tracked for ${entityType}:${entityId}`,
-      data: { eventType, entityId, entityType, tenantId },
+      data: { eventType, entityId, entityType, partnerId },
       processedAt: new Date().toISOString(),
     };
   }
@@ -183,7 +183,7 @@ export class AnalyticsProcessor extends WorkerHost {
   }
 
   private async persistDailyAggregates(data: EventTrackJob): Promise<void> {
-    const tenantId = data.tenantId;
+    const partnerId = data.partnerId;
     const date = this.getUtcDateOnly(data.timestamp);
 
     if (data.eventType === ANALYTICS_EVENT_TYPES.LISTING_VIEW && data.entityType === 'listing') {
@@ -193,7 +193,7 @@ export class AnalyticsProcessor extends WorkerHost {
 
       if (!vendorId || !verticalType) {
         const listing = await this.prisma.listing.findFirst({
-          where: { id: listingId, tenantId },
+          where: { id: listingId, partnerId },
           select: { vendorId: true, verticalType: true },
         });
         if (!listing) {
@@ -205,14 +205,14 @@ export class AnalyticsProcessor extends WorkerHost {
 
       await this.prisma.listingStats.upsert({
         where: {
-          tenantId_listingId_date: {
-            tenantId,
+          partnerId_listingId_date: {
+            partnerId,
             listingId,
             date,
           },
         },
         create: {
-          tenantId,
+          partnerId,
           listingId,
           vendorId,
           verticalType,
@@ -226,14 +226,14 @@ export class AnalyticsProcessor extends WorkerHost {
 
       await this.prisma.vendorStats.upsert({
         where: {
-          tenantId_vendorId_date: {
-            tenantId,
+          partnerId_vendorId_date: {
+            partnerId,
             vendorId,
             date,
           },
         },
         create: {
-          tenantId,
+          partnerId,
           vendorId,
           date,
           viewsCount: 1,
@@ -291,14 +291,14 @@ export class AnalyticsProcessor extends WorkerHost {
 
       await this.prisma.listingStats.upsert({
         where: {
-          tenantId_listingId_date: {
-            tenantId,
+          partnerId_listingId_date: {
+            partnerId,
             listingId,
             date,
           },
         },
         create: {
-          tenantId,
+          partnerId,
           listingId,
           vendorId,
           verticalType,
@@ -310,14 +310,14 @@ export class AnalyticsProcessor extends WorkerHost {
 
       await this.prisma.vendorStats.upsert({
         where: {
-          tenantId_vendorId_date: {
-            tenantId,
+          partnerId_vendorId_date: {
+            partnerId,
             vendorId,
             date,
           },
         },
         create: {
-          tenantId,
+          partnerId,
           vendorId,
           date,
           ...vendorCreateCounts,
@@ -331,10 +331,10 @@ export class AnalyticsProcessor extends WorkerHost {
    * Aggregate metrics for a time period.
    */
   private async handleMetricsAggregate(job: Job<MetricsAggregateJob>): Promise<JobResult> {
-    const { tenantId, aggregationType, dateRange, metrics } = job.data;
+    const { partnerId, aggregationType, dateRange, metrics } = job.data;
 
     this.logger.log(
-      `Aggregating ${aggregationType} metrics for tenant ${tenantId}: ${dateRange.start} to ${dateRange.end}`,
+      `Aggregating ${aggregationType} metrics for partner ${partnerId}: ${dateRange.start} to ${dateRange.end}`,
     );
 
     await job.updateProgress(10);
@@ -348,7 +348,7 @@ export class AnalyticsProcessor extends WorkerHost {
       const metric = metrics[i];
 
       // Get all counter keys for this metric in the date range
-      const pattern = `${this.COUNTER_PREFIX}:${tenantId}:${metric}:*`;
+      const pattern = `${this.COUNTER_PREFIX}:${partnerId}:${metric}:*`;
       const keys = await this.scanKeys(redis, pattern);
 
       let total = 0;
@@ -370,7 +370,7 @@ export class AnalyticsProcessor extends WorkerHost {
     await job.updateProgress(85);
 
     // Store aggregated metrics
-    const metricsKey = `${this.METRICS_PREFIX}:${tenantId}:${aggregationType}:${dateRange.start}:${dateRange.end}`;
+    const metricsKey = `${this.METRICS_PREFIX}:${partnerId}:${aggregationType}:${dateRange.start}:${dateRange.end}`;
     await redis.set(metricsKey, JSON.stringify(aggregatedMetrics));
     await redis.expire(metricsKey, 86400 * 365); // Keep for 1 year
 
@@ -398,10 +398,10 @@ export class AnalyticsProcessor extends WorkerHost {
    * Roll up metrics from fine-grained to coarse-grained.
    */
   private async handleMetricsRollup(job: Job<MetricsRollupJob>): Promise<JobResult> {
-    const { tenantId, sourceGranularity, targetGranularity, date, metrics } = job.data;
+    const { partnerId, sourceGranularity, targetGranularity, date, metrics } = job.data;
 
     this.logger.log(
-      `Rolling up ${sourceGranularity} to ${targetGranularity} metrics for tenant ${tenantId}`,
+      `Rolling up ${sourceGranularity} to ${targetGranularity} metrics for partner ${partnerId}`,
     );
 
     await job.updateProgress(10);
@@ -416,7 +416,7 @@ export class AnalyticsProcessor extends WorkerHost {
     const aggregatedMetrics: Record<string, number> = {};
 
     for (const metric of metrics) {
-      const pattern = `${this.METRICS_PREFIX}:${tenantId}:${sourceGranularity}:*`;
+      const pattern = `${this.METRICS_PREFIX}:${partnerId}:${sourceGranularity}:*`;
       const keys = await this.scanKeys(redis, pattern);
 
       let total = 0;
@@ -435,7 +435,7 @@ export class AnalyticsProcessor extends WorkerHost {
     await job.updateProgress(80);
 
     // Store rolled up metrics
-    const rollupKey = `${this.METRICS_PREFIX}:${tenantId}:${targetGranularity}:${date}`;
+    const rollupKey = `${this.METRICS_PREFIX}:${partnerId}:${targetGranularity}:${date}`;
     await redis.set(rollupKey, JSON.stringify(aggregatedMetrics));
     await redis.expire(rollupKey, 86400 * 730); // Keep for 2 years
 
@@ -458,17 +458,17 @@ export class AnalyticsProcessor extends WorkerHost {
    * Generate an analytics report.
    */
   private async handleReportGenerate(job: Job<ReportGenerateJob>): Promise<JobResult> {
-    const { tenantId, reportType, vendorId, dateRange, format, recipientEmail, storageKey } =
+    const { partnerId, reportType, vendorId, dateRange, format, recipientEmail, storageKey } =
       job.data;
 
-    this.logger.log(`Generating ${reportType} report for tenant ${tenantId}`);
+    this.logger.log(`Generating ${reportType} report for partner ${partnerId}`);
 
     await job.updateProgress(10);
 
     // Gather metrics based on report type
     const reportData: Record<string, unknown> = {
       reportType,
-      tenantId,
+      partnerId,
       vendorId,
       dateRange,
       generatedAt: new Date().toISOString(),
@@ -479,13 +479,13 @@ export class AnalyticsProcessor extends WorkerHost {
     // Build report based on type
     switch (reportType) {
       case 'vendor_performance':
-        reportData.metrics = await this.gatherVendorMetrics(tenantId, vendorId!, dateRange);
+        reportData.metrics = await this.gatherVendorMetrics(partnerId, vendorId!, dateRange);
         break;
       case 'listing_analytics':
-        reportData.metrics = await this.gatherListingMetrics(tenantId, dateRange);
+        reportData.metrics = await this.gatherListingMetrics(partnerId, dateRange);
         break;
       case 'platform_overview':
-        reportData.metrics = await this.gatherPlatformMetrics(tenantId, dateRange);
+        reportData.metrics = await this.gatherPlatformMetrics(partnerId, dateRange);
         break;
       default:
         reportData.metrics = {};
@@ -507,7 +507,7 @@ export class AnalyticsProcessor extends WorkerHost {
     if (recipientEmail) {
       // Emit event to send email
       this.eventEmitter.emit('report.generated', {
-        tenantId,
+        partnerId,
         reportType,
         recipientEmail,
         format,
@@ -591,14 +591,14 @@ export class AnalyticsProcessor extends WorkerHost {
   }
 
   private async gatherVendorMetrics(
-    tenantId: string,
+    partnerId: string,
     vendorId: string,
     _dateRange: { start: string; end: string },
   ): Promise<Record<string, unknown>> {
     // Placeholder - would gather actual vendor metrics
     return {
       vendorId,
-      tenantId,
+      partnerId,
       totalListings: 0,
       activeListings: 0,
       totalViews: 0,
@@ -608,11 +608,11 @@ export class AnalyticsProcessor extends WorkerHost {
   }
 
   private async gatherListingMetrics(
-    tenantId: string,
+    partnerId: string,
     _dateRange: { start: string; end: string },
   ): Promise<Record<string, unknown>> {
     return {
-      tenantId,
+      partnerId,
       totalListings: 0,
       publishedListings: 0,
       expiredListings: 0,
@@ -622,11 +622,11 @@ export class AnalyticsProcessor extends WorkerHost {
   }
 
   private async gatherPlatformMetrics(
-    tenantId: string,
+    partnerId: string,
     _dateRange: { start: string; end: string },
   ): Promise<Record<string, unknown>> {
     return {
-      tenantId,
+      partnerId,
       totalVendors: 0,
       activeVendors: 0,
       totalListings: 0,

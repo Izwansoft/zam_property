@@ -23,7 +23,7 @@ export class ListingNotificationHandler {
 
     // TODO: Get vendor user IDs and send notifications
     // await this.notificationService.sendNotification({
-    //   tenantId: event.tenantId,
+    //   partnerId: event.partnerId,
     //   userId: event.vendorUserId,
     //   userEmail: event.vendorEmail,
     //   type: NotificationType.LISTING_PUBLISHED,
@@ -100,13 +100,13 @@ export class SubscriptionNotificationHandler {
   @OnEvent('subscription.created')
   async handleSubscriptionCreated(event: DomainEvent) {
     this.logger.log(`Handling subscription.created event: ${event.subscriptionId}`);
-    // TODO: Notify tenant admin
+    // TODO: Notify partner admin
   }
 
   @OnEvent('subscription.expiring')
   async handleSubscriptionExpiring(event: DomainEvent) {
     this.logger.log(`Handling subscription.expiring event: ${event.subscriptionId}`);
-    // TODO: Notify tenant admin with renewal reminder
+    // TODO: Notify partner admin with renewal reminder
   }
 }
 
@@ -119,16 +119,195 @@ export class BillingNotificationHandler {
 
   constructor(private readonly notificationService: NotificationService) {}
 
+  @OnEvent('billing.generated')
+  async handleBillGenerated(event: DomainEvent) {
+    this.logger.log(`Handling billing.generated event: ${event.billNumber}`);
+
+    try {
+      // Send bill notification to tenant via email
+      if (event.tenantUserId && event.tenantEmail) {
+        await this.notificationService.sendNotification({
+          partnerId: event.partnerId,
+          userId: event.tenantUserId,
+          userEmail: event.tenantEmail,
+          type: 'BILL_GENERATED' as any,
+          channel: 'EMAIL' as any,
+          variables: {
+            partnerName: event.ownerName || '',
+            userName: event.tenantName || '',
+            userEmail: event.tenantEmail,
+            timestamp: new Date().toISOString(),
+            appUrl: process.env.APP_URL || '',
+            billNumber: event.billNumber,
+            totalAmount: event.totalAmount,
+            dueDate: event.dueDate,
+            tenantName: event.tenantName,
+            ownerName: event.ownerName,
+            propertyTitle: event.propertyTitle,
+          },
+          resourceType: 'RentBilling',
+          resourceId: event.billingId,
+        });
+      }
+
+      // Also send in-app notification
+      if (event.tenantUserId) {
+        await this.notificationService.sendNotification({
+          partnerId: event.partnerId,
+          userId: event.tenantUserId,
+          userEmail: event.tenantEmail || '',
+          type: 'BILL_GENERATED' as any,
+          channel: 'IN_APP' as any,
+          variables: {
+            partnerName: event.ownerName || '',
+            userName: event.tenantName || '',
+            userEmail: event.tenantEmail || '',
+            timestamp: new Date().toISOString(),
+            appUrl: process.env.APP_URL || '',
+            billNumber: event.billNumber,
+            totalAmount: event.totalAmount,
+            dueDate: event.dueDate,
+            propertyTitle: event.propertyTitle,
+          },
+          resourceType: 'RentBilling',
+          resourceId: event.billingId,
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send bill generated notification: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  @OnEvent('billing.overdue')
+  async handleBillOverdue(event: DomainEvent) {
+    this.logger.log(`Handling billing.overdue event: ${event.billNumber}`);
+
+    try {
+      // We need tenant info — fetch from DB if not in event
+      // The processor emits minimal data, so we log and handle gracefully
+      this.logger.log(
+        `Bill ${event.billNumber} is overdue. Balance due: ${event.balanceDue}. ` +
+        `Notification will be sent via reminder system.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle bill overdue event: ${(error as Error).message}`,
+      );
+    }
+  }
+
   @OnEvent('billing.payment.succeeded')
   async handlePaymentSucceeded(event: DomainEvent) {
-    this.logger.log(`Handling billing.payment.succeeded event: ${event.invoiceId}`);
-    // TODO: Notify tenant admin of successful payment
+    this.logger.log(`Handling billing.payment.succeeded event: ${event.paymentIntentId}`);
+    // Platform/subscription payment notifications (non-rent)
   }
 
   @OnEvent('billing.payment.failed')
   async handlePaymentFailed(event: DomainEvent) {
-    this.logger.log(`Handling billing.payment.failed event: ${event.invoiceId}`);
-    // TODO: Notify tenant admin of payment failure
+    this.logger.log(`Handling billing.payment.failed event: ${event.paymentIntentId}`);
+    // Platform/subscription payment failure notifications (non-rent)
+  }
+
+  @OnEvent('rent.payment.completed')
+  async handleRentPaymentCompleted(event: DomainEvent) {
+    this.logger.log(
+      `Handling rent.payment.completed event: paymentId=${event.paymentId}`,
+    );
+
+    try {
+      const baseVars = {
+        partnerName: event.partnerName || '',
+        userName: event.payerName || '',
+        userEmail: event.payerEmail || '',
+        timestamp: new Date().toISOString(),
+        appUrl: process.env.APP_URL || '',
+      };
+
+      // Send email notification if payer info available
+      if (event.payerEmail && event.userId) {
+        await this.notificationService.sendNotification({
+          partnerId: event.partnerId,
+          userId: event.userId,
+          userEmail: event.payerEmail,
+          type: 'BILLING_REMINDER' as any,
+          channel: 'EMAIL' as any,
+          variables: {
+            ...baseVars,
+            amount: String(event.amount),
+            currency: event.currency || 'MYR',
+            billNumber: event.billNumber || '',
+            receiptNumber: event.receiptNumber || '',
+            paymentDate: event.paymentDate || new Date().toISOString(),
+            payerName: event.payerName || '',
+            payerEmail: event.payerEmail || '',
+          },
+          resourceType: 'RentPayment',
+          resourceId: event.paymentId,
+        });
+      }
+
+      // Also send in-app notification
+      if (event.userId) {
+        await this.notificationService.sendNotification({
+          partnerId: event.partnerId,
+          userId: event.userId,
+          userEmail: event.payerEmail || '',
+          type: 'BILLING_REMINDER' as any,
+          channel: 'IN_APP' as any,
+          variables: {
+            ...baseVars,
+            amount: String(event.amount),
+            currency: event.currency || 'MYR',
+            billNumber: event.billNumber || '',
+            receiptNumber: event.receiptNumber || '',
+          },
+          resourceType: 'RentPayment',
+          resourceId: event.paymentId,
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send rent payment notification: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  @OnEvent('rent.payment.failed')
+  async handleRentPaymentFailed(event: DomainEvent) {
+    this.logger.log(
+      `Handling rent.payment.failed event: paymentId=${event.paymentId}`,
+    );
+
+    try {
+      if (event.userId) {
+        await this.notificationService.sendNotification({
+          partnerId: event.partnerId,
+          userId: event.userId,
+          userEmail: event.payerEmail || '',
+          type: 'BILLING_REMINDER' as any,
+          channel: 'IN_APP' as any,
+          variables: {
+            partnerName: event.partnerName || '',
+            userName: event.payerName || '',
+            userEmail: event.payerEmail || '',
+            timestamp: new Date().toISOString(),
+            appUrl: process.env.APP_URL || '',
+            amount: String(event.amount || ''),
+            currency: event.currency || 'MYR',
+            billNumber: event.billNumber || '',
+            error: event.error || 'Payment processing failed',
+          },
+          resourceType: 'RentPayment',
+          resourceId: event.paymentId,
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send rent payment failure notification: ${(error as Error).message}`,
+      );
+    }
   }
 }
 

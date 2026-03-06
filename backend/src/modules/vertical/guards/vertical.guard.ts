@@ -2,7 +2,7 @@
  * Vertical Guard
  * Part 8 - Vertical Module Contract
  *
- * Protects routes based on whether a vertical is enabled for the tenant.
+ * Protects routes based on whether a vertical is enabled for the partner.
  */
 
 import {
@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import { TenantVerticalRepository } from '../repositories/tenant-vertical.repository';
+import { PartnerVerticalRepository } from '../repositories/partner-vertical.repository';
 
 export const REQUIRED_VERTICAL_KEY = 'required_vertical';
 
@@ -29,7 +29,7 @@ export const RequireVertical = (verticalType: string) =>
 export class VerticalGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly tenantVerticalRepo: TenantVerticalRepository,
+    private readonly PartnerVerticalRepo: PartnerVerticalRepository,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -44,22 +44,22 @@ export class VerticalGuard implements CanActivate {
       return true;
     }
 
-    // Get tenant ID from request
+    // Get partner ID from request
     const request = context.switchToHttp().getRequest();
-    const tenantId = request.tenantId || request.user?.tenantId;
+    const partnerId = request.partnerId || request.user?.partnerId;
 
-    if (!tenantId) {
-      throw new ForbiddenException('Tenant context required');
+    if (!partnerId) {
+      throw new ForbiddenException('Partner context required');
     }
 
-    // Check if vertical is enabled for tenant
-    const isEnabled = await this.tenantVerticalRepo.isVerticalEnabledForTenant(
-      tenantId,
+    // Check if vertical is enabled for partner
+    const isEnabled = await this.PartnerVerticalRepo.isVerticalEnabledForTenant(
+      partnerId,
       requiredVertical,
     );
 
     if (!isEnabled) {
-      throw new ForbiddenException(`Vertical '${requiredVertical}' is not enabled for this tenant`);
+      throw new ForbiddenException(`Vertical '${requiredVertical}' is not enabled for this partner`);
     }
 
     return true;
@@ -79,7 +79,7 @@ export const RequireAnyVertical = (...verticalTypes: string[]) =>
 export class AnyVerticalGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly tenantVerticalRepo: TenantVerticalRepository,
+    private readonly PartnerVerticalRepo: PartnerVerticalRepository,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -94,23 +94,23 @@ export class AnyVerticalGuard implements CanActivate {
       return true;
     }
 
-    // Get tenant ID from request
+    // Get partner ID from request
     const request = context.switchToHttp().getRequest();
-    const tenantId = request.tenantId || request.user?.tenantId;
+    const partnerId = request.partnerId || request.user?.partnerId;
 
-    if (!tenantId) {
-      throw new ForbiddenException('Tenant context required');
+    if (!partnerId) {
+      throw new ForbiddenException('Partner context required');
     }
 
-    // Get enabled verticals for tenant
-    const enabledVerticals = await this.tenantVerticalRepo.getEnabledVerticalTypes(tenantId);
+    // Get enabled verticals for partner
+    const enabledVerticals = await this.PartnerVerticalRepo.getEnabledVerticalTypes(partnerId);
 
     // Check if any required vertical is enabled
     const hasEnabledVertical = requiredVerticals.some((v) => enabledVerticals.includes(v));
 
     if (!hasEnabledVertical) {
       throw new ForbiddenException(
-        `None of the required verticals (${requiredVerticals.join(', ')}) are enabled for this tenant`,
+        `None of the required verticals (${requiredVerticals.join(', ')}) are enabled for this partner`,
       );
     }
 

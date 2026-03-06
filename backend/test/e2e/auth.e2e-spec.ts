@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Auth E2E Tests
  * Session 4.5 - Testing & E2E
  *
@@ -31,7 +31,7 @@ describe('Auth E2E Tests', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
-  let testTenantId: string;
+  let testpartnerId: string;
   const testUserEmail = `e2e-auth-${Date.now()}@example.com`;
   const testUserPassword = 'TestPassword123!';
   let testUserId: string;
@@ -60,10 +60,10 @@ describe('Auth E2E Tests', () => {
 
     prisma = app.get(PrismaService);
 
-    // Create test tenant - let DB generate UUID
-    const tenant = await prisma.tenant.create({
+    // Create test partner - let DB generate UUID
+    const partner = await prisma.partner.create({
       data: {
-        name: 'E2E Auth Test Tenant',
+        name: 'E2E Auth Test Partner',
         slug: `e2e-auth-${Date.now()}`,
         enabledVerticals: ['real_estate'],
         settings: {
@@ -71,13 +71,13 @@ describe('Auth E2E Tests', () => {
         },
       },
     });
-    testTenantId = tenant.id;
+    testpartnerId = partner.id;
 
     // Create test user
     const hashedPassword = await bcrypt.hash(testUserPassword, 10);
     const user = await prisma.user.create({
       data: {
-        tenantId: testTenantId,
+        partnerId: testpartnerId,
         email: testUserEmail,
         passwordHash: hashedPassword,
         fullName: 'E2E Auth Test User',
@@ -91,9 +91,9 @@ describe('Auth E2E Tests', () => {
   afterAll(async () => {
     // Cleanup test data
     try {
-      await prisma.user.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.tenantSettings.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.tenant.delete({ where: { id: testTenantId } });
+      await prisma.user.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.partnerSettings.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.partner.delete({ where: { id: testpartnerId } });
     } catch {
       // Ignore cleanup errors
     }
@@ -105,7 +105,7 @@ describe('Auth E2E Tests', () => {
     it('should login with valid credentials', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail,
           password: testUserPassword,
@@ -123,7 +123,7 @@ describe('Auth E2E Tests', () => {
     it('should return 401 for invalid email', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: 'nonexistent@example.com',
           password: testUserPassword,
@@ -135,7 +135,7 @@ describe('Auth E2E Tests', () => {
     it('should return 401 for invalid password', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail,
           password: 'wrongpassword',
@@ -147,7 +147,7 @@ describe('Auth E2E Tests', () => {
     it('should return 400 for missing email', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           password: testUserPassword,
         });
@@ -158,7 +158,7 @@ describe('Auth E2E Tests', () => {
     it('should return 400 for missing password', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail,
         });
@@ -173,7 +173,7 @@ describe('Auth E2E Tests', () => {
 
       await prisma.user.create({
         data: {
-          tenantId: testTenantId,
+          partnerId: testpartnerId,
           email: suspendedEmail,
           passwordHash: hashedPassword,
           fullName: 'Suspended User',
@@ -184,7 +184,7 @@ describe('Auth E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: suspendedEmail,
           password: testUserPassword,
@@ -196,7 +196,7 @@ describe('Auth E2E Tests', () => {
     it('should normalize email to lowercase', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail.toUpperCase(),
           password: testUserPassword,
@@ -213,7 +213,7 @@ describe('Auth E2E Tests', () => {
       // First login to get tokens
       const loginResponse = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail,
           password: testUserPassword,
@@ -224,7 +224,7 @@ describe('Auth E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           refreshToken: refreshToken,
         });
@@ -238,7 +238,7 @@ describe('Auth E2E Tests', () => {
     it('should return 401 for invalid refresh token', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           refreshToken: 'invalid-token',
         });
@@ -249,7 +249,7 @@ describe('Auth E2E Tests', () => {
     it('should return 400 for missing refresh token', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({});
 
       expect(response.status).toBe(400);
@@ -259,7 +259,7 @@ describe('Auth E2E Tests', () => {
       // First login to get tokens
       const loginResponse = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail,
           password: testUserPassword,
@@ -270,7 +270,7 @@ describe('Auth E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           refreshToken: accessToken, // Wrong token type
         });
@@ -284,7 +284,7 @@ describe('Auth E2E Tests', () => {
       // Login first
       const loginResponse = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail,
           password: testUserPassword,
@@ -295,7 +295,7 @@ describe('Auth E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .get('/api/v1/users/me')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).toBe(200);
@@ -308,7 +308,7 @@ describe('Auth E2E Tests', () => {
     it('should return 401 without token', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/users/me')
-        .set('X-Tenant-ID', testTenantId);
+        .set('X-Partner-ID', testpartnerId);
 
       expect(response.status).toBe(401);
     });
@@ -316,7 +316,7 @@ describe('Auth E2E Tests', () => {
     it('should return 401 with invalid token', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/users/me')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', 'Bearer invalid-token');
 
       expect(response.status).toBe(401);
@@ -325,7 +325,7 @@ describe('Auth E2E Tests', () => {
     it('should return 401 with malformed authorization header', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/users/me')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', 'invalid-format');
 
       expect(response.status).toBe(401);
@@ -338,7 +338,7 @@ describe('Auth E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: newUserEmail,
           password: 'NewUserPassword123!',
@@ -354,7 +354,7 @@ describe('Auth E2E Tests', () => {
     it('should return 409 for duplicate email', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: testUserEmail,
           password: 'SomePassword123!',
@@ -367,7 +367,7 @@ describe('Auth E2E Tests', () => {
     it('should return 400 for invalid email format', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: 'invalid-email',
           password: 'SomePassword123!',
@@ -380,7 +380,7 @@ describe('Auth E2E Tests', () => {
     it('should return 400 for missing required fields', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           email: 'test@example.com',
           // Missing password and fullName

@@ -260,7 +260,7 @@ export interface VerticalDefinitionData {
   isCore?: boolean;
 }
 
-export interface TenantVerticalConfig {
+export interface PartnerVerticalConfig {
   configOverrides?: Record<string, unknown>;
   customFields?: AttributeFieldDefinition[];
   listingLimit?: number;
@@ -286,7 +286,7 @@ export interface IVerticalRegistry {
 
 export interface VerticalEvent {
   verticalType: string;
-  tenantId?: string;
+  partnerId?: string;
   timestamp: Date;
 }
 

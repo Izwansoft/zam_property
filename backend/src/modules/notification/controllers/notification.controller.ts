@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { NotificationService } from '../services/notification.service';
 import {
   ListNotificationsDto,
@@ -31,7 +31,7 @@ import {
 interface AuthRequest extends Request {
   user: {
     sub: string; // User ID
-    tenantId: string;
+    partnerId: string;
   };
 }
 
@@ -40,7 +40,7 @@ interface AuthRequest extends Request {
  */
 @ApiTags('Notifications')
 @ApiBearerAuth()
-@Controller('api/v1/notifications')
+@Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
@@ -57,10 +57,10 @@ export class NotificationController {
   })
   async listNotifications(@Req() req: AuthRequest, @Query() query: ListNotificationsDto) {
     const userId = req.user.sub; // User ID from JWT
-    const tenantId = req.user.tenantId; // Tenant ID from JWT
+    const partnerId = req.user.partnerId; // Partner ID from JWT
 
     return this.notificationService.listUserNotifications({
-      tenantId,
+      partnerId,
       userId,
       ...query,
     });
@@ -83,10 +83,10 @@ export class NotificationController {
   })
   async getUnreadCount(@Req() req: AuthRequest) {
     const userId = req.user.sub;
-    const tenantId = req.user.tenantId;
+    const partnerId = req.user.partnerId;
 
-    const count = await this.notificationService.getUnreadCount(tenantId, userId);
-    return { count };
+    const count = await this.notificationService.getUnreadCount(partnerId, userId);
+    return { data: { unreadCount: count } };
   }
 
   /**
@@ -107,9 +107,9 @@ export class NotificationController {
     @Body() _dto: MarkNotificationReadDto,
   ) {
     const userId = req.user.sub;
-    const tenantId = req.user.tenantId;
+    const partnerId = req.user.partnerId;
 
-    return this.notificationService.markAsRead(tenantId, userId, notificationId);
+    return this.notificationService.markAsRead(partnerId, userId, notificationId);
   }
 
   /**
@@ -134,9 +134,9 @@ export class NotificationController {
     @Body() _dto: MarkAllReadDto,
   ) {
     const userId = req.user.sub;
-    const tenantId = req.user.tenantId;
+    const partnerId = req.user.partnerId;
 
-    const count = await this.notificationService.markAllAsRead(tenantId, userId);
+    const count = await this.notificationService.markAllAsRead(partnerId, userId);
     return { count };
   }
 
@@ -156,9 +156,9 @@ export class NotificationController {
     @Query() _query: GetPreferencesDto,
   ) {
     const userId = req.user.sub;
-    const tenantId = req.user.tenantId;
+    const partnerId = req.user.partnerId;
 
-    return this.notificationService.getUserPreferences(tenantId, userId);
+    return this.notificationService.getUserPreferences(partnerId, userId);
   }
 
   /**
@@ -174,10 +174,10 @@ export class NotificationController {
   })
   async updatePreference(@Req() req: AuthRequest, @Body() dto: UpdatePreferenceDto) {
     const userId = req.user.sub;
-    const tenantId = req.user.tenantId;
+    const partnerId = req.user.partnerId;
 
     return this.notificationService.updatePreference({
-      tenantId,
+      partnerId,
       userId,
       ...dto,
     });

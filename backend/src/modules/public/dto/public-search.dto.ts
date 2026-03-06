@@ -75,6 +75,23 @@ export class PublicSearchQueryDto {
   @Max(500)
   radius?: number;
 
+  @ApiPropertyOptional({ description: 'Listing type: sale or rent', example: 'rent' })
+  @IsOptional()
+  @IsString()
+  listingType?: string;
+
+  @ApiPropertyOptional({ description: 'Property type filter', example: 'condominium' })
+  @IsOptional()
+  @IsString()
+  propertyType?: string;
+
+  @ApiPropertyOptional({ description: 'Minimum bedrooms' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  bedroomsMin?: number;
+
   @ApiPropertyOptional({ description: 'Only featured listings' })
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
@@ -119,10 +136,16 @@ export class PublicSearchResultDto {
     city?: string;
     state?: string;
     country?: string;
+    latitude?: number;
+    longitude?: number;
   };
   verticalType!: string;
-  vendorName?: string;
-  vendorSlug?: string;
+  attributes?: Record<string, unknown>;
+  vendor!: {
+    id: string;
+    name: string;
+    slug: string;
+  };
   isFeatured!: boolean;
   publishedAt!: string;
   highlights?: Record<string, string[]>;

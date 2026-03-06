@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Listing E2E Tests
  * Session 4.5 - Testing & E2E
  *
@@ -62,7 +62,7 @@ describe('Listing E2E Tests', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
-  let testTenantId: string;
+  let testpartnerId: string;
   const testUserEmail = `e2e-listing-${Date.now()}@example.com`;
   const testUserPassword = 'TestPassword123!';
   let _testUserId: string;
@@ -94,10 +94,10 @@ describe('Listing E2E Tests', () => {
 
     prisma = app.get(PrismaService);
 
-    // Create test tenant - let DB generate UUID
-    const tenant = await prisma.tenant.create({
+    // Create test partner - let DB generate UUID
+    const partner = await prisma.partner.create({
       data: {
-        name: 'E2E Listing Test Tenant',
+        name: 'E2E Listing Test Partner',
         slug: `e2e-listing-${Date.now()}`,
         enabledVerticals: ['real_estate'],
         settings: {
@@ -105,12 +105,12 @@ describe('Listing E2E Tests', () => {
         },
       },
     });
-    testTenantId = tenant.id;
+    testpartnerId = partner.id;
 
     // Create test vendor first
     const vendor = await prisma.vendor.create({
       data: {
-        tenantId: testTenantId,
+        partnerId: testpartnerId,
         name: 'E2E Test Vendor',
         slug: `e2e-vendor-${Date.now()}`,
         email: 'vendor@example.com',
@@ -130,7 +130,7 @@ describe('Listing E2E Tests', () => {
     const hashedPassword = await bcrypt.hash(testUserPassword, 10);
     const user = await prisma.user.create({
       data: {
-        tenantId: testTenantId,
+        partnerId: testpartnerId,
         email: testUserEmail,
         passwordHash: hashedPassword,
         fullName: 'E2E Listing Test User',
@@ -144,7 +144,7 @@ describe('Listing E2E Tests', () => {
     // Login to get access token
     const loginResponse = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
-      .set('X-Tenant-ID', testTenantId)
+      .set('X-Partner-ID', testpartnerId)
       .send({
         email: testUserEmail,
         password: testUserPassword,
@@ -157,13 +157,13 @@ describe('Listing E2E Tests', () => {
   afterAll(async () => {
     // Cleanup test data
     try {
-      await prisma.listing.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.vendorSettings.deleteMany({ where: { vendor: { tenantId: testTenantId } } });
-      await prisma.vendorProfile.deleteMany({ where: { vendor: { tenantId: testTenantId } } });
-      await prisma.user.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.vendor.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.tenantSettings.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.tenant.delete({ where: { id: testTenantId } });
+      await prisma.listing.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.vendorSettings.deleteMany({ where: { vendor: { partnerId: testpartnerId } } });
+      await prisma.vendorProfile.deleteMany({ where: { vendor: { partnerId: testpartnerId } } });
+      await prisma.user.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.vendor.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.partnerSettings.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.partner.delete({ where: { id: testpartnerId } });
     } catch {
       // Ignore cleanup errors
     }
@@ -199,7 +199,7 @@ describe('Listing E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/listings')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send(listingData);
 
@@ -216,7 +216,7 @@ describe('Listing E2E Tests', () => {
     it('should return 400 for missing required fields', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/listings')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           title: 'Test Listing',
@@ -229,7 +229,7 @@ describe('Listing E2E Tests', () => {
     it('should return 401 without authentication', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/listings')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .send({
           title: 'Test Listing',
         });
@@ -242,7 +242,7 @@ describe('Listing E2E Tests', () => {
     it('should return paginated listings', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/listings')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).toBe(200);
@@ -254,7 +254,7 @@ describe('Listing E2E Tests', () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/listings')
         .query({ status: 'DRAFT' })
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).toBe(200);
@@ -268,7 +268,7 @@ describe('Listing E2E Tests', () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/listings')
         .query({ vendorId: testVendorId })
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).toBe(200);
@@ -283,7 +283,7 @@ describe('Listing E2E Tests', () => {
     it('should return listing by ID', async () => {
       const response = await request(app.getHttpServer())
         .get(`/api/v1/listings/${createdListingId}`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).toBe(200);
@@ -295,7 +295,7 @@ describe('Listing E2E Tests', () => {
     it('should return 404 for non-existent listing', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/listings/00000000-0000-0000-0000-000000000000')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).toBe(404);
@@ -311,7 +311,7 @@ describe('Listing E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .patch(`/api/v1/listings/${createdListingId}`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send(updateData);
 
@@ -325,7 +325,7 @@ describe('Listing E2E Tests', () => {
     it('should return 404 for non-existent listing', async () => {
       const response = await request(app.getHttpServer())
         .patch('/api/v1/listings/00000000-0000-0000-0000-000000000000')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ title: 'Updated' });
 
@@ -337,7 +337,7 @@ describe('Listing E2E Tests', () => {
     it('should publish a DRAFT listing', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/v1/listings/${createdListingId}/publish`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({});
 
@@ -350,7 +350,7 @@ describe('Listing E2E Tests', () => {
       // First verify it's published
       const checkResponse = await request(app.getHttpServer())
         .get(`/api/v1/listings/${createdListingId}`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       const checkData = getResponseData(checkResponse.body);
@@ -359,7 +359,7 @@ describe('Listing E2E Tests', () => {
       // Try to publish again - should fail
       const response = await request(app.getHttpServer())
         .post(`/api/v1/listings/${createdListingId}/publish`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({});
 
@@ -371,7 +371,7 @@ describe('Listing E2E Tests', () => {
     it('should unpublish a PUBLISHED listing', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/v1/listings/${createdListingId}/unpublish`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ reason: 'Need to update information' });
 
@@ -385,7 +385,7 @@ describe('Listing E2E Tests', () => {
     it('should archive a listing', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/v1/listings/${createdListingId}/archive`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({});
 
@@ -402,7 +402,7 @@ describe('Listing E2E Tests', () => {
       // Create a listing to delete
       const listing = await prisma.listing.create({
         data: {
-          tenantId: testTenantId,
+          partnerId: testpartnerId,
           vendorId: testVendorId,
           title: 'Listing to Delete',
           slug: `delete-listing-${Date.now()}`,
@@ -426,7 +426,7 @@ describe('Listing E2E Tests', () => {
     it('should soft delete a listing', async () => {
       const response = await request(app.getHttpServer())
         .delete(`/api/v1/listings/${listingToDelete}`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       // DELETE returns 204 No Content on success
@@ -443,7 +443,7 @@ describe('Listing E2E Tests', () => {
     it('should return 404 for non-existent listing', async () => {
       const response = await request(app.getHttpServer())
         .delete('/api/v1/listings/00000000-0000-0000-0000-000000000000')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).toBe(404);
@@ -457,7 +457,7 @@ describe('Listing E2E Tests', () => {
       // Create a fresh listing
       const listing = await prisma.listing.create({
         data: {
-          tenantId: testTenantId,
+          partnerId: testpartnerId,
           vendorId: testVendorId,
           title: 'State Machine Test Listing',
           slug: `state-test-${Date.now()}`,
@@ -486,7 +486,7 @@ describe('Listing E2E Tests', () => {
     it('should allow DRAFT -> ARCHIVED directly', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/v1/listings/${stateMachineListing}/archive`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({});
 
@@ -498,7 +498,7 @@ describe('Listing E2E Tests', () => {
     it('should not allow ARCHIVED -> PUBLISHED', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/v1/listings/${stateMachineListing}/publish`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${accessToken}`)
         .send({});
 

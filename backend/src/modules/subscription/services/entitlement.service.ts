@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
-import { TenantContextService } from '@core/tenant-context/tenant-context.service';
+import { PartnerContextService } from '@core/partner-context/partner-context.service';
 import { SubscriptionRepository } from '../repositories/subscription.repository';
 import { Prisma } from '@prisma/client';
 import {
@@ -17,31 +17,31 @@ export class EntitlementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly subscriptionRepository: SubscriptionRepository,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   /**
-   * Resolve entitlements for current tenant
+   * Resolve entitlements for current partner
    * Returns cached snapshot if available and not expired
    */
   async resolve(): Promise<ResolvedEntitlements> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // Check for cached snapshot
     const snapshot = await this.prisma.entitlementSnapshot.findUnique({
-      where: { tenantId },
+      where: { partnerId },
     });
 
     if (snapshot && snapshot.expiresAt > new Date()) {
-      this.logger.debug(`Using cached entitlements for tenant ${tenantId}`);
+      this.logger.debug(`Using cached entitlements for partner ${partnerId}`);
       return snapshot.entitlements as ResolvedEntitlements;
     }
 
     // Compute fresh entitlements
-    const entitlements = await this.computeEntitlements(tenantId);
+    const entitlements = await this.computeEntitlements(partnerId);
 
     // Cache the result
-    await this.cacheEntitlements(tenantId, entitlements);
+    await this.cacheEntitlements(partnerId, entitlements);
 
     return entitlements;
   }
@@ -113,21 +113,21 @@ export class EntitlementService {
   /**
    * Invalidate cached entitlements
    */
-  async invalidate(tenantId?: string): Promise<void> {
-    const targetTenantId = tenantId || this.tenantContext.tenantId;
+  async invalidate(partnerId?: string): Promise<void> {
+    const targetpartnerId = partnerId || this.PartnerContext.partnerId;
 
     await this.prisma.entitlementSnapshot.deleteMany({
-      where: { tenantId: targetTenantId },
+      where: { partnerId: targetpartnerId },
     });
 
-    this.logger.log(`Invalidated entitlements cache for tenant ${targetTenantId}`);
+    this.logger.log(`Invalidated entitlements cache for partner ${targetpartnerId}`);
   }
 
   /**
    * Compute entitlements from subscription + plan + overrides
    */
-  private async computeEntitlements(tenantId: string): Promise<ResolvedEntitlements> {
-    const subscription = await this.subscriptionRepository.findByTenantId(tenantId);
+  private async computeEntitlements(partnerId: string): Promise<ResolvedEntitlements> {
+    const subscription = await this.subscriptionRepository.findBypartnerId(partnerId);
 
     if (!subscription || !subscription.plan) {
       // No subscription = minimal free tier
@@ -185,7 +185,7 @@ export class EntitlementService {
     resolved['api.requests.limit'] = apiRateLimit;
 
     this.logger.debug(
-      `Computed entitlements for tenant ${tenantId}: ${Object.keys(resolved).length} keys`,
+      `Computed entitlements for partner ${partnerId}: ${Object.keys(resolved).length} keys`,
     );
 
     return resolved;
@@ -208,16 +208,16 @@ export class EntitlementService {
    * Cache entitlements
    */
   private async cacheEntitlements(
-    tenantId: string,
+    partnerId: string,
     entitlements: ResolvedEntitlements,
   ): Promise<void> {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + this.CACHE_TTL);
 
-    const subscription = await this.subscriptionRepository.findByTenantId(tenantId);
+    const subscription = await this.subscriptionRepository.findBypartnerId(partnerId);
 
     await this.prisma.entitlementSnapshot.upsert({
-      where: { tenantId },
+      where: { partnerId },
       update: {
         entitlements,
         planId: subscription?.planId,
@@ -228,7 +228,7 @@ export class EntitlementService {
         expiresAt,
       },
       create: {
-        tenantId,
+        partnerId,
         entitlements,
         planId: subscription?.planId,
         overrides: subscription?.overrides
@@ -238,6 +238,6 @@ export class EntitlementService {
       },
     });
 
-    this.logger.debug(`Cached entitlements for tenant ${tenantId}`);
+    this.logger.debug(`Cached entitlements for partner ${partnerId}`);
   }
 }

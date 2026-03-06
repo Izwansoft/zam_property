@@ -23,7 +23,7 @@ export class PaymentEventRepository {
    * Create payment event record
    */
   async create(
-    tenantId: string,
+    partnerId: string,
     externalId: string,
     externalProvider: string,
     eventType: string,
@@ -33,7 +33,7 @@ export class PaymentEventRepository {
   ): Promise<PaymentEvent> {
     return this.prisma.paymentEvent.create({
       data: {
-        tenantId,
+        partnerId,
         externalId,
         externalProvider,
         eventType,

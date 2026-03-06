@@ -74,7 +74,7 @@ export class QueueService {
       queue: queueName,
       jobId: job.id,
       jobType,
-      tenantId: data.tenantId,
+      partnerId: data.partnerId,
     });
 
     return job.id!;

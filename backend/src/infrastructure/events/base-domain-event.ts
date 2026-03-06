@@ -11,8 +11,8 @@ export interface CreateEventOptions<T> {
   /** Event payload */
   payload: T;
 
-  /** Tenant ID, null for platform-level events */
-  tenantId: string | null;
+  /** Partner ID, null for platform-level events */
+  partnerId: string | null;
 
   /** Request correlation ID */
   correlationId: string;
@@ -43,7 +43,7 @@ export abstract class BaseDomainEvent<T = unknown> implements DomainEvent<T> {
   readonly eventId: string;
   readonly eventType: string;
   readonly eventVersion: string;
-  readonly tenantId: string | null;
+  readonly partnerId: string | null;
   readonly correlationId: string;
   readonly causationId?: string;
   readonly actorType: ActorType;
@@ -56,7 +56,7 @@ export abstract class BaseDomainEvent<T = unknown> implements DomainEvent<T> {
     this.eventId = randomUUID();
     this.eventType = options.eventType;
     this.eventVersion = version;
-    this.tenantId = options.tenantId;
+    this.partnerId = options.partnerId;
     this.correlationId = options.correlationId;
     this.causationId = options.causationId;
     this.actorType = options.actorType ?? 'system';
@@ -73,7 +73,7 @@ export abstract class BaseDomainEvent<T = unknown> implements DomainEvent<T> {
     return {
       eventType,
       payload,
-      tenantId: this.tenantId,
+      partnerId: this.partnerId,
       correlationId: this.correlationId,
       causationId: this.eventId,
       actorType: this.actorType,

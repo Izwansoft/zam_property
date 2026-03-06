@@ -62,10 +62,10 @@ export class PublicListingLocationDto {
   postalCode?: string;
 
   @ApiPropertyOptional()
-  coordinates?: {
-    lat: number;
-    lng: number;
-  };
+  latitude?: number;
+
+  @ApiPropertyOptional()
+  longitude?: number;
 }
 
 export class PublicListingDetailDto {
@@ -86,6 +86,9 @@ export class PublicListingDetailDto {
 
   @ApiPropertyOptional()
   price?: number;
+
+  @ApiPropertyOptional()
+  priceType?: string;
 
   @ApiProperty()
   currency!: string;

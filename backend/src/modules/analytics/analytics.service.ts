@@ -1,12 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Role } from '@prisma/client';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { PrismaService } from '@infrastructure/database';
 
 export type AuthUser = {
   sub: string;
-  tenantId: string;
+  partnerId: string;
   role: Role;
   vendorId?: string;
 };
@@ -39,14 +39,14 @@ function defaultDateRange(): { start: Date; end: Date } {
 export class AnalyticsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   private async resolveVendorIdOrThrow(
     user: AuthUser,
     requestedVendorId?: string,
   ): Promise<string> {
-    if (user.role === Role.SUPER_ADMIN || user.role === Role.TENANT_ADMIN) {
+    if (user.role === Role.SUPER_ADMIN || user.role === Role.PARTNER_ADMIN) {
       if (!requestedVendorId) {
         throw new BadRequestException('vendorId is required');
       }
@@ -64,7 +64,7 @@ export class AnalyticsService {
 
     // Fallback: resolve vendorId from DB using authenticated user.
     const dbUser = await this.prisma.user.findFirst({
-      where: { id: user.sub, tenantId: this.tenantContext.tenantId, deletedAt: null },
+      where: { id: user.sub, partnerId: this.PartnerContext.partnerId, deletedAt: null },
       select: { vendorId: true },
     });
 
@@ -105,7 +105,7 @@ export class AnalyticsService {
       bookingsCount: number;
     };
   }> {
-    if (user.role !== Role.SUPER_ADMIN && user.role !== Role.TENANT_ADMIN) {
+    if (user.role !== Role.SUPER_ADMIN && user.role !== Role.PARTNER_ADMIN) {
       throw new ForbiddenException('Insufficient role');
     }
 
@@ -113,7 +113,7 @@ export class AnalyticsService {
 
     const aggregated = await this.prisma.listingStats.aggregate({
       where: {
-        tenantId: this.tenantContext.tenantId,
+        partnerId: this.PartnerContext.partnerId,
         date: { gte: start, lte: end },
       },
       _sum: {
@@ -155,7 +155,7 @@ export class AnalyticsService {
 
     const aggregated = await this.prisma.vendorStats.aggregate({
       where: {
-        tenantId: this.tenantContext.tenantId,
+        partnerId: this.PartnerContext.partnerId,
         vendorId,
         date: { gte: start, lte: end },
       },
@@ -202,7 +202,7 @@ export class AnalyticsService {
     const rows = await this.prisma.listingStats.groupBy({
       by: ['listingId', 'verticalType'],
       where: {
-        tenantId: this.tenantContext.tenantId,
+        partnerId: this.PartnerContext.partnerId,
         vendorId,
         date: { gte: start, lte: end },
       },

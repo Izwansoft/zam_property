@@ -9,7 +9,7 @@ import { Role, UserStatus } from '@prisma/client';
 
 import * as bcrypt from 'bcrypt';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { UserRepository } from '@core/user';
 
 import type { JwtPayload } from './types/jwt-payload.type';
@@ -49,7 +49,7 @@ function parseDurationToSeconds(duration: string): number {
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
     private readonly userRepository: UserRepository,
   ) {}
 
@@ -78,7 +78,7 @@ export class AuthService {
 
     const payload: JwtPayload = {
       sub: user.id,
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       role: user.role,
       tokenType: 'access',
     };
@@ -127,12 +127,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    if (payload.tenantId !== this.tenantContext.tenantId) {
-      throw new ForbiddenException('Cross-tenant token is forbidden');
+    if (payload.partnerId !== this.PartnerContext.partnerId) {
+      throw new ForbiddenException('Cross-partner token is forbidden');
     }
 
     const accessToken = await this.jwtService.signAsync(
-      { sub: payload.sub, tenantId: payload.tenantId, role: payload.role, tokenType: 'access' },
+      { sub: payload.sub, partnerId: payload.partnerId, role: payload.role, tokenType: 'access' },
       {
         secret: getEnvOrThrow('JWT_ACCESS_TOKEN_SECRET'),
         expiresIn: accessTtl,
@@ -180,6 +180,29 @@ export class AuthService {
       fullName: user.fullName,
       role: user.role,
       status: user.status,
+    };
+  }
+
+  async getProfile(userId: string): Promise<{
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+    status: string;
+    partnerId: string;
+  }> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      status: user.status,
+      partnerId: this.PartnerContext.partnerId,
     };
   }
 }

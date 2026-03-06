@@ -9,7 +9,7 @@ import { AuthenticatedSocket, WsErrorCode } from '../types';
  */
 export interface WsJwtPayload {
   sub: string;
-  tenantId: string;
+  partnerId: string;
   role: string;
   tokenType?: 'access' | 'refresh';
   permissions?: string[];
@@ -72,18 +72,18 @@ export class WsAuthService {
         return WsErrorCode.UNAUTHORIZED;
       }
 
-      // Extract tenant from query or handshake
-      const tenantId = this.extractTenantId(socket, payload);
+      // Extract partner from query or handshake
+      const partnerId = this.extractpartnerId(socket, payload);
 
-      if (!tenantId) {
-        this.logger.debug('No tenant ID provided in WebSocket connection');
+      if (!partnerId) {
+        this.logger.debug('No partner ID provided in WebSocket connection');
         return WsErrorCode.TENANT_ACCESS_DENIED;
       }
 
-      // Verify tenant ID matches token's tenant (cross-tenant protection)
-      if (payload.tenantId !== tenantId) {
+      // Verify partner ID matches token's partner (cross-partner protection)
+      if (payload.partnerId !== partnerId) {
         this.logger.warn(
-          `Cross-tenant WebSocket attempt: token=${payload.tenantId}, requested=${tenantId}`,
+          `Cross-partner WebSocket attempt: token=${payload.partnerId}, requested=${partnerId}`,
         );
         return WsErrorCode.TENANT_ACCESS_DENIED;
       }
@@ -92,7 +92,7 @@ export class WsAuthService {
       const user = await this.prisma.user.findFirst({
         where: {
           id: payload.sub,
-          tenantId: tenantId,
+          partnerId: partnerId,
           status: 'ACTIVE',
         },
         include: {
@@ -110,14 +110,14 @@ export class WsAuthService {
       // Enrich socket with user data
       socket.data = {
         userId: user.id,
-        tenantId: tenantId,
+        partnerId: partnerId,
         email: user.email,
         roles: [user.role],
         vendorId: user.vendor?.id,
         permissions: payload.permissions ?? [],
       };
 
-      this.logger.debug(`WebSocket authenticated: user=${user.id}, tenant=${tenantId}`);
+      this.logger.debug(`WebSocket authenticated: user=${user.id}, partner=${partnerId}`);
       return undefined; // Success
     } catch (error) {
       this.logger.error(`WebSocket authentication error: ${(error as Error).message}`);
@@ -152,24 +152,24 @@ export class WsAuthService {
   }
 
   /**
-   * Extract tenant ID from socket handshake.
-   * Supports: query.tenant, auth.tenantId
+   * Extract partner ID from socket handshake.
+   * Supports: query.partner, auth.partnerId
    */
-  private extractTenantId(socket: AuthenticatedSocket, payload: WsJwtPayload): string | undefined {
+  private extractpartnerId(socket: AuthenticatedSocket, payload: WsJwtPayload): string | undefined {
     // Priority 1: query parameter
-    const queryTenant = socket.handshake?.query?.tenant as string | undefined;
+    const queryTenant = socket.handshake?.query?.partner as string | undefined;
     if (queryTenant) {
       return queryTenant;
     }
 
     // Priority 2: auth object
-    const authTenant = socket.handshake?.auth?.tenantId as string | undefined;
+    const authTenant = socket.handshake?.auth?.partnerId as string | undefined;
     if (authTenant) {
       return authTenant;
     }
 
-    // Fallback: use tenant from JWT payload
-    return payload.tenantId;
+    // Fallback: use partner from JWT payload
+    return payload.partnerId;
   }
 
   /**
@@ -194,10 +194,10 @@ export class WsAuthService {
   }
 
   /**
-   * Check if user is a tenant admin.
+   * Check if user is a partner admin.
    */
   isTenantAdmin(socket: AuthenticatedSocket): boolean {
-    return this.hasAnyRole(socket, ['SUPER_ADMIN', 'TENANT_ADMIN']);
+    return this.hasAnyRole(socket, ['SUPER_ADMIN', 'PARTNER_ADMIN']);
   }
 
   /**

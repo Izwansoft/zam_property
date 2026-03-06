@@ -3,11 +3,11 @@ import type { ListingStatus, Prisma } from '@prisma/client';
 import type { Decimal } from '@prisma/client/runtime/library';
 
 import { PrismaService } from '@infrastructure/database';
-import { BaseTenantRepository, TenantContextService } from '@core/tenant-context';
+import { BasePartnerRepository, PartnerContextService } from '@core/partner-context';
 
 export interface ListingView {
   id: string;
-  tenantId: string;
+  partnerId: string;
   vendorId: string;
   verticalType: string;
   schemaVersion: string;
@@ -56,7 +56,7 @@ export interface ListingDetailView extends ListingView {
 
 const listingSelect = {
   id: true,
-  tenantId: true,
+  partnerId: true,
   vendorId: true,
   verticalType: true,
   schemaVersion: true,
@@ -123,9 +123,9 @@ export interface ListingListParams {
 }
 
 @Injectable({ scope: Scope.REQUEST })
-export class ListingRepository extends BaseTenantRepository {
-  constructor(prisma: PrismaService, tenantContext: TenantContextService) {
-    super(prisma, tenantContext);
+export class ListingRepository extends BasePartnerRepository {
+  constructor(prisma: PrismaService, PartnerContext: PartnerContextService) {
+    super(prisma, PartnerContext);
   }
 
   async findById(id: string): Promise<ListingView | null> {

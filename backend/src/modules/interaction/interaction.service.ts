@@ -44,7 +44,7 @@ export class InteractionService {
     // Emit domain event
     this.eventEmitter.emit('interaction.created', {
       interactionId: interaction.id,
-      tenantId: interaction.tenantId,
+      partnerId: interaction.partnerId,
       vendorId: interaction.vendorId,
       listingId: interaction.listingId,
       verticalType: interaction.verticalType,
@@ -101,7 +101,7 @@ export class InteractionService {
     // Emit domain event
     this.eventEmitter.emit('interaction.status.updated', {
       interactionId: updated.id,
-      tenantId: updated.tenantId,
+      partnerId: updated.partnerId,
       vendorId: updated.vendorId,
       listingId: updated.listingId,
       oldStatus: interaction.status,

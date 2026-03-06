@@ -1,19 +1,20 @@
 import { randomUUID } from 'crypto';
 
-import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiHeader, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import type { Request } from 'express';
 
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Auth')
 @ApiHeader({
-  name: 'X-Tenant-ID',
+  name: 'X-Partner-ID',
   required: true,
-  description: 'Tenant identifier (required unless using host/subdomain-based tenant resolution).',
+  description: 'Partner identifier (required unless using host/subdomain-based partner resolution).',
 })
 @ApiHeader({
   name: 'X-Request-ID',
@@ -28,7 +29,7 @@ export class AuthController {
   @HttpCode(200)
   @ApiOperation({
     summary: 'Login',
-    description: 'Permission: Public. Requires tenant context (X-Tenant-ID or host/subdomain).',
+    description: 'Permission: Public. Requires partner context (X-Partner-ID or host/subdomain).',
   })
   async login(@Req() req: Request, @Body() dto: LoginDto): Promise<unknown> {
     const requestId = this.getRequestId(req);
@@ -41,7 +42,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh access token',
     description:
-      'Permission: Public (with valid refresh token). Requires tenant context (X-Tenant-ID or host/subdomain).',
+      'Permission: Public (with valid refresh token). Requires partner context (X-Partner-ID or host/subdomain).',
   })
   async refresh(@Req() req: Request, @Body() dto: RefreshDto): Promise<unknown> {
     const requestId = this.getRequestId(req);
@@ -52,11 +53,25 @@ export class AuthController {
   @Post('register')
   @ApiOperation({
     summary: 'Register customer account',
-    description: 'Permission: Public. Creates a CUSTOMER user in the resolved tenant context.',
+    description: 'Permission: Public. Creates a CUSTOMER user in the resolved partner context.',
   })
   async register(@Req() req: Request, @Body() dto: RegisterDto): Promise<unknown> {
     const requestId = this.getRequestId(req);
     const data = await this.authService.register(dto);
+    return { data, meta: { requestId } };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get current user profile',
+    description: 'Permission: Authenticated. Returns the current user profile from the JWT token.',
+  })
+  async me(@Req() req: Request): Promise<unknown> {
+    const requestId = this.getRequestId(req);
+    const user = (req as Request & { user: { sub: string } }).user;
+    const data = await this.authService.getProfile(user.sub);
     return { data, meta: { requestId } };
   }
 

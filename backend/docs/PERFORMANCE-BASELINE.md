@@ -21,6 +21,7 @@ Environment variables:
 | Date | Env | Connections | Duration(s) | RPS | p95 (ms) | Non-2xx | Notes |
 |------|-----|-------------|------------|-----|----------|---------|-------|
 | 2026-01-21 | local | 20 | 10 | (record) | (record) | 0 | Initial perf harness added |
+| 2026-01-27 | local | 20 | 10 | 3373 | N/A | 0 | Ran against /api/v1/health |
 
 ## Next Targets (Suggested)
 

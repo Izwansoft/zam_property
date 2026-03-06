@@ -2,14 +2,14 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ListingSearchService } from '../services/listing-search.service';
 import { SearchListingsQueryDto, SuggestionsQueryDto } from '../dto/search.dto';
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 
 @ApiTags('Search')
 @Controller('search')
 export class SearchController {
   constructor(
     private readonly listingSearchService: ListingSearchService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   @Get('listings')
@@ -19,7 +19,7 @@ export class SearchController {
     description: 'Search results with facets',
   })
   async searchListings(@Query() query: SearchListingsQueryDto) {
-    const tenant = this.tenantContext.getContext();
+    const partner = this.PartnerContext.getContext();
 
     // Parse attribute filters from query params (e.g., attr.bedrooms=3)
     const attributeFilters: Record<
@@ -46,7 +46,7 @@ export class SearchController {
       }
     }
 
-    const result = await this.listingSearchService.searchListings(tenant.tenantId, {
+    const result = await this.listingSearchService.searchListings(partner.partnerId, {
       q: query.q,
       filters: {
         verticalType: query.verticalType,
@@ -98,10 +98,10 @@ export class SearchController {
     description: 'Search suggestions',
   })
   async getSuggestions(@Query() query: SuggestionsQueryDto) {
-    const tenant = this.tenantContext.getContext();
+    const partner = this.PartnerContext.getContext();
 
     const suggestions = await this.listingSearchService.getSuggestions(
-      tenant.tenantId,
+      partner.partnerId,
       query.q,
       query.limit || 10,
     );

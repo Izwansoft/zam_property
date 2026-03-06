@@ -27,7 +27,7 @@ export class UsageService {
       await this.usageRepository.increment(metricKey, periodStart, periodEnd, amount);
 
       this.logger.debug(
-        `Incremented usage: ${metricKey} by ${amount} for tenant ${params.tenantId}`,
+        `Incremented usage: ${metricKey} by ${amount} for partner ${params.partnerId}`,
       );
 
       // Get current usage and check threshold
@@ -38,7 +38,7 @@ export class UsageService {
       }
 
       this.eventEmitter.emit('usage.incremented', {
-        tenantId: params.tenantId,
+        partnerId: params.partnerId,
         metricKey,
         amount,
         currentCount: current?.count || amount,

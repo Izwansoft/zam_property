@@ -3,17 +3,17 @@ import { UserStatus } from '@prisma/client';
 import type { Role } from '@prisma/client';
 
 import { PrismaService } from '@infrastructure/database';
-import { BaseTenantRepository, TenantContextService } from '@core/tenant-context';
+import { BasePartnerRepository, PartnerContextService } from '@core/partner-context';
 
 @Injectable({ scope: Scope.REQUEST })
-export class UserRepository extends BaseTenantRepository {
-  constructor(prisma: PrismaService, tenantContext: TenantContextService) {
-    super(prisma, tenantContext);
+export class UserRepository extends BasePartnerRepository {
+  constructor(prisma: PrismaService, PartnerContext: PartnerContextService) {
+    super(prisma, PartnerContext);
   }
 
   async findByEmail(email: string): Promise<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     email: string;
     passwordHash: string;
     fullName: string;
@@ -27,7 +27,7 @@ export class UserRepository extends BaseTenantRepository {
       where: this.scopeWhere({ email, deletedAt: null }),
       select: {
         id: true,
-        tenantId: true,
+        partnerId: true,
         email: true,
         passwordHash: true,
         fullName: true,
@@ -42,7 +42,7 @@ export class UserRepository extends BaseTenantRepository {
 
   async findById(id: string): Promise<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     email: string;
     fullName: string;
     phone: string | null;
@@ -55,7 +55,7 @@ export class UserRepository extends BaseTenantRepository {
       where: this.scopeWhere({ id, deletedAt: null }),
       select: {
         id: true,
-        tenantId: true,
+        partnerId: true,
         email: true,
         fullName: true,
         phone: true,
@@ -70,7 +70,7 @@ export class UserRepository extends BaseTenantRepository {
   async list(params: { skip: number; take: number }): Promise<
     Array<{
       id: string;
-      tenantId: string;
+      partnerId: string;
       email: string;
       fullName: string;
       phone: string | null;
@@ -87,7 +87,7 @@ export class UserRepository extends BaseTenantRepository {
       take: params.take,
       select: {
         id: true,
-        tenantId: true,
+        partnerId: true,
         email: true,
         fullName: true,
         phone: true,
@@ -114,7 +114,7 @@ export class UserRepository extends BaseTenantRepository {
     status: UserStatus;
   }): Promise<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     email: string;
     fullName: string;
     phone: string | null;
@@ -134,7 +134,7 @@ export class UserRepository extends BaseTenantRepository {
       }),
       select: {
         id: true,
-        tenantId: true,
+        partnerId: true,
         email: true,
         fullName: true,
         phone: true,
@@ -151,7 +151,7 @@ export class UserRepository extends BaseTenantRepository {
     data: { fullName?: string; phone?: string; role?: Role; status?: UserStatus },
   ): Promise<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     email: string;
     fullName: string;
     phone: string | null;
@@ -178,7 +178,7 @@ export class UserRepository extends BaseTenantRepository {
       },
       select: {
         id: true,
-        tenantId: true,
+        partnerId: true,
         email: true,
         fullName: true,
         phone: true,
@@ -192,7 +192,7 @@ export class UserRepository extends BaseTenantRepository {
 
   async deactivate(id: string): Promise<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     email: string;
     fullName: string;
     phone: string | null;
@@ -214,7 +214,7 @@ export class UserRepository extends BaseTenantRepository {
       data: { status: UserStatus.DEACTIVATED },
       select: {
         id: true,
-        tenantId: true,
+        partnerId: true,
         email: true,
         fullName: true,
         phone: true,

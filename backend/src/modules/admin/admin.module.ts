@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@infrastructure/database';
 import { QueueModule } from '@infrastructure/queue';
 import { RedisModule } from '@infrastructure/redis';
-import { TenantContextModule } from '@core/tenant-context';
+import { PartnerContextModule } from '@core/partner-context';
 
 import { VendorModule } from '@modules/vendor';
 import { ListingModule } from '@modules/listing';
@@ -14,7 +14,7 @@ import { AdminService } from './admin.service';
 @Module({
   imports: [
     DatabaseModule,
-    TenantContextModule,
+    PartnerContextModule,
     QueueModule,
     RedisModule,
     VendorModule,

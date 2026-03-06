@@ -61,13 +61,22 @@ export const JOB_TYPES = {
     WEBHOOK_DELIVER: 'webhook.deliver',
   },
 
-  // Billing jobs
+  // Billing jobs (platform/subscription billing)
   BILLING: {
     INVOICE_GENERATE: 'invoice.generate',
     INVOICE_SEND: 'invoice.send',
     PAYMENT_PROCESS: 'payment.process',
     SUBSCRIPTION_RENEW: 'subscription.renew',
     USAGE_AGGREGATE: 'usage.aggregate',
+  },
+
+  // Rent billing jobs (property management billing)
+  RENT_BILLING: {
+    GENERATE_BATCH: 'rent-billing.generate-batch',
+    GENERATE_SINGLE: 'rent-billing.generate-single',
+    DETECT_OVERDUE: 'rent-billing.detect-overdue',
+    APPLY_LATE_FEES: 'rent-billing.apply-late-fees',
+    PROCESS_REMINDERS: 'rent-billing.process-reminders',
   },
 
   // Cleanup jobs

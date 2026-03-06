@@ -39,7 +39,7 @@ export const AUTH_REFRESH_TOKEN_INVALID = 'AUTH_REFRESH_TOKEN_INVALID';
 export const AUTH_EMAIL_NOT_VERIFIED = 'AUTH_EMAIL_NOT_VERIFIED';
 
 // ---------------------------------------------------------------------------
-// Tenant Errors
+// Partner Errors
 // ---------------------------------------------------------------------------
 export const TENANT_NOT_FOUND = 'TENANT_NOT_FOUND';
 export const TENANT_SUSPENDED = 'TENANT_SUSPENDED';

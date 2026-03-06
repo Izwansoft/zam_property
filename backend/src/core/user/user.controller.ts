@@ -29,6 +29,7 @@ import { Roles, RolesGuard } from '@core/rbac';
 import type { JwtPayload } from '@core/auth/types/jwt-payload.type';
 
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserListQueryDto } from './dto/user-list-query.dto';
 import { UserService } from './user.service';
@@ -36,9 +37,9 @@ import { UserService } from './user.service';
 @ApiTags('Users')
 @ApiBearerAuth()
 @ApiHeader({
-  name: 'X-Tenant-ID',
+  name: 'X-Partner-ID',
   required: true,
-  description: 'Tenant identifier (required unless using host/subdomain-based tenant resolution).',
+  description: 'Partner identifier (required unless using host/subdomain-based partner resolution).',
 })
 @ApiHeader({
   name: 'X-Request-ID',
@@ -51,10 +52,10 @@ export class UserController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'List users (paginated)',
-    description: 'Permission: SUPER_ADMIN, TENANT_ADMIN.',
+    description: 'Permission: SUPER_ADMIN, PARTNER_ADMIN.',
   })
   @ApiQuery({
     name: 'page',
@@ -97,12 +98,31 @@ export class UserController {
     return { data, meta: { requestId } };
   }
 
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Update current user profile (self-service)',
+    description: 'Permission: Authenticated. Only fullName and phone allowed.',
+  })
+  async updateMe(
+    @Req() req: Request,
+    @Body() dto: UpdateProfileDto,
+  ): Promise<unknown> {
+    const requestId = this.getRequestId(req);
+    const user = (req as Request & { user?: JwtPayload }).user;
+    const data = await this.userService.updateUser(user!.sub, {
+      fullName: dto.fullName,
+      phone: dto.phone,
+    });
+    return { data, meta: { requestId } };
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'Get user by id',
-    description: 'Permission: SUPER_ADMIN, TENANT_ADMIN.',
+    description: 'Permission: SUPER_ADMIN, PARTNER_ADMIN.',
   })
   @ApiParam({ name: 'id', type: String, description: 'User ID (uuid).' })
   async getById(@Req() req: Request, @Param('id') id: string): Promise<unknown> {
@@ -113,10 +133,10 @@ export class UserController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'Create user',
-    description: 'Permission: SUPER_ADMIN, TENANT_ADMIN.',
+    description: 'Permission: SUPER_ADMIN, PARTNER_ADMIN.',
   })
   async create(@Req() req: Request, @Body() dto: CreateUserDto): Promise<unknown> {
     const requestId = this.getRequestId(req);
@@ -137,10 +157,10 @@ export class UserController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'Update user',
-    description: 'Permission: SUPER_ADMIN, TENANT_ADMIN.',
+    description: 'Permission: SUPER_ADMIN, PARTNER_ADMIN.',
   })
   @ApiParam({ name: 'id', type: String, description: 'User ID (uuid).' })
   async update(
@@ -156,10 +176,10 @@ export class UserController {
   @Post(':id/actions/deactivate')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'Deactivate user',
-    description: 'Permission: SUPER_ADMIN, TENANT_ADMIN.',
+    description: 'Permission: SUPER_ADMIN, PARTNER_ADMIN.',
   })
   @ApiParam({ name: 'id', type: String, description: 'User ID (uuid).' })
   async deactivate(@Req() req: Request, @Param('id') id: string): Promise<unknown> {

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TenantContextModule } from '@core/tenant-context/tenant-context.module';
+import { PartnerContextModule } from '@core/partner-context/partner-context.module';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 
 // Repositories
@@ -18,7 +18,7 @@ import { PlanController } from './controllers/plan.controller';
 import { SubscriptionController } from './controllers/subscription.controller';
 
 @Module({
-  imports: [TenantContextModule],
+  imports: [PartnerContextModule],
   providers: [
     PrismaService,
     // Repositories

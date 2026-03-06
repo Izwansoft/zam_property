@@ -17,7 +17,7 @@ export const PLATFORM_SERVER = 'PLATFORM_SERVER';
  * across all namespaces and horizontal scaling via Redis adapter.
  *
  * Usage:
- * - broadcastToTenant: All tenant members
+ * - broadcastToTenant: All partner members
  * - broadcastToVendor: Specific vendor users
  * - broadcastToListing: Listing viewers
  * - sendToUser: Personal notifications
@@ -26,7 +26,7 @@ export const PLATFORM_SERVER = 'PLATFORM_SERVER';
 export class BroadcastService {
   private readonly logger = new Logger(BroadcastService.name);
 
-  private tenantServer?: Server;
+  private partnerServer?: Server;
   private vendorServer?: Server;
   private notificationsServer?: Server;
   private platformServer?: Server;
@@ -36,8 +36,8 @@ export class BroadcastService {
    * Called by gateways after initialization.
    */
   setTenantServer(server: Server): void {
-    this.tenantServer = server;
-    this.logger.log('Tenant server registered with BroadcastService');
+    this.partnerServer = server;
+    this.logger.log('Partner server registered with BroadcastService');
   }
 
   setVendorServer(server: Server): void {
@@ -56,14 +56,14 @@ export class BroadcastService {
   }
 
   /**
-   * Broadcast event to all members of a tenant.
+   * Broadcast event to all members of a partner.
    */
-  broadcastToTenant(tenantId: string, event: string, payload: unknown): void {
-    const room = ROOM_NAMES.tenant(tenantId);
+  broadcastToTenant(partnerId: string, event: string, payload: unknown): void {
+    const room = ROOM_NAMES.partner(partnerId);
 
-    if (this.tenantServer) {
-      this.tenantServer.to(room).emit(event, payload);
-      this.logger.debug(`Broadcast to tenant room ${room}: ${event}`);
+    if (this.partnerServer) {
+      this.partnerServer.to(room).emit(event, payload);
+      this.logger.debug(`Broadcast to partner room ${room}: ${event}`);
     }
 
     // Also broadcast to notifications namespace for cross-namespace events
@@ -73,15 +73,15 @@ export class BroadcastService {
   }
 
   /**
-   * Broadcast event to tenant's listing room.
+   * Broadcast event to partner's listing room.
    * Used for listing-related notifications to admins/vendors.
    */
-  broadcastToTenantListings(tenantId: string, event: string, payload: unknown): void {
-    const room = ROOM_NAMES.tenantListings(tenantId);
+  broadcastToTenantListings(partnerId: string, event: string, payload: unknown): void {
+    const room = ROOM_NAMES.partnerListings(partnerId);
 
-    if (this.tenantServer) {
-      this.tenantServer.to(room).emit(event, payload);
-      this.logger.debug(`Broadcast to tenant listings room ${room}: ${event}`);
+    if (this.partnerServer) {
+      this.partnerServer.to(room).emit(event, payload);
+      this.logger.debug(`Broadcast to partner listings room ${room}: ${event}`);
     }
   }
 
@@ -96,9 +96,9 @@ export class BroadcastService {
       this.logger.debug(`Broadcast to vendor room ${room}: ${event}`);
     }
 
-    // Also broadcast to tenant namespace where vendor users might be
-    if (this.tenantServer) {
-      this.tenantServer.to(room).emit(event, payload);
+    // Also broadcast to partner namespace where vendor users might be
+    if (this.partnerServer) {
+      this.partnerServer.to(room).emit(event, payload);
     }
   }
 
@@ -108,8 +108,8 @@ export class BroadcastService {
   broadcastToListing(listingId: string, event: string, payload: unknown): void {
     const room = ROOM_NAMES.listing(listingId);
 
-    if (this.tenantServer) {
-      this.tenantServer.to(room).emit(event, payload);
+    if (this.partnerServer) {
+      this.partnerServer.to(room).emit(event, payload);
       this.logger.debug(`Broadcast to listing room ${room}: ${event}`);
     }
   }
@@ -120,8 +120,8 @@ export class BroadcastService {
   broadcastToInteraction(interactionId: string, event: string, payload: unknown): void {
     const room = ROOM_NAMES.interaction(interactionId);
 
-    if (this.tenantServer) {
-      this.tenantServer.to(room).emit(event, payload);
+    if (this.partnerServer) {
+      this.partnerServer.to(room).emit(event, payload);
       this.logger.debug(`Broadcast to interaction room ${room}: ${event}`);
     }
   }
@@ -138,9 +138,9 @@ export class BroadcastService {
       this.logger.debug(`Send to user room ${room}: ${event}`);
     }
 
-    // Fallback: tenant namespace
-    if (this.tenantServer) {
-      this.tenantServer.to(room).emit(event, payload);
+    // Fallback: partner namespace
+    if (this.partnerServer) {
+      this.partnerServer.to(room).emit(event, payload);
     }
   }
 
@@ -171,8 +171,8 @@ export class BroadcastService {
    * Get active connection count for a listing.
    */
   async getListingViewerCount(listingId: string): Promise<number> {
-    if (!this.tenantServer) return 0;
-    return this.getRoomSize(this.tenantServer, ROOM_NAMES.listing(listingId));
+    if (!this.partnerServer) return 0;
+    return this.getRoomSize(this.partnerServer, ROOM_NAMES.listing(listingId));
   }
 
   /**
@@ -181,8 +181,8 @@ export class BroadcastService {
   async getTotalConnections(): Promise<number> {
     let total = 0;
 
-    if (this.tenantServer) {
-      const sockets = await this.tenantServer.fetchSockets();
+    if (this.partnerServer) {
+      const sockets = await this.partnerServer.fetchSockets();
       total += sockets.length;
     }
 

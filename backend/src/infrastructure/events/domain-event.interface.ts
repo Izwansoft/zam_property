@@ -12,8 +12,8 @@ export interface DomainEvent<T = unknown> {
   /** Event schema version (e.g., "1.0") */
   eventVersion: string;
 
-  /** Tenant ID, null for platform-level events */
-  tenantId: string | null;
+  /** Partner ID, null for platform-level events */
+  partnerId: string | null;
 
   /** Request/trace correlation ID */
   correlationId: string;

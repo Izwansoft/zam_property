@@ -48,7 +48,7 @@ async function bootstrap(): Promise<void> {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Zam-Property Backend API')
     .setDescription(
-      'Zam-Property backend APIs. Most endpoints require tenant context via X-Tenant-ID (or host/subdomain) and use a standard { data, meta } response envelope.',
+      'Zam-Property backend APIs. Most endpoints require partner context via X-Partner-ID (or host/subdomain) and use a standard { data, meta } response envelope.',
     )
     .setVersion('1.0')
     .addBearerAuth()

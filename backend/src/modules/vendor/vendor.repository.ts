@@ -2,11 +2,11 @@ import { Injectable, Scope } from '@nestjs/common';
 import type { Prisma, VendorStatus, VendorType } from '@prisma/client';
 
 import { PrismaService } from '@infrastructure/database';
-import { BaseTenantRepository, TenantContextService } from '@core/tenant-context';
+import { BasePartnerRepository, PartnerContextService } from '@core/partner-context';
 
 export interface VendorView {
   id: string;
-  tenantId: string;
+  partnerId: string;
   name: string;
   slug: string;
   description: string | null;
@@ -51,7 +51,7 @@ export interface VendorDetailView extends VendorView {
 
 const vendorSelect = {
   id: true,
-  tenantId: true,
+  partnerId: true,
   name: true,
   slug: true,
   description: true,
@@ -100,9 +100,9 @@ const vendorDetailSelect = {
 } as const;
 
 @Injectable({ scope: Scope.REQUEST })
-export class VendorRepository extends BaseTenantRepository {
-  constructor(prisma: PrismaService, tenantContext: TenantContextService) {
-    super(prisma, tenantContext);
+export class VendorRepository extends BasePartnerRepository {
+  constructor(prisma: PrismaService, PartnerContext: PartnerContextService) {
+    super(prisma, PartnerContext);
   }
 
   async findById(id: string): Promise<VendorView | null> {

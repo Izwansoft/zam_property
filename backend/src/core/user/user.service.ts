@@ -6,7 +6,7 @@ import { UserRepository } from './user.repository';
 
 type UserView = {
   id: string;
-  tenantId: string;
+  partnerId: string;
   email: string;
   fullName: string;
   phone: string | null;

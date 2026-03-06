@@ -13,7 +13,7 @@ import { Role, UserStatus, VendorStatus, ListingStatus, AuditActorType } from '@
 export function createMockUser(
   overrides: Partial<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     email: string;
     passwordHash: string;
     fullName: string;
@@ -26,7 +26,7 @@ export function createMockUser(
 ) {
   return {
     id: overrides.id ?? 'user-123',
-    tenantId: overrides.tenantId ?? 'tenant-123',
+    partnerId: overrides.partnerId ?? 'partner-123',
     email: overrides.email ?? 'test@example.com',
     passwordHash: overrides.passwordHash ?? '$2b$10$hashedpassword',
     fullName: overrides.fullName ?? 'Test User',
@@ -39,7 +39,7 @@ export function createMockUser(
 }
 
 /**
- * Tenant mock factory
+ * Partner mock factory
  */
 export function createMockTenant(
   overrides: Partial<{
@@ -53,9 +53,9 @@ export function createMockTenant(
   }> = {},
 ) {
   return {
-    id: overrides.id ?? 'tenant-123',
-    name: overrides.name ?? 'Test Tenant',
-    slug: overrides.slug ?? 'test-tenant',
+    id: overrides.id ?? 'partner-123',
+    name: overrides.name ?? 'Test Partner',
+    slug: overrides.slug ?? 'test-partner',
     subdomain: overrides.subdomain ?? 'test',
     isActive: overrides.isActive ?? true,
     createdAt: overrides.createdAt ?? new Date(),
@@ -69,7 +69,7 @@ export function createMockTenant(
 export function createMockVendor(
   overrides: Partial<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     name: string;
     slug: string;
     email: string;
@@ -82,7 +82,7 @@ export function createMockVendor(
 ) {
   return {
     id: overrides.id ?? 'vendor-123',
-    tenantId: overrides.tenantId ?? 'tenant-123',
+    partnerId: overrides.partnerId ?? 'partner-123',
     name: overrides.name ?? 'Test Vendor',
     slug: overrides.slug ?? 'test-vendor',
     email: overrides.email ?? 'vendor@example.com',
@@ -100,7 +100,7 @@ export function createMockVendor(
 export function createMockListing(
   overrides: Partial<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     vendorId: string;
     title: string;
     slug: string;
@@ -117,7 +117,7 @@ export function createMockListing(
 ) {
   return {
     id: overrides.id ?? 'listing-123',
-    tenantId: overrides.tenantId ?? 'tenant-123',
+    partnerId: overrides.partnerId ?? 'partner-123',
     vendorId: overrides.vendorId ?? 'vendor-123',
     title: overrides.title ?? 'Test Listing',
     slug: overrides.slug ?? 'test-listing',
@@ -150,7 +150,7 @@ export function createMockListing(
 export function createMockJwtPayload(
   overrides: Partial<{
     sub: string;
-    tenantId: string;
+    partnerId: string;
     role: Role;
     vendorId: string;
     tokenType: 'access' | 'refresh';
@@ -158,7 +158,7 @@ export function createMockJwtPayload(
 ) {
   return {
     sub: overrides.sub ?? 'user-123',
-    tenantId: overrides.tenantId ?? 'tenant-123',
+    partnerId: overrides.partnerId ?? 'partner-123',
     role: overrides.role ?? Role.CUSTOMER,
     vendorId: overrides.vendorId,
     tokenType: overrides.tokenType ?? 'access',
@@ -171,7 +171,7 @@ export function createMockJwtPayload(
 export function createMockAuditLog(
   overrides: Partial<{
     id: string;
-    tenantId: string;
+    partnerId: string;
     actorType: AuditActorType;
     actorId: string;
     actorEmail: string;
@@ -189,7 +189,7 @@ export function createMockAuditLog(
 ) {
   return {
     id: overrides.id ?? 'audit-123',
-    tenantId: overrides.tenantId ?? 'tenant-123',
+    partnerId: overrides.partnerId ?? 'partner-123',
     actorType: overrides.actorType ?? AuditActorType.USER,
     actorId: overrides.actorId ?? 'user-123',
     actorEmail: overrides.actorEmail ?? 'te***@example.com',
@@ -211,15 +211,15 @@ export function createMockAuditLog(
  */
 export function createMockRequest(
   overrides: Partial<{
-    tenantContext: {
-      tenantId: string;
-      tenantSlug: string;
+    PartnerContext: {
+      partnerId: string;
+      partnerSlug: string;
       correlationId: string;
       userId?: string;
     };
     user: {
       id: string;
-      tenantId: string;
+      partnerId: string;
       role: Role;
       vendorId?: string;
     };
@@ -228,18 +228,18 @@ export function createMockRequest(
   }> = {},
 ) {
   return {
-    tenantContext: overrides.tenantContext ?? {
-      tenantId: 'tenant-123',
-      tenantSlug: 'test-tenant',
+    PartnerContext: overrides.PartnerContext ?? {
+      partnerId: 'partner-123',
+      partnerSlug: 'test-partner',
       correlationId: 'corr-123',
     },
     user: overrides.user ?? {
       id: 'user-123',
-      tenantId: 'tenant-123',
+      partnerId: 'partner-123',
       role: Role.CUSTOMER,
     },
     headers: overrides.headers ?? {
-      'x-tenant-id': 'tenant-123',
+      'X-Partner-ID': 'partner-123',
       'x-request-id': 'req-123',
     },
     ip: overrides.ip ?? '192.168.1.1',

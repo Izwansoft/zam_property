@@ -6,20 +6,20 @@
 import { Module } from '@nestjs/common';
 
 import { DatabaseModule } from '@/infrastructure/database';
-import { TenantContextModule } from '@core/tenant-context';
+import { PartnerContextModule } from '@core/partner-context';
 
-import { VerticalDefinitionRepository, TenantVerticalRepository } from './repositories';
+import { VerticalDefinitionRepository, PartnerVerticalRepository } from './repositories';
 import { VerticalService } from './services';
-import { VerticalDefinitionController, TenantVerticalController } from './controllers';
+import { VerticalDefinitionController, PartnerVerticalController } from './controllers';
 import { VerticalGuard, AnyVerticalGuard } from './guards';
 
 @Module({
-  imports: [DatabaseModule, TenantContextModule],
-  controllers: [VerticalDefinitionController, TenantVerticalController],
+  imports: [DatabaseModule, PartnerContextModule],
+  controllers: [VerticalDefinitionController, PartnerVerticalController],
   providers: [
     // Repositories
     VerticalDefinitionRepository,
-    TenantVerticalRepository,
+    PartnerVerticalRepository,
     // Services
     VerticalService,
     // Guards
@@ -29,7 +29,7 @@ import { VerticalGuard, AnyVerticalGuard } from './guards';
   exports: [
     VerticalService,
     VerticalDefinitionRepository,
-    TenantVerticalRepository,
+    PartnerVerticalRepository,
     VerticalGuard,
     AnyVerticalGuard,
   ],

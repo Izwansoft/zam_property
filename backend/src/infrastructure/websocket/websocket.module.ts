@@ -8,9 +8,10 @@ import { BroadcastService } from './services/broadcast.service';
 import { WebSocketEventBridge } from './services/websocket-event-bridge.service';
 
 // Gateways
-import { TenantGateway } from './gateways/tenant.gateway';
+import { PartnerGateway } from './gateways/partner.gateway';
 import { VendorGateway } from './gateways/vendor.gateway';
 import { NotificationsGateway } from './gateways/notifications.gateway';
+import { PlatformGateway } from './gateways/platform.gateway';
 
 // Database
 import { DatabaseModule } from '../database/database.module';
@@ -19,7 +20,7 @@ import { DatabaseModule } from '../database/database.module';
  * WebSocket module providing real-time communication infrastructure.
  *
  * Per Part 33 - provides:
- * - Multiple namespace gateways (/tenant, /vendor, /notifications)
+ * - Multiple namespace gateways (/partner, /vendor, /notifications)
  * - JWT authentication for WebSocket connections
  * - Room-based messaging
  * - Redis adapter support for horizontal scaling
@@ -48,9 +49,10 @@ import { DatabaseModule } from '../database/database.module';
     BroadcastService,
     WebSocketEventBridge,
     // Gateways
-    TenantGateway,
+    PartnerGateway,
     VendorGateway,
     NotificationsGateway,
+    PlatformGateway,
   ],
   exports: [BroadcastService, WsAuthService],
 })

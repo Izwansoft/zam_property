@@ -10,6 +10,8 @@ import { NotificationProcessor } from './notification.processor';
 import { ListingExpireProcessor } from './listing-expire.processor';
 import { AnalyticsProcessor } from './analytics.processor';
 import { CleanupProcessor } from './cleanup.processor';
+import { TenancyExpiryProcessor } from './tenancy-expiry.processor';
+import { BillingProcessor } from './billing.processor';
 
 /**
  * Processors module for registering all queue processors.
@@ -30,7 +32,9 @@ import { CleanupProcessor } from './cleanup.processor';
       { name: QUEUE_NAMES.NOTIFICATION_SEND },
       { name: QUEUE_NAMES.CLEANUP_PROCESS },
       { name: QUEUE_NAMES.ANALYTICS_PROCESS },
+      { name: QUEUE_NAMES.BILLING_PROCESS },
       { name: 'listing.expire' },
+      { name: 'tenancy.expiry' },
     ),
   ],
   providers: [
@@ -39,6 +43,8 @@ import { CleanupProcessor } from './cleanup.processor';
     ListingExpireProcessor,
     AnalyticsProcessor,
     CleanupProcessor,
+    TenancyExpiryProcessor,
+    BillingProcessor,
   ],
   exports: [
     MediaProcessor,
@@ -46,6 +52,8 @@ import { CleanupProcessor } from './cleanup.processor';
     ListingExpireProcessor,
     AnalyticsProcessor,
     CleanupProcessor,
+    TenancyExpiryProcessor,
+    BillingProcessor,
   ],
 })
 export class ProcessorsModule {}

@@ -27,8 +27,8 @@ import { JobResult } from '../../queue/queue.interfaces';
  * - webhook.deliver: Deliver webhooks (priority: normal, timeout: 30s, retries: 5)
  *
  * Rate limits per part-31.md:
- * - Email: 100/second per tenant
- * - SMS: 10/second per tenant
+ * - Email: 100/second per partner
+ * - SMS: 10/second per partner
  * - Push: 1000/second global
  */
 @Processor(QUEUE_NAMES.NOTIFICATION_SEND)
@@ -49,7 +49,7 @@ export class NotificationProcessor extends WorkerHost {
       queue: QUEUE_NAMES.NOTIFICATION_SEND,
       jobId: job.id,
       jobType: name,
-      tenantId: data.tenantId,
+      partnerId: data.partnerId,
       notificationType: data.type,
     });
 
@@ -108,7 +108,7 @@ export class NotificationProcessor extends WorkerHost {
 
       // Emit failure event for monitoring
       this.eventEmitter.emit('notification.delivery_failed', {
-        tenantId: data.tenantId,
+        partnerId: data.partnerId,
         type: data.type,
         template: data.template,
         error: err.message,
@@ -124,7 +124,7 @@ export class NotificationProcessor extends WorkerHost {
    * Uses NotificationService via event-driven pattern to avoid circular dependencies.
    */
   private async handleEmailTransactional(job: Job<EmailTransactionalJob>): Promise<JobResult> {
-    const { tenantId, recipientEmail, recipientName, template, data, subject, locale } = job.data;
+    const { partnerId, recipientEmail, recipientName, template, data, subject, locale } = job.data;
 
     this.logger.debug(`Sending transactional email to ${recipientEmail}, template: ${template}`);
 
@@ -133,7 +133,7 @@ export class NotificationProcessor extends WorkerHost {
     // Emit event for NotificationService to handle actual delivery
     // This decouples the processor from the notification module
     const deliveryResult = await this.emitAndWaitForDelivery('email.transactional.send', {
-      tenantId,
+      partnerId,
       recipientEmail,
       recipientName,
       template,
@@ -167,7 +167,7 @@ export class NotificationProcessor extends WorkerHost {
    * Handle marketing email delivery.
    */
   private async handleEmailMarketing(job: Job<EmailMarketingJob>): Promise<JobResult> {
-    const { tenantId, recipientEmail, template, data, campaignId } = job.data;
+    const { partnerId, recipientEmail, template, data, campaignId } = job.data;
 
     this.logger.debug(`Sending marketing email to ${recipientEmail}, campaign: ${campaignId}`);
 
@@ -175,7 +175,7 @@ export class NotificationProcessor extends WorkerHost {
 
     // Emit event for delivery
     const deliveryResult = await this.emitAndWaitForDelivery('email.marketing.send', {
-      tenantId,
+      partnerId,
       recipientEmail,
       template,
       data,
@@ -204,7 +204,7 @@ export class NotificationProcessor extends WorkerHost {
    * Handle SMS delivery.
    */
   private async handleSmsSend(job: Job<SmsSendJob>): Promise<JobResult> {
-    const { tenantId, recipientPhone, template, data } = job.data;
+    const { partnerId, recipientPhone, template, data } = job.data;
 
     this.logger.debug(`Sending SMS to ${recipientPhone}`);
 
@@ -213,7 +213,7 @@ export class NotificationProcessor extends WorkerHost {
     // SMS sending would integrate with Twilio, Vonage, etc.
     // For now, emit event for future provider integration
     const deliveryResult = await this.emitAndWaitForDelivery('sms.send', {
-      tenantId,
+      partnerId,
       recipientPhone,
       template,
       data,
@@ -242,7 +242,7 @@ export class NotificationProcessor extends WorkerHost {
    * Handle push notification delivery.
    */
   private async handlePushSend(job: Job<PushSendJob>): Promise<JobResult> {
-    const { tenantId, recipientId, title, body, deviceTokens } = job.data;
+    const { partnerId, recipientId, title, body, deviceTokens } = job.data;
 
     this.logger.debug(`Sending push notification to user ${recipientId}`);
 
@@ -250,7 +250,7 @@ export class NotificationProcessor extends WorkerHost {
 
     // Push notifications would integrate with FCM, APNs, etc.
     const deliveryResult = await this.emitAndWaitForDelivery('push.send', {
-      tenantId,
+      partnerId,
       recipientId,
       title,
       body,
@@ -279,7 +279,7 @@ export class NotificationProcessor extends WorkerHost {
    * Handle in-app notification creation.
    */
   private async handleInAppCreate(job: Job<InAppCreateJob>): Promise<JobResult> {
-    const { tenantId, recipientId, title, body, notificationType, actionUrl } = job.data;
+    const { partnerId, recipientId, title, body, notificationType, actionUrl } = job.data;
 
     this.logger.debug(`Creating in-app notification for user ${recipientId}`);
 
@@ -287,7 +287,7 @@ export class NotificationProcessor extends WorkerHost {
 
     // Emit event for NotificationService to create the notification record
     const deliveryResult = await this.emitAndWaitForDelivery('in_app.create', {
-      tenantId,
+      partnerId,
       recipientId,
       title,
       body,
@@ -307,7 +307,7 @@ export class NotificationProcessor extends WorkerHost {
 
     // Also emit WebSocket event for real-time delivery
     this.eventEmitter.emit('notification.realtime', {
-      tenantId,
+      partnerId,
       userId: recipientId,
       notification: {
         title,

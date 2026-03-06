@@ -31,7 +31,7 @@ export const LISTINGS_INDEX_TEMPLATE = {
       properties: {
         // Identity
         id: { type: 'keyword' },
-        tenantId: { type: 'keyword' },
+        partnerId: { type: 'keyword' },
         vendorId: { type: 'keyword' },
         verticalType: { type: 'keyword' },
 
@@ -74,6 +74,19 @@ export const LISTINGS_INDEX_TEMPLATE = {
         attributes: {
           type: 'object',
           dynamic: true,
+          properties: {
+            // Pre-define fields used in aggregations / sorting
+            propertyType: { type: 'keyword' },
+            listingType: { type: 'keyword' },
+            furnishing: { type: 'keyword' },
+            tenure: { type: 'keyword' },
+            bedrooms: { type: 'integer' },
+            bathrooms: { type: 'integer' },
+            builtUpSqft: { type: 'float' },
+            landSqft: { type: 'float' },
+            parking: { type: 'integer' },
+            buildYear: { type: 'integer' },
+          },
         },
 
         // Features
@@ -103,8 +116,8 @@ export const LISTINGS_INDEX_TEMPLATE = {
   },
 };
 
-export function getListingsIndexName(tenantId: string): string {
-  return `listings-${tenantId}`;
+export function getListingsIndexName(partnerId: string): string {
+  return `listings-${partnerId}`;
 }
 
 export function getListingsIndexSettings() {

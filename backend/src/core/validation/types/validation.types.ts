@@ -28,8 +28,8 @@ export interface ValidationContext {
   /** Target status (for publish validation) */
   targetStatus?: string;
 
-  /** Tenant ID for tenant-specific rules */
-  tenantId: string;
+  /** Partner ID for partner-specific rules */
+  partnerId: string;
 
   /** Vendor ID for vendor-specific limits */
   vendorId?: string;

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
-import { TenantContextService } from '@core/tenant-context/tenant-context.service';
+import { PartnerContextService } from '@core/partner-context/partner-context.service';
 import {
   CreateSubscriptionParams,
   UpdateSubscriptionParams,
@@ -12,18 +12,18 @@ import { SubscriptionStatus, Prisma } from '@prisma/client';
 export class SubscriptionRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   /**
-   * Create a new subscription (tenant-scoped)
+   * Create a new subscription (partner-scoped)
    */
   async create(params: CreateSubscriptionParams): Promise<SubscriptionRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.subscription.create({
       data: {
-        tenantId: tenantId,
+        partnerId: partnerId,
         planId: params.planId,
         status: SubscriptionStatus.ACTIVE,
         currentPeriodStart: params.currentPeriodStart,
@@ -39,11 +39,11 @@ export class SubscriptionRepository {
   }
 
   /**
-   * Find subscription by tenant ID
+   * Find subscription by partner ID
    */
-  async findByTenantId(tenantId: string): Promise<SubscriptionRecord | null> {
+  async findBypartnerId(partnerId: string): Promise<SubscriptionRecord | null> {
     return this.prisma.subscription.findUnique({
-      where: { tenantId },
+      where: { partnerId },
       include: {
         plan: true,
       },
@@ -51,17 +51,17 @@ export class SubscriptionRepository {
   }
 
   /**
-   * Find current tenant's subscription
+   * Find current partner's subscription
    */
   async findCurrent(): Promise<SubscriptionRecord | null> {
-    const tenantId = this.tenantContext.tenantId;
-    return this.findByTenantId(tenantId);
+    const partnerId = this.PartnerContext.partnerId;
+    return this.findBypartnerId(partnerId);
   }
 
   /**
    * Update subscription
    */
-  async update(tenantId: string, params: UpdateSubscriptionParams): Promise<SubscriptionRecord> {
+  async update(partnerId: string, params: UpdateSubscriptionParams): Promise<SubscriptionRecord> {
     const data: {
       status?: SubscriptionStatus;
       currentPeriodEnd?: Date;
@@ -75,7 +75,7 @@ export class SubscriptionRepository {
     if (params.overrides !== undefined) data.overrides = params.overrides as Prisma.InputJsonValue;
 
     return this.prisma.subscription.update({
-      where: { tenantId },
+      where: { partnerId },
       data,
       include: {
         plan: true,
@@ -86,9 +86,9 @@ export class SubscriptionRepository {
   /**
    * Update subscription status
    */
-  async updateStatus(tenantId: string, status: SubscriptionStatus): Promise<SubscriptionRecord> {
+  async updateStatus(partnerId: string, status: SubscriptionStatus): Promise<SubscriptionRecord> {
     return this.prisma.subscription.update({
-      where: { tenantId },
+      where: { partnerId },
       data: { status },
       include: {
         plan: true,
@@ -99,9 +99,9 @@ export class SubscriptionRepository {
   /**
    * Cancel subscription
    */
-  async cancel(tenantId: string): Promise<SubscriptionRecord> {
+  async cancel(partnerId: string): Promise<SubscriptionRecord> {
     return this.prisma.subscription.update({
-      where: { tenantId },
+      where: { partnerId },
       data: {
         status: SubscriptionStatus.CANCELLED,
         cancelledAt: new Date(),
@@ -116,12 +116,12 @@ export class SubscriptionRepository {
    * Change plan
    */
   async changePlan(
-    tenantId: string,
+    partnerId: string,
     newPlanId: string,
     effectiveDate?: Date,
   ): Promise<SubscriptionRecord> {
     return this.prisma.subscription.update({
-      where: { tenantId },
+      where: { partnerId },
       data: {
         planId: newPlanId,
         currentPeriodEnd: effectiveDate,
@@ -140,7 +140,7 @@ export class SubscriptionRepository {
       where: { planId },
       include: {
         plan: true,
-        tenant: true,
+        partner: true,
       },
     });
   }

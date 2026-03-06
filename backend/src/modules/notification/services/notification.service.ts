@@ -37,15 +37,15 @@ export class NotificationService {
   }
 
   private async getRenderedNotification(params: {
-    tenantId: string;
+    partnerId: string;
     type: NotificationType;
     channel: NotificationChannel;
     variables: TemplateVariables;
     locale?: string;
   }): Promise<RenderedNotification> {
-    // Try to find tenant-specific template
+    // Try to find partner-specific template
     const template = await this.notificationRepo.findTemplateByTypeAndChannel({
-      tenantId: params.tenantId,
+      partnerId: params.partnerId,
       type: params.type,
       channel: params.channel,
       locale: params.locale || 'en',
@@ -185,7 +185,7 @@ export class NotificationService {
    * This creates the notification record and triggers async delivery
    */
   async sendNotification(params: {
-    tenantId: string;
+    partnerId: string;
     userId: string;
     userEmail: string; // For email delivery
     type: NotificationType;
@@ -209,7 +209,7 @@ export class NotificationService {
 
     // Render template
     const rendered = await this.getRenderedNotification({
-      tenantId: params.tenantId,
+      partnerId: params.partnerId,
       type: params.type,
       channel: params.channel,
       variables: params.variables,
@@ -217,7 +217,7 @@ export class NotificationService {
 
     // Create notification record
     const notification = await this.notificationRepo.createNotification({
-      tenantId: params.tenantId,
+      partnerId: params.partnerId,
       userId: params.userId,
       type: params.type,
       channel: params.channel,
@@ -246,7 +246,7 @@ export class NotificationService {
    * Send notification to multiple users (batch)
    */
   async sendBatchNotification(params: {
-    tenantId: string;
+    partnerId: string;
     userIds: string[];
     type: NotificationType;
     channels: NotificationChannel[];
@@ -264,7 +264,7 @@ export class NotificationService {
           const userEmail = `user-${userId}@example.com`; // Placeholder
 
           await this.sendNotification({
-            tenantId: params.tenantId,
+            partnerId: params.partnerId,
             userId,
             userEmail,
             type: params.type,
@@ -304,7 +304,7 @@ export class NotificationService {
    * List user notifications (for in-app notification UI)
    */
   async listUserNotifications(params: {
-    tenantId: string;
+    partnerId: string;
     userId: string;
     type?: NotificationType;
     channel?: NotificationChannel;
@@ -322,29 +322,29 @@ export class NotificationService {
   /**
    * Get unread notification count
    */
-  async getUnreadCount(tenantId: string, userId: string): Promise<number> {
-    return this.notificationRepo.getUnreadCount(tenantId, userId);
+  async getUnreadCount(partnerId: string, userId: string): Promise<number> {
+    return this.notificationRepo.getUnreadCount(partnerId, userId);
   }
 
   /**
    * Mark notification as read
    */
-  async markAsRead(tenantId: string, userId: string, notificationId: string) {
-    const notification = await this.notificationRepo.findNotificationById(notificationId, tenantId);
+  async markAsRead(partnerId: string, userId: string, notificationId: string) {
+    const notification = await this.notificationRepo.findNotificationById(notificationId, partnerId);
 
     if (!notification || notification.userId !== userId) {
       throw new Error('Notification not found or access denied');
     }
 
-    return this.notificationRepo.markAsRead(notificationId, tenantId);
+    return this.notificationRepo.markAsRead(notificationId, partnerId);
   }
 
   /**
    * Mark all user notifications as read
    */
-  async markAllAsRead(tenantId: string, userId: string): Promise<number> {
+  async markAllAsRead(partnerId: string, userId: string): Promise<number> {
     const result = await this.notificationRepo.markAllAsRead({
-      tenantId,
+      partnerId,
       userId,
     });
     return result.count;
@@ -353,7 +353,7 @@ export class NotificationService {
   /**
    * Get user notification preferences
    */
-  async getUserPreferences(tenantId: string, userId: string) {
+  async getUserPreferences(partnerId: string, userId: string) {
     return this.notificationRepo.findPreferences({ userId });
   }
 
@@ -361,7 +361,7 @@ export class NotificationService {
    * Update notification preference
    */
   async updatePreference(params: {
-    tenantId: string;
+    partnerId: string;
     userId: string;
     notificationType: NotificationType;
     channel: NotificationChannel;

@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Request,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -32,7 +33,7 @@ import {
 @ApiTags('Pricing')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/pricing')
+@Controller('pricing')
 export class PricingController {
   private readonly logger = new Logger(PricingController.name);
 
@@ -48,14 +49,14 @@ export class PricingController {
   @Post('configs')
   @ApiOperation({ summary: 'Create pricing configuration' })
   @ApiResponse({ status: 201, type: PricingConfigResponseDto })
-  async createConfig(@Body() dto: CreatePricingConfigDto) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
+  async createConfig(@Body() dto: CreatePricingConfigDto, @Request() req: any) {
+    const partnerId = req.user.partnerId;
 
     // Validate configuration
     this.calculationService.validatePricingConfig(dto.model, dto.config);
 
     const config = await this.pricingRepo.createConfig({
-      tenantId,
+      partnerId,
       model: dto.model,
       name: dto.name,
       description: dto.description,
@@ -64,17 +65,17 @@ export class PricingController {
       isActive: dto.isActive,
     });
 
-    this.logger.log(`Created pricing config: ${config.id} for tenant: ${tenantId}`);
+    this.logger.log(`Created pricing config: ${config.id} for partner: ${partnerId}`);
     return config;
   }
 
   @Get('configs')
   @ApiOperation({ summary: 'List pricing configurations' })
   @ApiResponse({ status: 200 })
-  async listConfigs(@Query() query: ListPricingConfigsDto) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
+  async listConfigs(@Query() query: ListPricingConfigsDto, @Request() req: any) {
+    const partnerId = req.user.partnerId;
     const { items, total } = await this.pricingRepo.findConfigs({
-      tenantId,
+      partnerId,
       model: query.model,
       isActive: query.isActive,
       verticalId: query.verticalId,
@@ -98,25 +99,25 @@ export class PricingController {
   @Get('configs/:id')
   @ApiOperation({ summary: 'Get pricing configuration by ID' })
   @ApiResponse({ status: 200, type: PricingConfigResponseDto })
-  async getConfig(@Param('id') id: string) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
-    return this.pricingRepo.findConfigById(id, tenantId);
+  async getConfig(@Param('id') id: string, @Request() req: any) {
+    const partnerId = req.user.partnerId;
+    return this.pricingRepo.findConfigById(id, partnerId);
   }
 
   @Patch('configs/:id')
   @ApiOperation({ summary: 'Update pricing configuration' })
   @ApiResponse({ status: 200, type: PricingConfigResponseDto })
-  async updateConfig(@Param('id') id: string, @Body() dto: UpdatePricingConfigDto) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
+  async updateConfig(@Param('id') id: string, @Body() dto: UpdatePricingConfigDto, @Request() req: any) {
+    const partnerId = req.user.partnerId;
     // If config is being updated, validate it
     if (dto.config) {
-      const existing = await this.pricingRepo.findConfigById(id, tenantId);
+      const existing = await this.pricingRepo.findConfigById(id, partnerId);
       if (existing) {
         this.calculationService.validatePricingConfig(existing.model, dto.config);
       }
     }
 
-    const updated = await this.pricingRepo.updateConfig(id, tenantId, {
+    const updated = await this.pricingRepo.updateConfig(id, partnerId, {
       ...dto,
       config: dto.config as Prisma.InputJsonValue | undefined,
     });
@@ -128,9 +129,9 @@ export class PricingController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete pricing configuration' })
   @ApiResponse({ status: 204 })
-  async deleteConfig(@Param('id') id: string) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
-    await this.pricingRepo.deleteConfig(id, tenantId);
+  async deleteConfig(@Param('id') id: string, @Request() req: any) {
+    const partnerId = req.user.partnerId;
+    await this.pricingRepo.deleteConfig(id, partnerId);
     this.logger.log(`Deleted pricing config: ${id}`);
   }
 
@@ -141,10 +142,10 @@ export class PricingController {
   @Post('rules')
   @ApiOperation({ summary: 'Create pricing rule' })
   @ApiResponse({ status: 201 })
-  async createRule(@Body() dto: CreatePricingRuleDto) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
-    // Verify pricing config belongs to tenant
-    const config = await this.pricingRepo.findConfigById(dto.pricingConfigId, tenantId);
+  async createRule(@Body() dto: CreatePricingRuleDto, @Request() req: any) {
+    const partnerId = req.user.partnerId;
+    // Verify pricing config belongs to partner
+    const config = await this.pricingRepo.findConfigById(dto.pricingConfigId, partnerId);
     if (!config) {
       this.logger.error(`Pricing config not found: ${dto.pricingConfigId}`);
       throw new Error('Pricing config not found');
@@ -195,9 +196,9 @@ export class PricingController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Calculate charge for event' })
   @ApiResponse({ status: 200, type: ChargeCalculationResponseDto })
-  async calculateCharge(@Body() dto: CalculateChargeDto) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
-    return this.calculationService.calculateChargeForEvent(tenantId, {
+  async calculateCharge(@Body() dto: CalculateChargeDto, @Request() req: any) {
+    const partnerId = req.user.partnerId;
+    return this.calculationService.calculateChargeForEvent(partnerId, {
       eventType: dto.eventType,
       resourceType: dto.resourceType,
       resourceId: dto.resourceId,
@@ -209,10 +210,10 @@ export class PricingController {
   @Get('charges')
   @ApiOperation({ summary: 'List charge events' })
   @ApiResponse({ status: 200 })
-  async listChargeEvents(@Query() query: ListChargeEventsDto) {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
+  async listChargeEvents(@Query() query: ListChargeEventsDto, @Request() req: any) {
+    const partnerId = req.user.partnerId;
     const { items, total } = await this.pricingRepo.findChargeEvents({
-      tenantId,
+      partnerId,
       chargeType: query.chargeType,
       eventType: query.eventType,
       processed: query.processed,
@@ -238,8 +239,8 @@ export class PricingController {
   @Get('charges/summary')
   @ApiOperation({ summary: 'Get charge summary' })
   @ApiResponse({ status: 200 })
-  async getChargeSummary() {
-    const tenantId = 'test-tenant-id'; // TODO: Get from context
-    return this.calculationService.getChargeSummary(tenantId);
+  async getChargeSummary(@Request() req: any) {
+    const partnerId = req.user.partnerId;
+    return this.calculationService.getChargeSummary(partnerId);
   }
 }

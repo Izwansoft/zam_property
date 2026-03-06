@@ -45,11 +45,11 @@ export class ListingController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
   @ApiOperation({
     summary: 'List listings',
     description:
-      'Get a paginated list of listings within the tenant. Supports filtering by status, vertical type, vendor, and more.',
+      'Get a paginated list of listings within the partner. Supports filtering by status, vertical type, vendor, and more.',
   })
   @ApiResponse({
     status: 200,
@@ -87,7 +87,7 @@ export class ListingController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
   @ApiOperation({
     summary: 'Get listing by ID',
     description: 'Get detailed listing information including vendor and media.',
@@ -109,7 +109,7 @@ export class ListingController {
   }
 
   @Get('by-slug/:slug')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
   @ApiOperation({
     summary: 'Get listing by slug',
     description: 'Get listing information by URL-friendly slug.',
@@ -129,7 +129,7 @@ export class ListingController {
   }
 
   @Get('vendor/:vendorId')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
   @ApiOperation({
     summary: 'Get listings by vendor',
     description: 'Get all listings for a specific vendor.',
@@ -164,11 +164,11 @@ export class ListingController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @ApiOperation({
     summary: 'Create listing',
     description:
-      'Create a new listing. Requires SUPER_ADMIN, TENANT_ADMIN, or VENDOR_ADMIN role. New listings start in DRAFT status.',
+      'Create a new listing. Requires SUPER_ADMIN, PARTNER_ADMIN, or VENDOR_ADMIN role. New listings start in DRAFT status.',
   })
   @ApiResponse({
     status: 201,
@@ -192,7 +192,7 @@ export class ListingController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @ApiOperation({
     summary: 'Update listing',
     description: 'Update an existing listing. Only DRAFT and PUBLISHED listings can be updated.',
@@ -224,7 +224,7 @@ export class ListingController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete listing',
@@ -242,7 +242,7 @@ export class ListingController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Post(':id/publish')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Publish listing',
@@ -268,7 +268,7 @@ export class ListingController {
   }
 
   @Post(':id/unpublish')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Unpublish listing',
@@ -291,7 +291,7 @@ export class ListingController {
   }
 
   @Post(':id/expire')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Expire listing',
@@ -314,7 +314,7 @@ export class ListingController {
   }
 
   @Post(':id/archive')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Archive listing',
@@ -341,7 +341,7 @@ export class ListingController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Post(':id/feature')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Feature listing',
@@ -364,7 +364,7 @@ export class ListingController {
   }
 
   @Post(':id/unfeature')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Unfeature listing',

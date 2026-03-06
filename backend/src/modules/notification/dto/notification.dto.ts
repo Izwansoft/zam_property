@@ -5,10 +5,12 @@ import {
   IsOptional,
   IsBoolean,
   IsObject,
+  IsInt,
   IsNumber,
   Min,
   IsUUID,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { NotificationType, NotificationChannel, NotificationStatus } from '@prisma/client';
 
@@ -80,18 +82,42 @@ export class ListNotificationsDto {
   status?: NotificationStatus;
 
   @ApiPropertyOptional()
+  @Type(() => Boolean)
   @IsBoolean()
   @IsOptional()
   unreadOnly?: boolean;
 
   @ApiPropertyOptional()
-  @IsNumber()
+  @Type(() => Boolean)
+  @IsBoolean()
+  @IsOptional()
+  isRead?: boolean;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  priority?: string;
+
+  @ApiPropertyOptional({ enum: ['createdAt'] })
+  @IsString()
+  @IsOptional()
+  sortBy?: string;
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'] })
+  @IsString()
+  @IsOptional()
+  sortOrder?: 'asc' | 'desc';
+
+  @ApiPropertyOptional()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
   @IsOptional()
   page?: number = 1;
 
   @ApiPropertyOptional()
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
   @Min(1)
   @IsOptional()
   pageSize?: number = 20;

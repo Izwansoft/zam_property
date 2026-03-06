@@ -75,7 +75,7 @@ export class EventLogService {
         id: logId,
         eventType: event.eventType,
         eventVersion: event.eventVersion,
-        tenantId: event.tenantId,
+        partnerId: event.partnerId,
         correlationId: event.correlationId,
         causationId: event.causationId ?? undefined,
         actorType: event.actorType,
@@ -100,18 +100,18 @@ export class EventLogService {
    * Used for debugging, compliance audits, and analytics
    */
   async getEvents(params: {
-    tenantId?: string | null;
+    partnerId?: string | null;
     eventType?: string;
     correlationId?: string;
     startDate?: Date;
     endDate?: Date;
     limit?: number;
   }) {
-    const { tenantId, eventType, correlationId, startDate, endDate, limit = 100 } = params;
+    const { partnerId, eventType, correlationId, startDate, endDate, limit = 100 } = params;
 
     return this.prisma.eventLog.findMany({
       where: {
-        ...(tenantId !== undefined && { tenantId }),
+        ...(partnerId !== undefined && { partnerId }),
         ...(eventType && { eventType }),
         ...(correlationId && { correlationId }),
         ...(startDate || endDate
@@ -144,18 +144,18 @@ export class EventLogService {
    * Returns an async generator for memory-efficient streaming
    *
    * Example usage:
-   * for await (const events of eventLogService.replayEvents({ tenantId: 'tenant-1' })) {
+   * for await (const events of eventLogService.replayEvents({ partnerId: 'partner-1' })) {
    *   // Process batch of events
    * }
    */
   async *replayEvents(params: {
-    tenantId?: string | null;
+    partnerId?: string | null;
     eventType?: string;
     startDate?: Date;
     endDate?: Date;
     batchSize?: number;
   }): AsyncGenerator<DomainEvent<unknown>[], void, unknown> {
-    const { tenantId, eventType, startDate, endDate, batchSize = 1000 } = params;
+    const { partnerId, eventType, startDate, endDate, batchSize = 1000 } = params;
 
     let cursor: string | undefined;
     let hasMore = true;
@@ -163,7 +163,7 @@ export class EventLogService {
     while (hasMore) {
       const events = await this.prisma.eventLog.findMany({
         where: {
-          ...(tenantId !== undefined && { tenantId }),
+          ...(partnerId !== undefined && { partnerId }),
           ...(eventType && { eventType }),
           ...(startDate || endDate
             ? {
@@ -189,7 +189,7 @@ export class EventLogService {
         eventId: e.id,
         eventType: e.eventType,
         eventVersion: e.eventVersion,
-        tenantId: e.tenantId,
+        partnerId: e.partnerId,
         correlationId: e.correlationId,
         causationId: e.causationId ?? undefined,
         actorType: e.actorType as 'user' | 'system' | 'admin',

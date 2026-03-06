@@ -1,7 +1,7 @@
 /*
   Phase 3 smoke test (local)
   - Requires backend running on BASE_URL (default http://localhost:3000)
-  - Uses seeded demo tenant/user from prisma/seed.ts unless overridden
+  - Uses seeded demo partner/user from prisma/seed.ts unless overridden
 
   Env overrides:
     BASE_URL=http://localhost:3000
@@ -59,24 +59,24 @@ async function main() {
     200,
   );
 
-  // 3) Tenant-scoped public search endpoints
-  const tenantHeader = { 'X-Tenant-ID': TENANT };
+  // 3) Partner-scoped public search endpoints
+  const partnerHeader = { 'X-Partner-ID': TENANT };
 
   printCheck(
     'GET /api/v1/search/listings',
-    (await request('GET', '/api/v1/search/listings?q=test&page=1&pageSize=1', { headers: tenantHeader })).status,
+    (await request('GET', '/api/v1/search/listings?q=test&page=1&pageSize=1', { headers: partnerHeader })).status,
     200,
   );
 
   printCheck(
     'GET /api/v1/real-estate/search',
-    (await request('GET', '/api/v1/real-estate/search?q=test&page=1&pageSize=1', { headers: tenantHeader })).status,
+    (await request('GET', '/api/v1/real-estate/search?q=test&page=1&pageSize=1', { headers: partnerHeader })).status,
     200,
   );
 
   // 4) Login and protected endpoints
   const login = await request('POST', '/api/v1/auth/login', {
-    headers: tenantHeader,
+    headers: partnerHeader,
     body: { email: EMAIL, password: PASSWORD },
   });
 
@@ -87,7 +87,7 @@ async function main() {
     process.exit(2);
   }
 
-  const authHeaders = { ...tenantHeader, Authorization: `Bearer ${accessToken}` };
+  const authHeaders = { ...partnerHeader, Authorization: `Bearer ${accessToken}` };
 
   printCheck(
     'GET /api/v1/verticals/definitions/active (auth)',
@@ -103,9 +103,9 @@ async function main() {
 
   // 4b) Prove background jobs actually process: enqueue a manual listing.expire check job
   const jwtPayload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8'));
-  const tenantId = jwtPayload?.tenantId;
-  if (!tenantId) {
-    console.error('FAIL  Could not extract tenantId from JWT');
+  const partnerId = jwtPayload?.partnerId;
+  if (!partnerId) {
+    console.error('FAIL  Could not extract partnerId from JWT');
     process.exit(2);
   }
 
@@ -115,7 +115,7 @@ async function main() {
       queue: 'listing.expire',
       jobType: 'listing.check_expired',
       data: {
-        tenantId,
+        partnerId,
         type: 'listing.check_expired',
         checkDate: new Date().toISOString(),
         batchSize: 50,

@@ -61,11 +61,11 @@ export interface CacheableMetadata {
  * @example
  * ```typescript
  * @Cacheable({
- *   key: (tenantId: string, listingId: string) =>
- *     EntityCacheKeys.listing(tenantId, listingId),
+ *   key: (partnerId: string, listingId: string) =>
+ *     EntityCacheKeys.listing(partnerId, listingId),
  *   ttl: CacheTTL.LISTING,
  * })
- * async getListing(tenantId: string, listingId: string): Promise<Listing> {
+ * async getListing(partnerId: string, listingId: string): Promise<Listing> {
  *   return this.prisma.listing.findUnique({ where: { id: listingId } });
  * }
  * ```
@@ -131,12 +131,12 @@ export interface CacheEvictMetadata {
  * @example
  * ```typescript
  * @CacheEvict({
- *   keys: (tenantId: string, listingId: string) => [
- *     EntityCacheKeys.listing(tenantId, listingId),
- *     EntityCacheKeys.listingFull(tenantId, listingId),
+ *   keys: (partnerId: string, listingId: string) => [
+ *     EntityCacheKeys.listing(partnerId, listingId),
+ *     EntityCacheKeys.listingFull(partnerId, listingId),
  *   ],
  * })
- * async updateListing(tenantId: string, listingId: string, data: UpdateDto): Promise<Listing> {
+ * async updateListing(partnerId: string, listingId: string, data: UpdateDto): Promise<Listing> {
  *   return this.prisma.listing.update({ where: { id: listingId }, data });
  * }
  * ```
@@ -144,10 +144,10 @@ export interface CacheEvictMetadata {
  * @example Pattern-based eviction
  * ```typescript
  * @CacheEvict({
- *   keys: (tenantId: string) => `ent:t:${tenantId}:listing:*`,
+ *   keys: (partnerId: string) => `ent:t:${partnerId}:listing:*`,
  *   pattern: true,
  * })
- * async bulkDeleteListings(tenantId: string): Promise<void> {
+ * async bulkDeleteListings(partnerId: string): Promise<void> {
  *   // ...
  * }
  * ```
@@ -203,11 +203,11 @@ export interface CachePutMetadata {
  * @example
  * ```typescript
  * @CachePut({
- *   key: (tenantId: string, listingId: string) =>
- *     EntityCacheKeys.listing(tenantId, listingId),
+ *   key: (partnerId: string, listingId: string) =>
+ *     EntityCacheKeys.listing(partnerId, listingId),
  *   ttl: CacheTTL.LISTING,
  * })
- * async updateListing(tenantId: string, listingId: string, data: UpdateDto): Promise<Listing> {
+ * async updateListing(partnerId: string, listingId: string, data: UpdateDto): Promise<Listing> {
  *   return this.prisma.listing.update({ where: { id: listingId }, data });
  * }
  * ```

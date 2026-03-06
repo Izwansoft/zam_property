@@ -173,7 +173,7 @@ export class EnableVerticalDto {
   verticalType!: string;
 
   @ApiPropertyOptional({
-    description: 'Configuration overrides for this tenant',
+    description: 'Configuration overrides for this partner',
     example: { allowCustomFields: true },
   })
   @IsOptional()
@@ -181,7 +181,7 @@ export class EnableVerticalDto {
   configOverrides?: Record<string, unknown>;
 
   @ApiPropertyOptional({
-    description: 'Tenant-specific custom fields',
+    description: 'Partner-specific custom fields',
     example: [
       {
         name: 'customField1',
@@ -204,7 +204,7 @@ export class EnableVerticalDto {
   listingLimit?: number;
 }
 
-export class UpdateTenantVerticalDto {
+export class UpdatePartnerVerticalDto {
   @ApiPropertyOptional({
     description: 'Configuration overrides',
   })
@@ -257,7 +257,7 @@ export class VerticalQueryDto {
   isCore?: boolean;
 }
 
-export class TenantVerticalQueryDto {
+export class PartnerVerticalQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by enabled status',
   })
@@ -329,12 +329,12 @@ export class VerticalDefinitionResponseDto {
   updatedAt!: Date;
 }
 
-export class TenantVerticalResponseDto {
-  @ApiProperty({ description: 'Tenant Vertical ID' })
+export class PartnerVerticalResponseDto {
+  @ApiProperty({ description: 'Partner Vertical ID' })
   id!: string;
 
-  @ApiProperty({ description: 'Tenant ID' })
-  tenantId!: string;
+  @ApiProperty({ description: 'Partner ID' })
+  partnerId!: string;
 
   @ApiProperty({ description: 'Vertical ID' })
   verticalId!: string;
@@ -367,14 +367,14 @@ export class TenantVerticalResponseDto {
   vertical?: VerticalDefinitionResponseDto;
 }
 
-export class TenantVerticalSummaryDto {
+export class PartnerVerticalSummaryDto {
   @ApiProperty({ description: 'Vertical type', example: 'real_estate' })
   type!: string;
 
   @ApiProperty({ description: 'Vertical name', example: 'Real Estate' })
   name!: string;
 
-  @ApiProperty({ description: 'Is enabled for tenant' })
+  @ApiProperty({ description: 'Is enabled for partner' })
   isEnabled!: boolean;
 
   @ApiPropertyOptional({ description: 'Listing limit' })

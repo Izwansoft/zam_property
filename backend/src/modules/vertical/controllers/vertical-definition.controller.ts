@@ -63,7 +63,7 @@ export class VerticalDefinitionController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'Get all vertical definitions',
     description: 'Get all vertical definitions with optional filters',

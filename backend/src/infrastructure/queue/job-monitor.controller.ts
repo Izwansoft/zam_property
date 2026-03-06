@@ -40,7 +40,7 @@ import {
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('admin/jobs')
-@Roles('SUPER_ADMIN', 'TENANT_ADMIN')
+@Roles('SUPER_ADMIN', 'PARTNER_ADMIN')
 export class JobMonitorController {
   private readonly logger = new Logger(JobMonitorController.name);
 
@@ -299,7 +299,7 @@ export class JobMonitorController {
   async addJob(@Body() dto: AddJobDto): Promise<AddJobResponse> {
     const jobData = {
       ...dto.data,
-      tenantId: (dto.data.tenantId as string) || 'manual',
+      partnerId: (dto.data.partnerId as string) || 'manual',
     };
     const jobId = await this.queueService.addJob(
       dto.queue,

@@ -22,7 +22,7 @@ export class AnalyticsDateRangeQueryDto {
 export class VendorAnalyticsQueryDto extends AnalyticsDateRangeQueryDto {
   @ApiPropertyOptional({
     description:
-      'Vendor UUID. Required for TENANT_ADMIN; ignored for VENDOR_ADMIN when token has vendorId.',
+      'Vendor UUID. Required for PARTNER_ADMIN; ignored for VENDOR_ADMIN when token has vendorId.',
     example: 'b3b2a6b2-5b0a-4c2b-9b66-3f45d8d2a2b1',
   })
   @IsOptional()

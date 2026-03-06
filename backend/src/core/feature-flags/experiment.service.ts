@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, Scope } from '@nestjs/common';
 import { createHash } from 'crypto';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { CacheService, CacheTTL, ConfigCacheKeys } from '@infrastructure/cache';
 import { PrismaService } from '@infrastructure/database';
 import { EventBusService, FeatureFlagUpdatedEvent } from '@infrastructure/events';
@@ -30,13 +30,13 @@ type CachedExperiment = {
 export class ExperimentService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
     private readonly cache: CacheService,
     private readonly eventBus: EventBusService,
   ) {}
 
-  private get tenantId(): string {
-    return this.tenantContext.tenantId;
+  private get partnerId(): string {
+    return this.PartnerContext.partnerId;
   }
 
   private stableBucket(subject: string, experimentKey: string): number {
@@ -146,15 +146,15 @@ export class ExperimentService {
     await this.cache.del(ConfigCacheKeys.experiments());
     await this.eventBus.publish(
       new FeatureFlagUpdatedEvent({
-        tenantId: null,
-        correlationId: this.tenantContext.correlationId,
+        partnerId: null,
+        correlationId: this.PartnerContext.correlationId,
         actorType: 'user',
-        actorId: this.tenantContext.userId,
+        actorId: this.PartnerContext.userId,
         payload: {
           flagKey: `experiment:${created.key}`,
           previousValue: {},
           newValue: input as unknown as Record<string, unknown>,
-          updatedBy: this.tenantContext.userId ?? 'system',
+          updatedBy: this.PartnerContext.userId ?? 'system',
         },
       }),
     );
@@ -162,7 +162,7 @@ export class ExperimentService {
     return created;
   }
 
-  async upsertTenantOptIn(experimentKey: string, tenantId: string, optIn: boolean): Promise<void> {
+  async upsertTenantOptIn(experimentKey: string, partnerId: string, optIn: boolean): Promise<void> {
     const experiment = await this.prisma.experiment.findUnique({
       where: { key: experimentKey },
       select: { id: true },
@@ -170,28 +170,28 @@ export class ExperimentService {
     if (!experiment) throw new NotFoundException('Experiment not found');
 
     if (!optIn) {
-      await this.prisma.experimentTenantOptIn.deleteMany({
-        where: { experimentId: experiment.id, tenantId },
+      await this.prisma.experimentPartnerOptIn.deleteMany({
+        where: { experimentId: experiment.id, partnerId },
       });
-      await this.cache.del(ConfigCacheKeys.experimentOptInsForTenant(tenantId));
+      await this.cache.del(ConfigCacheKeys.experimentOptInsForTenant(partnerId));
       return;
     }
 
-    await this.prisma.experimentTenantOptIn.upsert({
-      where: { experimentId_tenantId: { experimentId: experiment.id, tenantId } },
-      create: { experimentId: experiment.id, tenantId },
+    await this.prisma.experimentPartnerOptIn.upsert({
+      where: { experimentId_partnerId: { experimentId: experiment.id, partnerId } },
+      create: { experimentId: experiment.id, partnerId },
       update: {},
     });
 
-    await this.cache.del(ConfigCacheKeys.experimentOptInsForTenant(tenantId));
+    await this.cache.del(ConfigCacheKeys.experimentOptInsForTenant(partnerId));
   }
 
-  async isTenantOptedIn(experimentKey: string, tenantId: string): Promise<boolean> {
+  async isTenantOptedIn(experimentKey: string, partnerId: string): Promise<boolean> {
     const optIns = await this.cache.getOrSet<string[]>(
-      ConfigCacheKeys.experimentOptInsForTenant(tenantId),
+      ConfigCacheKeys.experimentOptInsForTenant(partnerId),
       async () => {
-        const rows = await this.prisma.experimentTenantOptIn.findMany({
-          where: { tenantId },
+        const rows = await this.prisma.experimentPartnerOptIn.findMany({
+          where: { partnerId },
           select: { experiment: { select: { key: true } } },
         });
         return rows.map((r) => r.experiment.key);
@@ -205,7 +205,7 @@ export class ExperimentService {
   async getAssignment(
     experimentKey: string,
     subject: string,
-    tenantId: string,
+    partnerId: string,
   ): Promise<{ variant: string } | null> {
     const experiment = await this.getExperimentByKeyOrThrow(experimentKey);
     if (!experiment.isActive) return null;
@@ -213,7 +213,7 @@ export class ExperimentService {
     const now = Date.now();
     if (now < Date.parse(experiment.startsAt) || now > Date.parse(experiment.endsAt)) return null;
 
-    const optedIn = await this.isTenantOptedIn(experimentKey, tenantId);
+    const optedIn = await this.isTenantOptedIn(experimentKey, partnerId);
     if (!optedIn) return null;
 
     return { variant: this.pickVariant(experimentKey, subject, experiment.variants) };

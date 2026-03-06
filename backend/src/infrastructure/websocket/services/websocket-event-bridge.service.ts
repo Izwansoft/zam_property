@@ -23,15 +23,15 @@ export class WebSocketEventBridge {
 
   @OnEvent('listing.created')
   handleListingCreated(event: {
-    tenantId: string;
+    partnerId: string;
     listingId: string;
     vendorId: string;
     title: string;
   }): void {
     this.logger.debug(`Broadcasting listing.created: ${event.listingId}`);
 
-    // Notify tenant admins
-    this.broadcastService.broadcastToTenantListings(event.tenantId, 'listing:created', {
+    // Notify partner admins
+    this.broadcastService.broadcastToTenantListings(event.partnerId, 'listing:created', {
       listingId: event.listingId,
       title: event.title,
       vendorId: event.vendorId,
@@ -46,7 +46,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('listing.updated')
   handleListingUpdated(event: {
-    tenantId: string;
+    partnerId: string;
     listingId: string;
     vendorId: string;
     changes: Record<string, unknown>;
@@ -68,7 +68,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('listing.published')
   handleListingPublished(event: {
-    tenantId: string;
+    partnerId: string;
     listingId: string;
     vendorId: string;
     title: string;
@@ -76,8 +76,8 @@ export class WebSocketEventBridge {
   }): void {
     this.logger.debug(`Broadcasting listing.published: ${event.listingId}`);
 
-    // Notify all tenant members
-    this.broadcastService.broadcastToTenant(event.tenantId, 'listing:published', {
+    // Notify all partner members
+    this.broadcastService.broadcastToTenant(event.partnerId, 'listing:published', {
       listingId: event.listingId,
       title: event.title,
       publishedAt: event.publishedAt,
@@ -98,7 +98,7 @@ export class WebSocketEventBridge {
   }
 
   @OnEvent('listing.unpublished')
-  handleListingUnpublished(event: { tenantId: string; listingId: string; vendorId: string }): void {
+  handleListingUnpublished(event: { partnerId: string; listingId: string; vendorId: string }): void {
     this.logger.debug(`Broadcasting listing.unpublished: ${event.listingId}`);
 
     // Notify listing viewers
@@ -114,7 +114,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('listing.expired')
   handleListingExpired(event: {
-    tenantId: string;
+    partnerId: string;
     listingId: string;
     vendorId: string;
     reason?: string;
@@ -134,7 +134,7 @@ export class WebSocketEventBridge {
   }
 
   @OnEvent('listing.deleted')
-  handleListingDeleted(event: { tenantId: string; listingId: string; vendorId: string }): void {
+  handleListingDeleted(event: { partnerId: string; listingId: string; vendorId: string }): void {
     this.logger.debug(`Broadcasting listing.deleted: ${event.listingId}`);
 
     // Notify listing viewers to redirect
@@ -154,7 +154,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('interaction.created')
   handleInteractionCreated(event: {
-    tenantId: string;
+    partnerId: string;
     interactionId: string;
     vendorId: string;
     listingId: string;
@@ -175,7 +175,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('interaction.updated')
   handleInteractionUpdated(event: {
-    tenantId: string;
+    partnerId: string;
     interactionId: string;
     vendorId: string;
     status: string;
@@ -238,7 +238,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('vendor.approved')
   handleVendorApproved(event: {
-    tenantId: string;
+    partnerId: string;
     vendorId: string;
     vendorName: string;
     ownerId: string;
@@ -251,8 +251,8 @@ export class WebSocketEventBridge {
       vendorName: event.vendorName,
     });
 
-    // Notify tenant admins
-    this.broadcastService.broadcastToTenantListings(event.tenantId, 'vendor:approved', {
+    // Notify partner admins
+    this.broadcastService.broadcastToTenantListings(event.partnerId, 'vendor:approved', {
       vendorId: event.vendorId,
       vendorName: event.vendorName,
     });
@@ -260,7 +260,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('vendor.rejected')
   handleVendorRejected(event: {
-    tenantId: string;
+    partnerId: string;
     vendorId: string;
     vendorName: string;
     ownerId: string;
@@ -278,7 +278,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('vendor.suspended')
   handleVendorSuspended(event: {
-    tenantId: string;
+    partnerId: string;
     vendorId: string;
     vendorName: string;
     ownerId: string;
@@ -305,7 +305,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('review.created')
   handleReviewCreated(event: {
-    tenantId: string;
+    partnerId: string;
     reviewId: string;
     vendorId: string;
     rating: number;
@@ -323,7 +323,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('review.approved')
   handleReviewApproved(event: {
-    tenantId: string;
+    partnerId: string;
     reviewId: string;
     vendorId: string;
     rating: number;
@@ -343,7 +343,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('subscription.created')
   handleSubscriptionCreated(event: {
-    tenantId: string;
+    partnerId: string;
     subscriptionId: string;
     vendorId: string;
     planName: string;
@@ -359,7 +359,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('subscription.expiring')
   handleSubscriptionExpiring(event: {
-    tenantId: string;
+    partnerId: string;
     subscriptionId: string;
     vendorId: string;
     expiresAt: Date;
@@ -375,7 +375,7 @@ export class WebSocketEventBridge {
 
   @OnEvent('subscription.expired')
   handleSubscriptionExpired(event: {
-    tenantId: string;
+    partnerId: string;
     subscriptionId: string;
     vendorId: string;
   }): void {
@@ -392,12 +392,12 @@ export class WebSocketEventBridge {
   // ============================================
 
   @OnEvent('system.maintenance')
-  handleSystemMaintenance(event: { message: string; scheduledAt: Date; tenantId?: string }): void {
+  handleSystemMaintenance(event: { message: string; scheduledAt: Date; partnerId?: string }): void {
     this.logger.debug(`Broadcasting system.maintenance`);
 
-    if (event.tenantId) {
-      // Tenant-specific maintenance
-      this.broadcastService.broadcastToTenant(event.tenantId, 'system:maintenance', {
+    if (event.partnerId) {
+      // Partner-specific maintenance
+      this.broadcastService.broadcastToTenant(event.partnerId, 'system:maintenance', {
         message: event.message,
         scheduledAt: event.scheduledAt,
       });

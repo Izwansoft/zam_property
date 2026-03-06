@@ -10,7 +10,7 @@ import { Module, OnModuleInit, Logger } from '@nestjs/common';
 
 import { DatabaseModule } from '@infrastructure/database';
 import { SearchModule } from '@infrastructure/search';
-import { TenantContextModule } from '@core/tenant-context';
+import { PartnerContextModule } from '@core/partner-context';
 import { ValidationModule } from '@core/validation';
 import { VerticalModule, VerticalService } from '@modules/vertical';
 
@@ -119,7 +119,7 @@ export const REAL_ESTATE_VERTICAL_DEFINITION = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Module({
-  imports: [DatabaseModule, TenantContextModule, VerticalModule, SearchModule, ValidationModule],
+  imports: [DatabaseModule, PartnerContextModule, VerticalModule, SearchModule, ValidationModule],
   controllers: [RealEstateSearchController],
   providers: [RealEstateListingService, RealEstateSearchService, RealEstateValidator],
   exports: [RealEstateListingService, RealEstateSearchService, RealEstateValidator],

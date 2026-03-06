@@ -29,7 +29,7 @@ import { FeatureFlagService } from './feature-flag.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('admin/feature-flags')
-@Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+@Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
 export class FeatureFlagAdminController {
   constructor(private readonly featureFlags: FeatureFlagService) {}
 
@@ -109,7 +109,7 @@ export class FeatureFlagAdminController {
     @Body() dto: UpsertFeatureFlagOverrideDto,
   ): Promise<SuccessResponse<{ id: string }>> {
     const created = await this.featureFlags.upsertOverride(key, {
-      tenantId: dto.tenantId ?? null,
+      partnerId: dto.partnerId ?? null,
       verticalType: dto.verticalType ?? null,
       role: dto.role ?? null,
       isEmergency: dto.isEmergency ?? false,
@@ -129,7 +129,7 @@ export class FeatureFlagAdminController {
     @Body() dto: SetFeatureFlagUserTargetDto,
   ): Promise<SuccessResponse<{ ok: true }>> {
     await this.featureFlags.setUserTarget(key, {
-      tenantId: dto.tenantId,
+      partnerId: dto.partnerId,
       userId: dto.userId,
       value: dto.value,
     });

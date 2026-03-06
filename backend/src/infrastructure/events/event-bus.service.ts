@@ -41,7 +41,7 @@ export class EventBusService {
       message: 'Event published',
       eventId: event.eventId,
       eventType: event.eventType,
-      tenantId: event.tenantId,
+      partnerId: event.partnerId,
       correlationId: event.correlationId,
     });
   }

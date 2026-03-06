@@ -6,13 +6,15 @@ import { IndexingService } from './services/indexing.service';
 import { SearchEventHandlers } from './listeners/search-event-handlers.service';
 import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchController } from './controllers/search.controller';
-import { TenantContextModule } from '@core/tenant-context';
+import { PartnerContextModule } from '@core/partner-context';
+import { DatabaseModule } from '@infrastructure/database';
 import { ListingModule } from '@modules/listing/listing.module';
 import { VendorModule } from '@modules/vendor/vendor.module';
 
 @Module({
   imports: [
-    TenantContextModule,
+    PartnerContextModule,
+    DatabaseModule,
     ListingModule,
     VendorModule,
     BullModule.registerQueue({

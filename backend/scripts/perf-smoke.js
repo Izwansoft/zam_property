@@ -33,12 +33,13 @@ function safeMs(value) {
 
 async function run() {
   const baseUrl = process.env.PERF_BASE_URL || 'http://localhost:3000';
+  const path = process.env.PERF_PATH || '/api/v1/health';
   const durationSeconds = getNumberEnv('PERF_DURATION_SECONDS', 10);
   const connections = getNumberEnv('PERF_CONNECTIONS', 20);
   const pipelining = getNumberEnv('PERF_PIPELINING', 1);
 
-  // Keep this endpoint unauthenticated and tenant-free.
-  const url = `${baseUrl.replace(/\/$/, '')}/health`;
+  // Keep this endpoint unauthenticated and partner-free.
+  const url = `${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
 
   // Preflight to provide a clear error when the API isn't running.
   try {

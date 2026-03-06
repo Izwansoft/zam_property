@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ListingStatus, Prisma } from '@prisma/client';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { ListingStateMachine } from '@core/workflows';
 import {
   EventBusService,
@@ -46,7 +46,7 @@ export class ListingService {
 
   constructor(
     private readonly listingRepository: ListingRepository,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
     private readonly eventBus: EventBusService,
     private readonly listingStateMachine: ListingStateMachine,
     private readonly validationHelper: ListingValidationHelper,
@@ -128,10 +128,10 @@ export class ListingService {
         vendorId: listing.vendorId,
         verticalType: listing.verticalType,
       },
-      tenantId: this.tenantContext.tenantId,
-      correlationId: this.tenantContext.correlationId,
+      partnerId: this.PartnerContext.partnerId,
+      correlationId: this.PartnerContext.correlationId,
       actorType: 'user',
-      actorId: this.tenantContext.userId ?? undefined,
+      actorId: this.PartnerContext.userId ?? undefined,
     });
 
     void this.eventBus.publish(viewedEvent).catch((err: unknown) => {
@@ -167,7 +167,7 @@ export class ListingService {
         data.verticalType,
         data.attributes as Record<string, unknown>,
         {
-          tenantId: this.tenantContext.tenantId,
+          partnerId: this.PartnerContext.partnerId,
           vendorId: data.vendorId,
           currentStatus: 'DRAFT',
         },
@@ -212,10 +212,10 @@ export class ListingService {
           title: listing.title,
           status: 'DRAFT',
         },
-        tenantId: this.tenantContext.tenantId,
-        correlationId: this.tenantContext.correlationId,
+        partnerId: this.PartnerContext.partnerId,
+        correlationId: this.PartnerContext.correlationId,
         actorType: 'user',
-        actorId: this.tenantContext.userId ?? undefined,
+        actorId: this.PartnerContext.userId ?? undefined,
       });
 
       await this.eventBus.publish(event);
@@ -267,10 +267,10 @@ export class ListingService {
           currency: existing.currency,
         } as Record<string, unknown>,
       },
-      tenantId: this.tenantContext.tenantId,
-      correlationId: this.tenantContext.correlationId,
+      partnerId: this.PartnerContext.partnerId,
+      correlationId: this.PartnerContext.correlationId,
       actorType: 'user',
-      actorId: this.tenantContext.userId ?? undefined,
+      actorId: this.PartnerContext.userId ?? undefined,
     });
 
     await this.eventBus.publish(event);
@@ -306,7 +306,7 @@ export class ListingService {
         listing.verticalType,
         listing.attributes as Record<string, unknown>,
         {
-          tenantId: this.tenantContext.tenantId,
+          partnerId: this.PartnerContext.partnerId,
           vendorId: listing.vendorId,
           currentStatus: listing.status,
         },
@@ -355,10 +355,10 @@ export class ListingService {
             }
           : undefined,
       },
-      tenantId: this.tenantContext.tenantId,
-      correlationId: this.tenantContext.correlationId,
+      partnerId: this.PartnerContext.partnerId,
+      correlationId: this.PartnerContext.correlationId,
       actorType: 'user',
-      actorId: this.tenantContext.userId ?? undefined,
+      actorId: this.PartnerContext.userId ?? undefined,
     });
 
     await this.eventBus.publish(event);
@@ -398,10 +398,10 @@ export class ListingService {
         vendorId: updated.vendorId,
         reason,
       },
-      tenantId: this.tenantContext.tenantId,
-      correlationId: this.tenantContext.correlationId,
+      partnerId: this.PartnerContext.partnerId,
+      correlationId: this.PartnerContext.correlationId,
       actorType: 'user',
-      actorId: this.tenantContext.userId ?? undefined,
+      actorId: this.PartnerContext.userId ?? undefined,
     });
 
     await this.eventBus.publish(event);
@@ -443,8 +443,8 @@ export class ListingService {
         expiryDate: updated.expiresAt ?? new Date(),
         reason,
       },
-      tenantId: this.tenantContext.tenantId,
-      correlationId: this.tenantContext.correlationId,
+      partnerId: this.PartnerContext.partnerId,
+      correlationId: this.PartnerContext.correlationId,
       actorType: 'system',
     });
 
@@ -484,10 +484,10 @@ export class ListingService {
         vendorId: updated.vendorId,
         reason: reason ?? 'Archived by user',
       },
-      tenantId: this.tenantContext.tenantId,
-      correlationId: this.tenantContext.correlationId,
+      partnerId: this.PartnerContext.partnerId,
+      correlationId: this.PartnerContext.correlationId,
       actorType: 'user',
-      actorId: this.tenantContext.userId ?? undefined,
+      actorId: this.PartnerContext.userId ?? undefined,
     });
 
     await this.eventBus.publish(event);
@@ -529,10 +529,10 @@ export class ListingService {
         featuredUntil: updated.featuredUntil ?? new Date(),
         placement: undefined,
       },
-      tenantId: this.tenantContext.tenantId,
-      correlationId: this.tenantContext.correlationId,
+      partnerId: this.PartnerContext.partnerId,
+      correlationId: this.PartnerContext.correlationId,
       actorType: 'user',
-      actorId: this.tenantContext.userId ?? undefined,
+      actorId: this.PartnerContext.userId ?? undefined,
     });
 
     await this.eventBus.publish(event);

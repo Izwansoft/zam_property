@@ -13,7 +13,7 @@ export class NotificationRepository {
   // ───────────────────────────────────────────────────────────────────────────
 
   async createNotification(data: {
-    tenantId: string;
+    partnerId: string;
     userId: string;
     type: NotificationType;
     channel: NotificationChannel;
@@ -27,7 +27,7 @@ export class NotificationRepository {
   }) {
     const notification = await this.prisma.notification.create({
       data: {
-        tenantId: data.tenantId,
+        partnerId: data.partnerId,
         userId: data.userId,
         type: data.type,
         channel: data.channel,
@@ -47,7 +47,7 @@ export class NotificationRepository {
   }
 
   async findNotifications(params: {
-    tenantId: string;
+    partnerId: string;
     userId?: string;
     type?: NotificationType;
     channel?: NotificationChannel;
@@ -61,7 +61,7 @@ export class NotificationRepository {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.NotificationWhereInput = {
-      tenantId: params.tenantId,
+      partnerId: params.partnerId,
       ...(params.userId && { userId: params.userId }),
       ...(params.type && { type: params.type }),
       ...(params.channel && { channel: params.channel }),
@@ -82,22 +82,24 @@ export class NotificationRepository {
     return {
       data: notifications,
       meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
+        pagination: {
+          page,
+          pageSize,
+          totalItems: total,
+          totalPages: Math.ceil(total / pageSize),
+        },
       },
     };
   }
 
-  async findNotificationById(id: string, tenantId: string) {
+  async findNotificationById(id: string, partnerId: string) {
     return this.prisma.notification.findFirst({
-      where: { id, tenantId },
+      where: { id, partnerId },
     });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async markAsRead(id: string, _tenantId: string) {
+  async markAsRead(id: string, _partnerId: string) {
     const updated = await this.prisma.notification.update({
       where: { id },
       data: {
@@ -110,9 +112,9 @@ export class NotificationRepository {
     return updated;
   }
 
-  async markAllAsRead(params: { tenantId: string; userId: string; type?: NotificationType }) {
+  async markAllAsRead(params: { partnerId: string; userId: string; type?: NotificationType }) {
     const where: Prisma.NotificationWhereInput = {
-      tenantId: params.tenantId,
+      partnerId: params.partnerId,
       userId: params.userId,
       readAt: null,
       ...(params.type && { type: params.type }),
@@ -157,10 +159,10 @@ export class NotificationRepository {
     });
   }
 
-  async getUnreadCount(tenantId: string, userId: string) {
+  async getUnreadCount(partnerId: string, userId: string) {
     return this.prisma.notification.count({
       where: {
-        tenantId,
+        partnerId,
         userId,
         readAt: null,
       },
@@ -172,7 +174,7 @@ export class NotificationRepository {
   // ───────────────────────────────────────────────────────────────────────────
 
   async createTemplate(data: {
-    tenantId: string;
+    partnerId: string;
     type: NotificationType;
     channel: NotificationChannel;
     name: string;
@@ -185,7 +187,7 @@ export class NotificationRepository {
   }) {
     const template = await this.prisma.notificationTemplate.create({
       data: {
-        tenantId: data.tenantId,
+        partnerId: data.partnerId,
         type: data.type,
         channel: data.channel,
         name: data.name,
@@ -203,7 +205,7 @@ export class NotificationRepository {
   }
 
   async findTemplates(params: {
-    tenantId: string;
+    partnerId: string;
     type?: NotificationType;
     channel?: NotificationChannel;
     isActive?: boolean;
@@ -216,7 +218,7 @@ export class NotificationRepository {
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.NotificationTemplateWhereInput = {
-      tenantId: params.tenantId,
+      partnerId: params.partnerId,
       ...(params.type && { type: params.type }),
       ...(params.channel && { channel: params.channel }),
       ...(params.isActive !== undefined && { isActive: params.isActive }),
@@ -244,21 +246,21 @@ export class NotificationRepository {
     };
   }
 
-  async findTemplateById(id: string, tenantId: string) {
+  async findTemplateById(id: string, partnerId: string) {
     return this.prisma.notificationTemplate.findFirst({
-      where: { id, tenantId },
+      where: { id, partnerId },
     });
   }
 
   async findTemplateByTypeAndChannel(params: {
-    tenantId: string;
+    partnerId: string;
     type: NotificationType;
     channel: NotificationChannel;
     locale?: string;
   }) {
     return this.prisma.notificationTemplate.findFirst({
       where: {
-        tenantId: params.tenantId,
+        partnerId: params.partnerId,
         type: params.type,
         channel: params.channel,
         locale: params.locale || 'en',
@@ -269,7 +271,7 @@ export class NotificationRepository {
 
   async updateTemplate(
     id: string,
-    tenantId: string,
+    partnerId: string,
     data: {
       name?: string;
       description?: string;
@@ -292,7 +294,7 @@ export class NotificationRepository {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async deleteTemplate(id: string, _tenantId: string) {
+  async deleteTemplate(id: string, _partnerId: string) {
     await this.prisma.notificationTemplate.delete({
       where: { id },
     });

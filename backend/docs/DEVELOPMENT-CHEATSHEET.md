@@ -740,15 +740,29 @@ Continuing Zam-Property backend development.
 Read docs/ai-prompt/part-23.md (Admin, Backoffice & Operational Tooling)
 
 Task: Implement Admin APIs:
-1. Create tenant dashboard stats endpoint
-2. Create vendor management dashboard
-3. Create listing moderation endpoints
-4. Create system health endpoints
-5. Create bulk action endpoints
+1. Create tenant dashboard stats endpoint (GET /admin/dashboard/stats)
+   - Vendors by status, listings by status, interactions (7d), pending vendors, pending reviews
+2. Create property management dashboard stats endpoint (GET /admin/dashboard/pm-stats)
+   - Tenancy stats: by status, active count, expiring soon, total
+   - Billing stats: by status, overdue count/amount, collected/billed this month
+   - Maintenance stats: by status, by priority, open count, unassigned count
+   - Payout stats: by status, pending approval amount, processed this month
+   - Deposit stats: by status, total held amount, pending refund count
+   - Inspection stats: by status, upcoming count, completed this month
+   - Claim stats: by status, pending review, disputed count
+   - Legal stats: by status, open cases count
+   - Occupant stats: total, active count
+   - Company/Agent stats: total/active companies, total/active agents
+3. Create vendor management dashboard (GET/POST /admin/vendors/*)
+4. Create listing moderation endpoints (GET/POST /admin/listings/*)
+5. Create system health endpoints (GET /admin/system/health)
+6. Create bulk action endpoints (POST /admin/bulk/*)
 
-Admin must be able to: moderate listings, manage vendors, view stats
+Admin must be able to: moderate listings, manage vendors, view marketplace stats,
+view property management stats (tenancies, billing, maintenance, payouts, deposits,
+inspections, claims, legal, occupants, companies/agents).
 ```
-- [ ] Completed
+- [x] Completed
 
 ---
 
@@ -844,6 +858,801 @@ Final verification before frontend development:
 8. Security review passed
 
 Backend is now ready for frontend integration.
+```
+- [x] All checks passed
+
+---
+
+## 🏠 PHASE 5 — PROPERTY MANAGEMENT: FOUNDATION
+
+> **Reference:** `docs/PROPERTY-MANAGEMENT-EXTENSION.md` for full schema design
+
+### Session 5.1: Database Schema Migration
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3: Database Schema)
+
+Task: Add Property Management entities to Prisma:
+1. Add new enums: OccupantStatus, TenancyStatus, ContractStatus, BillingStatus, PaymentStatus, DepositStatus, MaintenanceStatus, MaintenancePriority, InspectionType, InspectionStatus, ClaimType, ClaimStatus, PayoutStatus, LegalCaseStatus
+2. Add OCCUPANT role to UserRole enum
+3. Create Occupant + OccupantDocument models
+4. Create VendorDocument model (for Owner KYC - IC, business license, SSM)
+5. Create Tenancy + TenancyStatusHistory models
+6. Create Contract + ContractTemplate models
+7. Create Deposit model
+8. Add relations to existing Listing, Vendor, User models
+9. Generate and run migration
+10. Create seed data for testing
+
+VendorDocument types: IC_FRONT, IC_BACK, BUSINESS_LICENSE, SSM, BANK_STATEMENT
+Schema reference: docs/PROPERTY-MANAGEMENT-EXTENSION.md Section 3.2
+```
+- [x] Completed
+
+---
+
+### Session 5.2: Occupant Module
+```
+Continuing Zam-Property backend development.
+
+Task: Implement Occupant module:
+1. Create OccupantModule in src/modules/occupant/
+2. Create OccupantService with:
+   - createOccupant (from User)
+   - updateOccupant
+   - getOccupant, listOccupants
+   - uploadDocument (to S3)
+   - verifyDocument
+   - runScreening (mock for now)
+3. Create OccupantController with endpoints:
+   - POST /occupants
+   - GET /occupants
+   - GET /occupants/:id
+   - PATCH /occupants/:id
+   - POST /occupants/:id/documents
+   - POST /occupants/:id/verify
+   - POST /occupants/:id/screen
+4. Create DTOs with validation
+5. Add OccupantGuard for self-access
+
+Permissions: OCCUPANT can only access own data. VENDOR_ADMIN can view occupants in their properties.
+```
+- [x] Completed
+
+---
+
+### Session 5.3: Tenancy Core Module
+```
+Continuing Zam-Property backend development.
+
+Task: Implement Tenancy core:
+1. Create TenancyModule in src/modules/tenancy/
+2. Create TenancyService with CRUD:
+   - createTenancy (booking)
+   - getTenancy, listTenancies
+   - updateTenancy
+3. Create TenancyStateMachine with transitions:
+   - DRAFT → BOOKED
+   - BOOKED → DEPOSIT_PAID
+   - DEPOSIT_PAID → CONTRACT_PENDING
+   - CONTRACT_PENDING → ACTIVE
+   - ACTIVE → TERMINATION_REQUESTED
+   - TERMINATION_REQUESTED → TERMINATED
+   - ACTIVE → EXTENDED
+4. Create TenancyController with endpoints:
+   - POST /tenancies
+   - GET /tenancies
+   - GET /tenancies/:id
+   - PATCH /tenancies/:id
+   - GET /tenancies/:id/history
+5. Record all status changes in TenancyStatusHistory
+
+Access: OCCUPANT sees own tenancies, VENDOR_ADMIN sees tenancies for their properties.
+```
+- [x] Completed
+
+---
+
+### Session 5.4: Tenancy Workflow
+```
+Continuing Zam-Property backend development.
+
+Task: Implement Tenancy workflow actions:
+1. Add workflow endpoints:
+   - POST /tenancies/:id/confirm-booking (DRAFT → BOOKED)
+   - POST /tenancies/:id/confirm-deposit (BOOKED → DEPOSIT_PAID)
+   - POST /tenancies/:id/activate (CONTRACT_PENDING → ACTIVE)
+   - POST /tenancies/:id/request-termination
+   - POST /tenancies/:id/terminate
+   - POST /tenancies/:id/extend
+2. Add TenancyWorkflowService for complex transitions
+3. Emit events for each transition (TenancyBookedEvent, TenancyActivatedEvent, etc.)
+4. Create background job for tenancy expiry notifications
+5. Add auto-status update for expired tenancies
+
+Integration: Link with Notification module for status change emails.
+```
+- [x] Completed
+
+---
+
+### Session 5.5: Contract Core Module
+```
+Continuing Zam-Property backend development.
+
+Task: Implement Contract module:
+1. Create ContractModule in src/modules/contract/
+2. Create ContractTemplateService:
+   - CRUD for templates
+   - Variable substitution ({{occupantName}}, {{propertyAddress}}, etc.)
+3. Create ContractService:
+   - generateContract (from template + tenancy)
+   - getContract
+   - updateContractTerms
+4. Create ContractController:
+   - POST /contracts (generate from tenancy)
+   - GET /contracts/:id
+   - PATCH /contracts/:id
+   - GET /contract-templates
+   - POST /contract-templates
+   - PATCH /contract-templates/:id
+5. Generate contract PDF using Puppeteer/PDFKit
+6. Store PDF in S3, save URL in Contract.documentUrl
+
+Template variables: rentAmount, depositAmount, startDate, endDate, ownerName, occupantName, propertyAddress
+```
+- [x] Completed
+
+---
+
+### Session 5.6: Contract E-Signature Integration
+```
+Continuing Zam-Property backend development.
+
+Task: Implement e-signature workflow:
+1. Choose provider: DocuSign or SignNow (create adapter interface)
+2. Create SignatureService with:
+   - requestSignatures(contractId)
+   - handleWebhook(event)
+   - getSignatureStatus(contractId)
+3. Add controller endpoints:
+   - POST /contracts/:id/request-signatures
+   - POST /contracts/webhook (provider callback)
+   - GET /contracts/:id/signature-status
+4. Update Contract when both parties sign:
+   - Set ownerSignedAt, ownerSignatureUrl
+   - Set occupantSignedAt, occupantSignatureUrl
+   - Transition to ACTIVE status
+5. Auto-transition Tenancy to ACTIVE when contract is fully signed
+
+For MVP: Can mock signature service, implement real provider later.
+```
+- [x] Completed
+
+---
+
+### Session 5.7: Deposit Module
+```
+Continuing Zam-Property backend development.
+
+Task: Implement Deposit tracking:
+1. Create DepositModule in src/modules/deposit/
+2. Create DepositService:
+   - createDeposit (security, utility, key)
+   - markCollected
+   - calculateRefund
+   - processRefund
+3. Create DepositController:
+   - POST /deposits (create for tenancy)
+   - GET /deposits/:id
+   - POST /deposits/:id/collect
+   - POST /deposits/:id/refund
+4. Link deposits to Tenancy (one-to-many)
+5. Support deductions from claims (link to ClaimModule later)
+
+Business rules:
+- Security deposit = configurable months of rent
+- Cannot refund until tenancy terminated
+- Deductions require approved claims
+```
+- [x] Completed
+
+---
+
+### Session 5.8: Phase 5 Testing & Integration
+```
+Continuing Zam-Property backend development.
+
+Task: Testing and documentation:
+1. Create E2E tests for:
+   - Occupant registration flow
+   - Complete tenancy lifecycle (DRAFT → ACTIVE → TERMINATED)
+   - Contract generation and signing
+   - Deposit collection and refund
+2. Create unit tests for:
+   - TenancyStateMachine transitions
+   - Contract template variable substitution
+   - Deposit calculation logic
+3. Update API-REGISTRY.md with all new endpoints
+4. Update Swagger documentation
+5. Create seed data for demo scenarios
+
+Ensure: Tenant isolation on all new entities.
+```
+- [x] Completed
+
+---
+
+## ✅ PHASE 5 CHECKPOINT
+```
+Verify Phase 5 completion:
+1. Occupant can register and upload documents
+2. Tenancy can be created from listing inquiry
+3. Tenancy status transitions work correctly
+4. Contracts generate from templates
+5. E-signature flow works (or mocked)
+6. Deposits track and refund correctly
+7. All E2E tests pass
+8. Tenant isolation verified
+```
+- [x] All checks passed
+
+---
+
+## 💰 PHASE 6 — BILLING & PAYMENTS
+
+### Session 6.1: Billing Engine
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.5: Billing)
+
+Task: Implement Billing module:
+1. Add Billing, BillingLineItem, BillingReminder models to Prisma
+2. Create BillingModule in src/modules/billing/
+3. Create BillingService:
+   - generateBill(tenancyId, period)
+   - calculateLateFee
+   - addLineItem
+   - getBill, listBills
+4. Create BillingController:
+   - POST /billings/generate
+   - GET /billings
+   - GET /billings/:id
+   - GET /billings/:id/download (PDF)
+5. Generate bill PDF with line items
+
+Line item types: RENT, UTILITY, LATE_FEE, CLAIM_DEDUCTION, OTHER
+```
+- [x] Completed
+
+---
+
+### Session 6.2: Billing Automation
+```
+Continuing Zam-Property backend development.
+
+Task: Automate monthly billing:
+1. Create BillingScheduler (BullMQ cron job)
+2. Run on 1st of each month (configurable per tenant)
+3. Find all ACTIVE tenancies
+4. Generate bills for each tenancy
+5. Send bill notification to occupant
+6. Create BillingProcessor for batch generation
+
+Configuration: Per-tenancy billing day, grace period, late fee %
+```
+- [x] Completed
+
+---
+
+### Session 6.3: Payment Processing
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.5: Payment)
+
+Task: Implement rent payments:
+1. Add Payment model to Prisma
+2. Create PaymentModule in src/modules/payment/
+3. Integrate with existing Stripe infrastructure
+4. Add FPX support for Malaysia (Stripe FPX or separate)
+5. Create PaymentService:
+   - createPaymentIntent(billingId, amount)
+   - processPayment
+   - handleWebhook
+6. Create PaymentController:
+   - POST /payments (create intent)
+   - POST /payments/webhook
+   - GET /payments/:id
+   - GET /payments/:id/receipt
+
+Auto-update Billing status when payment received.
+```
+- [x] Completed
+
+---
+
+### Session 6.4: Payment Reconciliation
+```
+Continuing Zam-Property backend development.
+
+Task: Auto-reconcile payments:
+1. Create ReconciliationService:
+   - matchPaymentToBill
+   - handlePartialPayment
+   - handleOverpayment
+   - handleAdvancePayment
+2. Update Billing.paidAmount and Billing.balanceDue
+3. Generate receipt automatically on full payment
+4. Send payment confirmation notification
+5. Create Statement of Account endpoint:
+   - GET /tenancies/:id/statement
+
+Handle edge cases: Partial payment, overpayment, payment to wrong bill.
+```
+- [x] Completed
+
+---
+
+### Session 6.5: Payment Reminder System
+```
+Continuing Zam-Property backend development.
+
+Task: Implement payment reminders:
+1. Add BillingReminder model (if not exists)
+2. Create ReminderService:
+   - sendReminder(billingId, sequence)
+   - scheduleReminders
+   - escalateToLegal
+3. Create ReminderScheduler:
+   - 1st reminder: 3 days before due
+   - 2nd reminder: On due date
+   - 3rd reminder: 7 days overdue
+   - Legal notice: 14 days overdue
+4. Track reminder history
+5. Add endpoints:
+   - POST /billings/:id/remind (manual)
+   - GET /billings/:id/reminders
+
+Escalation: After 3rd reminder, flag for legal action.
+```
+- [x] Completed
+
+---
+
+### Session 6.6: Owner Payout Core
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.10: Payout)
+
+Task: Implement payout calculation:
+1. Add OwnerPayout, PayoutLineItem models to Prisma
+2. Create PayoutModule in src/modules/payout/
+3. Create PayoutService:
+   - calculatePayout(ownerId, periodStart, periodEnd)
+   - Calculate: grossRental - platformFee - maintenanceCost - deductions
+   - createPayoutLineItems
+   - getPayout, listPayouts
+4. Create PayoutController:
+   - POST /payouts/calculate
+   - GET /payouts
+   - GET /payouts/:id
+
+Payout calculation: Sum all payments received for owner's properties in period.
+```
+- [x] Completed
+
+---
+
+### Session 6.7: Owner Payout Processing
+```
+Continuing Zam-Property backend development.
+
+Task: Process owner payouts:
+1. Create PayoutProcessor:
+   - approvePayout
+   - generateBankFile (CSV for bulk transfer)
+   - markProcessed
+2. Create PayoutScheduler:
+   - Monthly payout run (e.g., 15th of each month)
+3. Add endpoints:
+   - POST /payouts/:id/approve
+   - POST /payouts/process-batch
+   - GET /payouts/bank-file
+4. Generate payout statement PDF for owner
+5. Send payout notification to owner
+
+Bank file format: Standard CSV or MT940 for Malaysian banks.
+```
+- [x] Completed
+
+---
+
+### Session 6.8: Phase 6 Testing & Reports
+```
+Continuing Zam-Property backend development.
+
+Task: Testing and financial reports:
+1. Create E2E tests for:
+   - Full billing cycle
+   - Payment processing
+   - Reminder escalation
+   - Payout calculation
+2. Create financial reports:
+   - GET /reports/revenue (platform revenue)
+   - GET /reports/collections (rent collected)
+   - GET /reports/outstanding (overdue bills)
+3. Update API-REGISTRY.md
+4. Verify financial calculations are accurate
+
+Critical: Money calculations must be exact (use Decimal).
+```
+- [x] Completed
+
+---
+
+## ✅ PHASE 6 CHECKPOINT
+```
+Verify Phase 6 completion:
+1. Monthly bills auto-generate
+2. Payments process correctly
+3. Receipts generate on payment
+4. Reminders send on schedule
+5. Payouts calculate correctly
+6. Bank files generate
+7. Financial reports accurate
+8. All E2E tests pass
+```
+- [x] All checks passed
+
+---
+
+## 🔧 PHASE 7 — OPERATIONS
+
+### Session 7.1: Maintenance Core
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.7: Maintenance)
+
+Task: Implement Maintenance ticketing:
+1. Add Maintenance, MaintenanceAttachment, MaintenanceUpdate models
+2. Create MaintenanceModule in src/modules/maintenance/
+3. Create MaintenanceService:
+   - createTicket
+   - updateTicket
+   - addAttachment (S3 upload)
+   - addUpdate (comment)
+4. Create MaintenanceController:
+   - POST /maintenance
+   - GET /maintenance
+   - GET /maintenance/:id
+   - PATCH /maintenance/:id
+   - POST /maintenance/:id/attachments
+   - POST /maintenance/:id/comments
+
+Categories: PLUMBING, ELECTRICAL, APPLIANCE, STRUCTURAL, OTHER
+```
+- [x] Completed
+
+---
+
+### Session 7.2: Maintenance Workflow
+```
+Continuing Zam-Property backend development.
+
+Task: Implement maintenance workflow:
+1. Create MaintenanceStateMachine:
+   - OPEN → VERIFIED → ASSIGNED → IN_PROGRESS → CLOSED
+   - Alternative: → CLAIM_SUBMITTED → CLAIM_APPROVED/REJECTED → CLOSED
+2. Add workflow endpoints:
+   - POST /maintenance/:id/verify
+   - POST /maintenance/:id/assign
+   - POST /maintenance/:id/start
+   - POST /maintenance/:id/resolve
+   - POST /maintenance/:id/close
+3. Notify relevant parties on status change
+4. Track estimated vs actual cost
+5. Support external contractor assignment
+
+Assignment: To vendor staff or external contractor (name, phone).
+```
+- [x] Completed
+
+---
+
+### Session 7.3: Inspection Core
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.8: Inspection)
+
+Task: Implement Inspection module:
+1. Add Inspection, InspectionItem models to Prisma
+2. Create InspectionModule in src/modules/inspection/
+3. Create InspectionService:
+   - scheduleInspection
+   - updateChecklist
+   - completeInspection
+   - generateReport
+4. Create InspectionController:
+   - POST /inspections
+   - GET /inspections
+   - GET /inspections/:id
+   - PATCH /inspections/:id/checklist
+   - POST /inspections/:id/complete
+   - GET /inspections/:id/report
+
+Types: MOVE_IN, PERIODIC, MOVE_OUT, EMERGENCY
+```
+- [x] Completed
+
+---
+
+### Session 7.4: Video Inspection
+```
+Continuing Zam-Property backend development.
+
+Task: Implement video inspection:
+1. Add video upload flow:
+   - POST /inspections/:id/request-video
+   - POST /inspections/:id/video (presigned upload)
+2. Store video in S3, update Inspection.videoUrl
+3. Set Inspection.videoSubmittedAt
+4. Notify owner when video uploaded
+5. Owner reviews and approves/requests re-upload
+6. Support large file uploads (chunked/multipart)
+
+Video flow: Owner requests → Occupant uploads → Owner reviews → Approve or request redo.
+```
+- [x] Completed
+
+---
+
+### Session 7.5: Claim Management
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.9: Claim)
+
+Task: Implement Claim module:
+1. Add Claim, ClaimEvidence models to Prisma
+2. Create ClaimModule in src/modules/claim/
+3. Create ClaimService:
+   - submitClaim
+   - uploadEvidence
+   - reviewClaim (approve/reject)
+   - disputeClaim
+4. Create ClaimController:
+   - POST /claims
+   - GET /claims
+   - GET /claims/:id
+   - POST /claims/:id/evidence
+   - POST /claims/:id/review
+   - POST /claims/:id/dispute
+
+Types: DAMAGE, CLEANING, MISSING_ITEM, UTILITY, OTHER
+Who submits: Owner (damage claim) or Occupant (maintenance reimbursement)
+```
+- [x] Completed
+
+---
+
+### Session 7.6: Deposit Deductions
+```
+Continuing Zam-Property backend development.
+
+Task: Link claims to deposit refund:
+1. Update DepositService:
+   - linkClaimToDeposit
+   - calculateDeductions
+   - finalizeRefund
+2. When claim approved against occupant:
+   - Add to Deposit.deductionClaims
+   - Update Deposit.refundableAmount
+3. On tenancy termination:
+   - Sum all approved claims
+   - Deduct from deposit
+   - Process refund of remaining amount
+4. Create endpoint:
+   - POST /deposits/:id/finalize
+
+Flow: Tenancy ends → Final inspection → Claims submitted → Deposit deducted → Refund processed.
+```
+- [x] Completed
+
+---
+
+## ✅ PHASE 7 CHECKPOINT
+```
+Verify Phase 7 completion:
+1. Maintenance tickets can be created
+2. Maintenance workflow works end-to-end
+3. Inspections can be scheduled
+4. Video inspections work
+5. Claims can be submitted and reviewed
+6. Deposit deductions calculate correctly
+7. All E2E tests pass
+```
+- [x] All checks passed
+
+---
+
+## 🚀 PHASE 8 — GROWTH FEATURES
+
+### Session 8.1: Company Module ✅
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.12: Company)
+
+Task: Implement Company module:
+1. Add Company, CompanyAdmin models to Prisma
+2. Add COMPANY_ADMIN role to UserRole enum
+3. Create CompanyModule in src/modules/company/
+4. Create CompanyService:
+   - registerCompany
+   - verifyCompany
+   - addAdmin, removeAdmin
+5. Create CompanyController:
+   - POST /companies/register
+   - GET /companies/:id
+   - PATCH /companies/:id
+   - POST /companies/:id/verify
+   - POST /companies/:id/admins
+   - DELETE /companies/:id/admins/:userId
+
+Company types: PROPERTY_COMPANY, MANAGEMENT_COMPANY, AGENCY
+```
+- [x] Completed
+
+---
+
+### Session 8.2: Agent Module ✅
+```
+Continuing Zam-Property backend development.
+
+Task: Implement Agent management:
+1. Add Agent model to Prisma (link to Company, User)
+2. Add AGENT role to UserRole enum
+3. Create AgentService:
+   - registerAgent
+   - assignToListing
+   - updateAgentProfile
+   - generateReferralCode
+4. Create AgentController:
+   - POST /agents
+   - GET /agents
+   - GET /agents/:id
+   - PATCH /agents/:id
+   - POST /agents/:id/assign-listing
+
+Agent fields: renNumber (REN Malaysia), referralCode, performance stats.
+```
+- [x] Completed
+
+---
+
+### Session 8.3: Agent Commission ✅
+```
+Continuing Zam-Property backend development.
+
+Task: Implement commission tracking:
+1. Add AgentCommission model to Prisma
+2. Create CommissionService:
+   - calculateCommission(tenancyId, type)
+   - approveCommission
+   - markPaid
+3. Commission triggers:
+   - On tenancy ACTIVE (booking commission)
+   - On contract RENEWED (renewal commission)
+4. Create endpoints:
+   - GET /agents/:id/commissions
+   - POST /commissions/:id/approve
+   - POST /commissions/:id/pay
+
+Commission rates: Configurable per company/agent. Typical: 1 month rent for new booking.
+```
+- [x] Completed
+
+---
+
+### Session 8.4: Affiliate Module ✅
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.13: Affiliate)
+
+Task: Implement Affiliate/Referral:
+1. Add Affiliate, AffiliateReferral, AffiliatePayout models
+2. Create AffiliateModule in src/modules/affiliate/
+3. Create AffiliateService:
+   - generateCode
+   - trackReferral
+   - calculateEarnings
+   - processPayout
+4. Create AffiliateController:
+   - POST /affiliates
+   - GET /affiliates/:id
+   - GET /affiliates/:id/referrals
+   - GET /affiliates/:id/earnings
+   - POST /affiliates/:id/payout
+
+Referral types: OWNER_REGISTRATION, TENANT_BOOKING, AGENT_SIGNUP
+```
+- [ ] Completed
+
+---
+
+### Session 8.5: Legal Module Core ✅
+```
+Continuing Zam-Property backend development.
+
+Read docs/PROPERTY-MANAGEMENT-EXTENSION.md (Section 3.11: Legal)
+
+Task: Implement Legal case management:
+1. Add LegalCase, PanelLawyer, LegalDocument models
+2. Create LegalModule in src/modules/legal/
+3. Create LegalService:
+   - createCase (from overdue billing)
+   - assignLawyer
+   - generateNotice
+   - updateCaseStatus
+4. Create LegalController:
+   - POST /legal-cases
+   - GET /legal-cases
+   - GET /legal-cases/:id
+   - POST /legal-cases/:id/assign-lawyer
+   - POST /legal-cases/:id/notice
+
+Notice templates: 1st reminder, 2nd reminder, legal notice, termination notice.
+```
+- [x] Completed
+
+---
+
+### Session 8.6: Legal Integration & Finalization ✅
+```
+Continuing Zam-Property backend development.
+
+Task: Complete legal workflow:
+1. Create PanelLawyerService:
+   - CRUD for panel lawyers
+   - assignToCase
+2. Create NoticeGenerator:
+   - generateNotice(type, caseId)
+   - Use templates with variable substitution
+3. Integrate with Reminder escalation:
+   - Auto-create case after 3rd reminder
+4. Add endpoints:
+   - GET /panel-lawyers
+   - POST /panel-lawyers
+   - POST /legal-cases/:id/documents
+5. Update all API-REGISTRY.md
+6. Final E2E tests for complete flow
+
+Full flow: Overdue → Reminders → Legal case → Notice → (Resolution or Court)
+```
+- [x] Completed
+
+---
+
+## ✅ PHASE 8 CHECKPOINT (PROPERTY MANAGEMENT COMPLETE)
+```
+Final verification:
+1. Companies can register and manage agents
+2. Agents can be assigned to listings
+3. Commissions calculate and track
+4. Affiliate referrals track and pay
+5. Legal cases create from escalation
+6. Legal notices generate correctly
+7. All E2E tests pass
+8. API documentation complete
+
+Property Management backend is now complete.
 ```
 - [x] All checks passed
 

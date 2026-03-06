@@ -9,7 +9,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 
 import { RealEstateSearchService } from '../services/real-estate-search.service';
 import {
@@ -25,7 +25,7 @@ import {
 export class RealEstateSearchController {
   constructor(
     private readonly searchService: RealEstateSearchService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -96,9 +96,9 @@ Search for real estate listings with comprehensive filters and facets.
     type: RealEstateSearchResponseDto,
   })
   async search(@Query() query: RealEstateSearchQueryDto): Promise<RealEstateSearchResponseDto> {
-    const tenant = this.tenantContext.getContext();
+    const partner = this.PartnerContext.getContext();
 
-    const result = await this.searchService.search(tenant.tenantId, query);
+    const result = await this.searchService.search(partner.partnerId, query);
 
     const totalPages = Math.ceil(result.total / (query.pageSize || 20));
 
@@ -138,9 +138,9 @@ Search for real estate listings with comprehensive filters and facets.
     description: 'Search suggestions',
   })
   async getSuggestions(@Query('q') q: string, @Query('limit') limit?: number) {
-    const tenant = this.tenantContext.getContext();
+    const partner = this.PartnerContext.getContext();
 
-    const suggestions = await this.searchService.getSuggestions(tenant.tenantId, q, limit || 10);
+    const suggestions = await this.searchService.getSuggestions(partner.partnerId, q, limit || 10);
 
     return {
       data: suggestions,
@@ -165,9 +165,9 @@ Search for real estate listings with comprehensive filters and facets.
     description: 'Facet counts for filter sidebar',
   })
   async getFacets() {
-    const tenant = this.tenantContext.getContext();
+    const partner = this.PartnerContext.getContext();
 
-    const facets = await this.searchService.getFacetCounts(tenant.tenantId);
+    const facets = await this.searchService.getFacetCounts(partner.partnerId);
 
     return {
       data: facets,
@@ -214,7 +214,7 @@ Search for real estate listings with comprehensive filters and facets.
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
   ): Promise<RealEstateSearchResponseDto> {
-    const tenant = this.tenantContext.getContext();
+    const partner = this.PartnerContext.getContext();
 
     const query: RealEstateSearchQueryDto = {
       lat: Number(lat),
@@ -233,7 +233,7 @@ Search for real estate listings with comprehensive filters and facets.
       includeDistance: true,
     };
 
-    const result = await this.searchService.search(tenant.tenantId, query);
+    const result = await this.searchService.search(partner.partnerId, query);
 
     const totalPages = Math.ceil(result.total / (query.pageSize || 20));
 

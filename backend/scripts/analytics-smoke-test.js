@@ -82,10 +82,10 @@ async function main() {
   console.log(`BASE_URL=${BASE_URL}`);
   console.log(`TENANT=${TENANT}`);
 
-  const tenantHeader = { 'X-Tenant-ID': TENANT };
+  const partnerHeader = { 'X-Partner-ID': TENANT };
 
   // 1) Health checks (quick fail if server not up)
-  const health = await request('GET', '/api/v1/health', { headers: tenantHeader });
+  const health = await request('GET', '/api/v1/health', { headers: partnerHeader });
   printCheck('GET /api/v1/health', health.status === 200, `(status=${health.status})`);
   if (health.status !== 200) {
     console.error('Backend is not reachable. Start it with: pnpm start:dev');
@@ -94,7 +94,7 @@ async function main() {
 
   // 2) Login
   const login = await request('POST', '/api/v1/auth/login', {
-    headers: tenantHeader,
+    headers: partnerHeader,
     body: { email: EMAIL, password: PASSWORD },
   });
 
@@ -105,7 +105,7 @@ async function main() {
     process.exit(3);
   }
 
-  const authHeaders = { ...tenantHeader, Authorization: `Bearer ${accessToken}` };
+  const authHeaders = { ...partnerHeader, Authorization: `Bearer ${accessToken}` };
 
   // 3) Create vendor -> approve -> create listing -> publish
   const vendorCreate = await request('POST', '/api/v1/vendors', {
@@ -228,7 +228,7 @@ async function main() {
 
   // 6) Create one LEAD and one ENQUIRY
   const lead = await request('POST', '/api/v1/interactions', {
-    headers: tenantHeader,
+    headers: partnerHeader,
     body: {
       vendorId,
       listingId,
@@ -243,7 +243,7 @@ async function main() {
   printCheck('POST /api/v1/interactions (LEAD)', lead.status === 201 || lead.status === 200, `(status=${lead.status})`);
 
   const enquiry = await request('POST', '/api/v1/interactions', {
-    headers: tenantHeader,
+    headers: partnerHeader,
     body: {
       vendorId,
       listingId,

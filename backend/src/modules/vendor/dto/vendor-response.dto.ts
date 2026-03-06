@@ -6,8 +6,8 @@ export class VendorResponseDto {
   @ApiProperty({ description: 'Vendor ID', format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ description: 'Tenant ID', format: 'uuid' })
-  tenantId!: string;
+  @ApiProperty({ description: 'Partner ID', format: 'uuid' })
+  partnerId!: string;
 
   @ApiProperty({ description: 'Vendor name', example: 'ABC Property Agency' })
   name!: string;

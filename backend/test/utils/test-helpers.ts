@@ -16,9 +16,9 @@ import { PrismaService } from '@infrastructure/database/prisma.service';
  * Test constants
  */
 export const TEST_TENANT = {
-  id: 'test-tenant-id',
-  slug: 'test-tenant',
-  name: 'Test Tenant',
+  id: 'test-partner-id',
+  slug: 'test-partner',
+  name: 'Test Partner',
   subdomain: 'test',
 };
 
@@ -96,9 +96,9 @@ export async function cleanupDatabase(prisma: PrismaService): Promise<void> {
     'vendor_settings',
     'vendors',
     'users',
-    'tenant_verticals',
-    'tenant_domains',
-    'tenant_settings',
+    'partner_verticals',
+    'partner_domains',
+    'partner_settings',
     // Don't delete tenants or vertical_definitions as they're seeded
   ];
 
@@ -112,37 +112,37 @@ export async function cleanupDatabase(prisma: PrismaService): Promise<void> {
 }
 
 /**
- * Create a test request with tenant header
+ * Create a test request with partner header
  */
-export function testRequest(app: INestApplication, tenantId?: string) {
+export function testRequest(app: INestApplication, partnerId?: string) {
   const agent = request(app.getHttpServer());
 
   return {
     get: (url: string) => {
       const req = agent.get(`/api/v1${url}`);
-      if (tenantId) {
-        req.set('X-Tenant-ID', tenantId);
+      if (partnerId) {
+        req.set('X-Partner-ID', partnerId);
       }
       return req;
     },
     post: (url: string) => {
       const req = agent.post(`/api/v1${url}`);
-      if (tenantId) {
-        req.set('X-Tenant-ID', tenantId);
+      if (partnerId) {
+        req.set('X-Partner-ID', partnerId);
       }
       return req;
     },
     patch: (url: string) => {
       const req = agent.patch(`/api/v1${url}`);
-      if (tenantId) {
-        req.set('X-Tenant-ID', tenantId);
+      if (partnerId) {
+        req.set('X-Partner-ID', partnerId);
       }
       return req;
     },
     delete: (url: string) => {
       const req = agent.delete(`/api/v1${url}`);
-      if (tenantId) {
-        req.set('X-Tenant-ID', tenantId);
+      if (partnerId) {
+        req.set('X-Partner-ID', partnerId);
       }
       return req;
     },
@@ -152,8 +152,8 @@ export function testRequest(app: INestApplication, tenantId?: string) {
 /**
  * Authenticated request helper
  */
-export function authRequest(app: INestApplication, accessToken: string, tenantId?: string) {
-  const base = testRequest(app, tenantId);
+export function authRequest(app: INestApplication, accessToken: string, partnerId?: string) {
+  const base = testRequest(app, partnerId);
 
   return {
     get: (url: string) => base.get(url).set('Authorization', `Bearer ${accessToken}`),

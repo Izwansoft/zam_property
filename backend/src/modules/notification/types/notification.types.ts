@@ -47,7 +47,7 @@ export interface PushDeliveryResult extends DeliveryResult {
  * Base template variables available to all notifications
  */
 export interface BaseTemplateVariables {
-  tenantName: string;
+  partnerName: string;
   userName: string;
   userEmail: string;
   timestamp: string;
@@ -126,6 +126,32 @@ export interface VendorTemplateVariables extends BaseTemplateVariables {
 }
 
 /**
+ * Rent billing-related template variables
+ */
+export interface BillingTemplateVariables extends BaseTemplateVariables {
+  billNumber: string;
+  totalAmount: number;
+  dueDate: string;
+  tenantName?: string;
+  ownerName?: string;
+  propertyTitle?: string;
+}
+
+/**
+ * Rent payment-related template variables
+ */
+export interface RentPaymentTemplateVariables extends BaseTemplateVariables {
+  amount: string;
+  currency: string;
+  billNumber: string;
+  receiptNumber?: string;
+  paymentDate?: string;
+  payerName?: string;
+  payerEmail?: string;
+  error?: string;
+}
+
+/**
  * Union type of all possible template variables
  */
 export type TemplateVariables =
@@ -135,7 +161,9 @@ export type TemplateVariables =
   | ReviewTemplateVariables
   | SubscriptionTemplateVariables
   | PaymentTemplateVariables
-  | VendorTemplateVariables;
+  | VendorTemplateVariables
+  | BillingTemplateVariables
+  | RentPaymentTemplateVariables;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Notification Payload
@@ -145,7 +173,7 @@ export type TemplateVariables =
  * Payload for creating a notification
  */
 export interface NotificationPayload {
-  tenantId: string;
+  partnerId: string;
   userId: string;
   type: NotificationType;
   channel: NotificationChannel;

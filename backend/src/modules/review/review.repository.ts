@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ReviewStatus } from '@prisma/client';
 import { PrismaService } from '@infrastructure/database/prisma.service';
-import { TenantContextService } from '@core/tenant-context/tenant-context.service';
+import { PartnerContextService } from '@core/partner-context/partner-context.service';
 import {
   CreateReviewParams,
   UpdateReviewStatusParams,
@@ -14,14 +14,14 @@ import {
 export class ReviewRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   /**
    * Create a new review (defaults to PENDING status)
    */
   async create(params: CreateReviewParams): Promise<ReviewRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // Determine vendorId and listingId based on targetType
     const vendorId = params.targetType === 'vendor' ? params.targetId : undefined;
@@ -29,7 +29,7 @@ export class ReviewRepository {
 
     return this.prisma.review.create({
       data: {
-        tenantId,
+        partnerId,
         targetType: params.targetType,
         targetId: params.targetId,
         verticalType: params.verticalType,
@@ -45,15 +45,15 @@ export class ReviewRepository {
   }
 
   /**
-   * Find review by ID (tenant-scoped)
+   * Find review by ID (partner-scoped)
    */
   async findById(id: string): Promise<ReviewRecord | null> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.review.findFirst({
       where: {
         id,
-        tenantId,
+        partnerId,
       },
       include: {
         vendor: {
@@ -75,22 +75,22 @@ export class ReviewRepository {
   }
 
   /**
-   * Find many reviews with pagination and filters (tenant-scoped)
+   * Find many reviews with pagination and filters (partner-scoped)
    */
   async findMany(params: FindManyReviewsParams): Promise<{ data: ReviewRecord[]; total: number }> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
     const page = params.page || 1;
     const pageSize = params.pageSize || 20;
     const skip = (page - 1) * pageSize;
 
     const where: {
-      tenantId: string;
+      partnerId: string;
       targetType?: string;
       targetId?: string;
       status?: ReviewStatus;
       rating?: number;
     } = {
-      tenantId,
+      partnerId,
     };
 
     if (params.targetType) {
@@ -148,15 +148,15 @@ export class ReviewRepository {
     targetId: string,
     status?: ReviewStatus,
   ): Promise<ReviewRecord[]> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     const where: {
-      tenantId: string;
+      partnerId: string;
       targetType: string;
       targetId: string;
       status?: ReviewStatus;
     } = {
-      tenantId,
+      partnerId,
       targetType,
       targetId,
     };
@@ -177,12 +177,12 @@ export class ReviewRepository {
    * Update review status (moderation)
    */
   async updateStatus(id: string, params: UpdateReviewStatusParams): Promise<ReviewRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.review.update({
       where: {
         id,
-        tenantId,
+        partnerId,
       },
       data: {
         status: params.status,
@@ -201,12 +201,12 @@ export class ReviewRepository {
     vendorId: string,
     responseText: string,
   ): Promise<ReviewRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.review.update({
       where: {
         id,
-        tenantId,
+        partnerId,
         vendorId, // Ensure only the target vendor can respond
       },
       data: {
@@ -223,12 +223,12 @@ export class ReviewRepository {
     targetType: 'vendor' | 'listing',
     targetId: string,
   ): Promise<RatingAggregation> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // Get all approved reviews for this target
     const reviews = await this.prisma.review.findMany({
       where: {
-        tenantId,
+        partnerId,
         targetType,
         targetId,
         status: ReviewStatus.APPROVED,
@@ -278,13 +278,13 @@ export class ReviewRepository {
    * Count reviews by status (for analytics)
    */
   async countByStatus(targetId?: string): Promise<Record<ReviewStatus, number>> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     const where: {
-      tenantId: string;
+      partnerId: string;
       targetId?: string;
     } = {
-      tenantId,
+      partnerId,
     };
 
     if (targetId) {

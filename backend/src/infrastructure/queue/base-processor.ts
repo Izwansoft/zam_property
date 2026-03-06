@@ -61,7 +61,7 @@ export abstract class BaseProcessor<T extends BaseJobData = BaseJobData>
         queue: this.queueName,
         jobId: job.id,
         jobType: job.name,
-        tenantId: job.data.tenantId,
+        partnerId: job.data.partnerId,
       });
     });
 
@@ -71,7 +71,7 @@ export abstract class BaseProcessor<T extends BaseJobData = BaseJobData>
         queue: this.queueName,
         jobId: job?.id,
         jobType: job?.name,
-        tenantId: job?.data?.tenantId,
+        partnerId: job?.data?.partnerId,
         error: error.message,
         attempts: job?.attemptsMade,
       });
@@ -102,7 +102,7 @@ export abstract class BaseProcessor<T extends BaseJobData = BaseJobData>
       queue: this.queueName,
       jobId: job.id,
       jobType: job.name,
-      tenantId: job.data.tenantId,
+      partnerId: job.data.partnerId,
     });
 
     try {

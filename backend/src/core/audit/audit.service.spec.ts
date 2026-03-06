@@ -25,7 +25,7 @@ describe('AuditService', () => {
 
   const mockAuditLog = {
     id: 'audit-123',
-    tenantId: 'tenant-123',
+    partnerId: 'partner-123',
     actorType: AuditActorType.USER,
     actorId: 'user-123',
     actorEmail: 'test@example.com',
@@ -73,7 +73,7 @@ describe('AuditService', () => {
       prismaService.auditLog.create.mockResolvedValue(mockAuditLog);
 
       const result = await service.logSync({
-        tenantId: 'tenant-123',
+        partnerId: 'partner-123',
         actorType: AuditActorType.USER,
         actorId: 'user-123',
         actorEmail: 'test@example.com',
@@ -99,7 +99,7 @@ describe('AuditService', () => {
       });
 
       await service.logSync({
-        tenantId: 'tenant-123',
+        partnerId: 'partner-123',
         actorType: AuditActorType.USER,
         actorId: 'user-123',
         actionType: AuditActionType.USER_CREATED,
@@ -122,7 +122,7 @@ describe('AuditService', () => {
       });
 
       const result = await service.logSync({
-        tenantId: 'tenant-123',
+        partnerId: 'partner-123',
         actorType: AuditActorType.SYSTEM,
         actionType: AuditActionType.SYSTEM_ERROR,
         targetType: AuditTargetType.SYSTEM,
@@ -138,7 +138,7 @@ describe('AuditService', () => {
       prismaService.auditLog.create.mockResolvedValue(mockAuditLog);
 
       await service.logCreate(
-        'tenant-123',
+        'partner-123',
         AuditActorType.USER,
         'user-123',
         AuditTargetType.USER,
@@ -164,7 +164,7 @@ describe('AuditService', () => {
       });
 
       await service.logUpdate(
-        'tenant-123',
+        'partner-123',
         AuditActorType.USER,
         'user-123',
         AuditTargetType.USER,

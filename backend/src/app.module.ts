@@ -1,6 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 
-import { TenantMiddleware, TenantContextModule } from '@core/tenant-context';
+import { PartnerMiddleware, PartnerContextModule } from '@core/partner-context';
 import { AuthModule } from '@core/auth';
 import { UserModule } from '@core/user';
 import { FeatureFlagModule } from '@core/feature-flags';
@@ -11,12 +11,31 @@ import { ListingModule } from '@modules/listing';
 import { MediaModule } from '@modules/media';
 import { InteractionModule } from '@modules/interaction';
 import { ReviewModule } from '@modules/review';
+import { NotificationModule } from '@modules/notification/notification.module';
 import { SubscriptionModule } from '@modules/subscription';
 import { PricingModule } from '@modules/pricing';
 import { VerticalModule } from '@modules/vertical';
 import { AnalyticsModule } from '@modules/analytics';
 import { AdminModule } from '@modules/admin';
 import { PublicModule } from '@modules/public';
+import { AccountModule } from '@modules/account';
+import { TenantModule } from '@modules/tenant';
+import { TenancyModule } from '@modules/tenancy';
+import { ContractModule } from '@modules/contract';
+import { DepositModule } from '@modules/deposit';
+import { RentBillingModule } from '@modules/billing';
+import { RentPaymentModule } from '@modules/payment';
+import { PayoutModule } from '@modules/payout';
+import { ReportModule } from '@modules/report';
+import { MaintenanceModule } from '@modules/maintenance';
+import { InspectionModule } from '@modules/inspection';
+import { ClaimModule } from '@modules/claim';
+import { CompanyModule } from '@modules/company';
+import { AgentModule } from '@modules/agent';
+import { PropertyMemberModule } from '@modules/property-member/property-member.module';
+import { CommissionModule } from '@modules/commission';
+import { AffiliateModule } from '@modules/affiliate';
+import { LegalModule } from '@modules/legal';
 
 import { RealEstateVerticalModule } from '@verticals/real-estate';
 
@@ -43,7 +62,7 @@ import { HealthModule } from './health';
     SearchModule,
     BillingModule,
     WebSocketModule,
-    TenantContextModule,
+    PartnerContextModule,
     DatabaseModule,
     AuthModule,
     UserModule,
@@ -53,15 +72,34 @@ import { HealthModule } from './health';
     ListingModule,
     MediaModule,
     InteractionModule,
+    NotificationModule,
     AnalyticsModule,
     ReviewModule,
     SubscriptionModule,
     PricingModule,
     VerticalModule,
     RealEstateVerticalModule,
+    TenantModule,
+    TenancyModule,
+    ContractModule,
+    DepositModule,
+    RentBillingModule,
+    RentPaymentModule,
+    PayoutModule,
+    ReportModule,
+    MaintenanceModule,
+    InspectionModule,
+    ClaimModule,
+    CompanyModule,
+    AgentModule,
+    PropertyMemberModule,
+    CommissionModule,
+    AffiliateModule,
+    LegalModule,
     HealthModule,
     AdminModule,
     PublicModule,
+    AccountModule,
   ],
   controllers: [],
   providers: [],
@@ -71,9 +109,9 @@ export class AppModule implements NestModule {
     // Request ID middleware runs first to ensure all errors include requestId
     consumer.apply(RequestIdMiddleware).forRoutes('*');
 
-    // Tenant middleware runs second, after request ID is set
+    // Partner middleware runs second, after request ID is set
     consumer
-      .apply(TenantMiddleware)
+      .apply(PartnerMiddleware)
       .exclude(
         { path: 'api/docs', method: RequestMethod.ALL },
         { path: 'api/docs/(.*)', method: RequestMethod.ALL },

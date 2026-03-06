@@ -10,7 +10,7 @@ import type { Stats as NodeCacheStats } from 'node-cache';
  * - Feature flags: 30s, max 100 entries
  * - Vertical schemas: 5m, max 50 entries
  * - Plan definitions: 5m, max 20 entries
- * - Tenant basic info: 1m, max 1000 entries
+ * - Partner basic info: 1m, max 1000 entries
  */
 @Injectable()
 export class MemoryCacheService {

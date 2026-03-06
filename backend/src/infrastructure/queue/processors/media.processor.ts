@@ -46,7 +46,7 @@ export class MediaProcessor extends WorkerHost {
       queue: QUEUE_NAMES.MEDIA_PROCESS,
       jobId: job.id,
       jobType: name,
-      tenantId: data.tenantId,
+      partnerId: data.partnerId,
     });
 
     try {
@@ -102,7 +102,7 @@ export class MediaProcessor extends WorkerHost {
       // Emit failure event
       this.eventEmitter.emit('media.processing_failed', {
         mediaId: 'mediaId' in data ? data.mediaId : undefined,
-        tenantId: data.tenantId,
+        partnerId: data.partnerId,
         error: err.message,
         jobType: data.type,
       });
@@ -115,7 +115,7 @@ export class MediaProcessor extends WorkerHost {
    * Handle image resize job.
    */
   private async handleImageResize(job: Job<ImageResizeJob>): Promise<JobResult> {
-    const { tenantId, mediaId, sourceKey, targetKey, options } = job.data;
+    const { partnerId, mediaId, sourceKey, targetKey, options } = job.data;
 
     this.logger.debug(`Resizing image ${mediaId} to ${options.width}x${options.height}`);
 
@@ -150,7 +150,7 @@ export class MediaProcessor extends WorkerHost {
     // Emit success event
     this.eventEmitter.emit('media.processed', {
       mediaId,
-      tenantId,
+      partnerId,
       operation: 'resize',
       sourceKey,
       targetKey,
@@ -171,7 +171,7 @@ export class MediaProcessor extends WorkerHost {
    * Handle image optimization job.
    */
   private async handleImageOptimize(job: Job<ImageOptimizeJob>): Promise<JobResult> {
-    const { tenantId, mediaId, sourceKey, targetKey, options } = job.data;
+    const { partnerId, mediaId, sourceKey, targetKey, options } = job.data;
 
     this.logger.debug(`Optimizing image ${mediaId}`);
 
@@ -206,7 +206,7 @@ export class MediaProcessor extends WorkerHost {
     // Emit success event
     this.eventEmitter.emit('media.processed', {
       mediaId,
-      tenantId,
+      partnerId,
       operation: 'optimize',
       sourceKey,
       targetKey,
@@ -235,7 +235,7 @@ export class MediaProcessor extends WorkerHost {
    * Handle image thumbnail generation.
    */
   private async handleImageThumbnail(job: Job<ImageThumbnailJob>): Promise<JobResult> {
-    const { tenantId, mediaId, sourceKey, targetKey, options } = job.data;
+    const { partnerId, mediaId, sourceKey, targetKey, options } = job.data;
 
     this.logger.debug(`Generating thumbnail for ${mediaId}: ${options.width}x${options.height}`);
 
@@ -267,7 +267,7 @@ export class MediaProcessor extends WorkerHost {
     // Emit success event
     this.eventEmitter.emit('media.processed', {
       mediaId,
-      tenantId,
+      partnerId,
       operation: 'thumbnail',
       sourceKey,
       targetKey,
@@ -289,7 +289,7 @@ export class MediaProcessor extends WorkerHost {
    * Creates multiple size variants.
    */
   private async handleImageProcessAll(job: Job<ImageProcessAllJob>): Promise<JobResult> {
-    const { tenantId, listingId } = job.data;
+    const { partnerId, listingId } = job.data;
 
     this.logger.debug(`Processing all images for listing ${listingId}`);
 
@@ -304,7 +304,7 @@ export class MediaProcessor extends WorkerHost {
       message: `Image processing queued for listing ${listingId}`,
       data: {
         listingId,
-        tenantId,
+        partnerId,
         sizes: Object.keys(LISTING_IMAGE_SIZES),
       },
       processedAt: new Date().toISOString(),

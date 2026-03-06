@@ -78,8 +78,8 @@ export class NotificationsGateway
     // Auto-join user room for personal notifications
     socket.join(ROOM_NAMES.user(socket.data.userId));
 
-    // Also join tenant room for tenant-wide announcements
-    socket.join(ROOM_NAMES.tenant(socket.data.tenantId));
+    // Also join partner room for partner-wide announcements
+    socket.join(ROOM_NAMES.partner(socket.data.partnerId));
 
     this.logger.log(`User ${socket.data.userId} connected to notifications (socket: ${socket.id})`);
 
@@ -195,7 +195,7 @@ export class NotificationsGateway
       case WsErrorCode.TOKEN_EXPIRED:
         return 'Token has expired';
       case WsErrorCode.TENANT_ACCESS_DENIED:
-        return 'Tenant access denied';
+        return 'Partner access denied';
       case WsErrorCode.FORBIDDEN:
         return 'Access forbidden';
       default:

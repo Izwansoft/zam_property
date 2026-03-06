@@ -1,2 +1,2 @@
 export * from './vertical-definition.controller';
-export * from './tenant-vertical.controller';
+export * from './partner-vertical.controller';

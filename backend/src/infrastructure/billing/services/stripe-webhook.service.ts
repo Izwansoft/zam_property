@@ -28,18 +28,18 @@ export class StripeWebhookService {
       return;
     }
 
-    // Extract tenant ID from metadata
-    const tenantId = this.extractTenantId(event);
+    // Extract partner ID from metadata
+    const partnerId = this.extractpartnerId(event);
 
-    if (!tenantId) {
-      this.logger.warn(`Event ${event.id} has no tenant ID, skipping`);
+    if (!partnerId) {
+      this.logger.warn(`Event ${event.id} has no partner ID, skipping`);
       return;
     }
 
     // Store event
     const eventData = event.data.object as { object?: string; id: string };
     await this.paymentEventRepo.create(
-      tenantId,
+      partnerId,
       event.id,
       'stripe',
       event.type,
@@ -50,7 +50,7 @@ export class StripeWebhookService {
 
     try {
       // Route to specific handler
-      await this.routeEvent(event, tenantId);
+      await this.routeEvent(event, partnerId);
 
       // Mark as processed
       await this.paymentEventRepo.markProcessed(event.id);
@@ -67,34 +67,34 @@ export class StripeWebhookService {
     }
   }
 
-  private async routeEvent(event: Stripe.Event, tenantId: string): Promise<void> {
+  private async routeEvent(event: Stripe.Event, partnerId: string): Promise<void> {
     switch (event.type) {
       // Payment intents
       case 'payment_intent.succeeded':
-        await this.handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent, tenantId);
+        await this.handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent, partnerId);
         break;
 
       case 'payment_intent.payment_failed':
-        await this.handlePaymentFailed(event.data.object as Stripe.PaymentIntent, tenantId);
+        await this.handlePaymentFailed(event.data.object as Stripe.PaymentIntent, partnerId);
         break;
 
       // Invoice events
       case 'invoice.paid':
-        await this.handleInvoicePaid(event.data.object as Stripe.Invoice, tenantId);
+        await this.handleInvoicePaid(event.data.object as Stripe.Invoice, partnerId);
         break;
 
       case 'invoice.payment_failed':
-        await this.handleInvoicePaymentFailed(event.data.object as Stripe.Invoice, tenantId);
+        await this.handleInvoicePaymentFailed(event.data.object as Stripe.Invoice, partnerId);
         break;
 
       // Subscription events
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
-        await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription, tenantId);
+        await this.handleSubscriptionUpdated(event.data.object as Stripe.Subscription, partnerId);
         break;
 
       case 'customer.subscription.deleted':
-        await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription, tenantId);
+        await this.handleSubscriptionDeleted(event.data.object as Stripe.Subscription, partnerId);
         break;
 
       default:
@@ -104,12 +104,27 @@ export class StripeWebhookService {
 
   private async handlePaymentSucceeded(
     paymentIntent: Stripe.PaymentIntent,
-    tenantId: string,
+    partnerId: string,
   ): Promise<void> {
-    this.logger.log(`Payment succeeded: ${paymentIntent.id} for tenant ${tenantId}`);
+    this.logger.log(`Payment succeeded: ${paymentIntent.id} for partner ${partnerId}`);
 
+    const metadata = paymentIntent.metadata || {};
+
+    // Route to rent payment handler if paymentType is 'rent'
+    if (metadata.paymentType === 'rent') {
+      this.eventEmitter.emit('rent.payment.webhook.succeeded', {
+        partnerId,
+        gatewayId: paymentIntent.id,
+        amount: paymentIntent.amount / 100,
+        currency: paymentIntent.currency,
+        metadata,
+      });
+      return;
+    }
+
+    // Default: platform/subscription payment
     this.eventEmitter.emit('billing.payment.succeeded', {
-      tenantId,
+      partnerId,
       paymentIntentId: paymentIntent.id,
       amount: paymentIntent.amount / 100,
       currency: paymentIntent.currency,
@@ -119,12 +134,28 @@ export class StripeWebhookService {
 
   private async handlePaymentFailed(
     paymentIntent: Stripe.PaymentIntent,
-    tenantId: string,
+    partnerId: string,
   ): Promise<void> {
-    this.logger.warn(`Payment failed: ${paymentIntent.id} for tenant ${tenantId}`);
+    this.logger.warn(`Payment failed: ${paymentIntent.id} for partner ${partnerId}`);
 
+    const metadata = paymentIntent.metadata || {};
+
+    // Route to rent payment handler if paymentType is 'rent'
+    if (metadata.paymentType === 'rent') {
+      this.eventEmitter.emit('rent.payment.webhook.failed', {
+        partnerId,
+        gatewayId: paymentIntent.id,
+        amount: paymentIntent.amount / 100,
+        currency: paymentIntent.currency,
+        error: paymentIntent.last_payment_error?.message,
+        metadata,
+      });
+      return;
+    }
+
+    // Default: platform/subscription payment
     this.eventEmitter.emit('billing.payment.failed', {
-      tenantId,
+      partnerId,
       paymentIntentId: paymentIntent.id,
       amount: paymentIntent.amount / 100,
       currency: paymentIntent.currency,
@@ -133,13 +164,13 @@ export class StripeWebhookService {
     });
   }
 
-  private async handleInvoicePaid(invoice: Stripe.Invoice, tenantId: string): Promise<void> {
-    this.logger.log(`Invoice paid: ${invoice.id} for tenant ${tenantId}`);
+  private async handleInvoicePaid(invoice: Stripe.Invoice, partnerId: string): Promise<void> {
+    this.logger.log(`Invoice paid: ${invoice.id} for partner ${partnerId}`);
 
     // Update invoice record in database
     await this.prisma.invoice.updateMany({
       where: {
-        tenantId,
+        partnerId,
         externalId: invoice.id,
       },
       data: {
@@ -152,7 +183,7 @@ export class StripeWebhookService {
 
     // Emit domain event
     this.eventEmitter.emit('billing.invoice.paid', {
-      tenantId,
+      partnerId,
       invoiceId: invoice.id,
       subscriptionId,
       amount: invoice.amount_paid / 100,
@@ -162,7 +193,7 @@ export class StripeWebhookService {
     // If related to subscription, update subscription status
     if (subscriptionId) {
       this.eventEmitter.emit('billing.subscription.payment_succeeded', {
-        tenantId,
+        partnerId,
         subscriptionId,
       });
     }
@@ -170,15 +201,15 @@ export class StripeWebhookService {
 
   private async handleInvoicePaymentFailed(
     invoice: Stripe.Invoice,
-    tenantId: string,
+    partnerId: string,
   ): Promise<void> {
-    this.logger.warn(`Invoice payment failed: ${invoice.id} for tenant ${tenantId}`);
+    this.logger.warn(`Invoice payment failed: ${invoice.id} for partner ${partnerId}`);
 
     const subscriptionId = (invoice as unknown as { subscription?: string }).subscription;
 
     // Emit domain event
     this.eventEmitter.emit('billing.invoice.payment_failed', {
-      tenantId,
+      partnerId,
       invoiceId: invoice.id,
       subscriptionId,
       amount: invoice.amount_due / 100,
@@ -188,7 +219,7 @@ export class StripeWebhookService {
     // If related to subscription, may need to update subscription to PAST_DUE
     if (subscriptionId) {
       this.eventEmitter.emit('billing.subscription.payment_failed', {
-        tenantId,
+        partnerId,
         subscriptionId,
       });
     }
@@ -196,9 +227,9 @@ export class StripeWebhookService {
 
   private async handleSubscriptionUpdated(
     subscription: Stripe.Subscription,
-    tenantId: string,
+    partnerId: string,
   ): Promise<void> {
-    this.logger.log(`Subscription updated: ${subscription.id} for tenant ${tenantId}`);
+    this.logger.log(`Subscription updated: ${subscription.id} for partner ${partnerId}`);
 
     const sub = subscription as unknown as {
       current_period_start: number;
@@ -207,7 +238,7 @@ export class StripeWebhookService {
 
     // Sync subscription status to domain
     this.eventEmitter.emit('billing.subscription.updated', {
-      tenantId,
+      partnerId,
       subscriptionId: subscription.id,
       status: subscription.status,
       currentPeriodStart: new Date(sub.current_period_start * 1000),
@@ -217,30 +248,30 @@ export class StripeWebhookService {
 
   private async handleSubscriptionDeleted(
     subscription: Stripe.Subscription,
-    tenantId: string,
+    partnerId: string,
   ): Promise<void> {
-    this.logger.log(`Subscription deleted: ${subscription.id} for tenant ${tenantId}`);
+    this.logger.log(`Subscription deleted: ${subscription.id} for partner ${partnerId}`);
 
     this.eventEmitter.emit('billing.subscription.deleted', {
-      tenantId,
+      partnerId,
       subscriptionId: subscription.id,
     });
   }
 
-  private extractTenantId(event: Stripe.Event): string | null {
+  private extractpartnerId(event: Stripe.Event): string | null {
     const obj = event.data.object as {
       metadata?: Record<string, string>;
       customer?: { metadata?: Record<string, string> };
     };
 
     // Try to extract from metadata
-    if (obj.metadata?.tenantId) {
-      return obj.metadata.tenantId;
+    if (obj.metadata?.partnerId) {
+      return obj.metadata.partnerId;
     }
 
     // For subscriptions, check customer metadata
-    if (obj.customer && typeof obj.customer === 'object' && obj.customer.metadata?.tenantId) {
-      return obj.customer.metadata.tenantId;
+    if (obj.customer && typeof obj.customer === 'object' && obj.customer.metadata?.partnerId) {
+      return obj.customer.metadata.partnerId;
     }
 
     return null;

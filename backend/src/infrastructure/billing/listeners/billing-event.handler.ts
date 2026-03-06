@@ -15,24 +15,24 @@ export class BillingEventHandler {
 
   @OnEvent('subscription.created')
   async handleSubscriptionCreated(event: {
-    tenantId: string;
+    partnerId: string;
     email?: string;
-    tenantName?: string;
+    partnerName?: string;
   }) {
-    this.logger.debug(`Handling subscription.created event for tenant: ${event.tenantId}`);
+    this.logger.debug(`Handling subscription.created event for partner: ${event.partnerId}`);
 
     try {
       // Create customer in billing provider if needed
-      const customerEmail = event.email || `tenant-${event.tenantId}@example.com`;
+      const customerEmail = event.email || `partner-${event.partnerId}@example.com`;
       const customer = await this.billingProvider.createCustomer({
         email: customerEmail,
-        name: event.tenantName || `Tenant ${event.tenantId}`,
+        name: event.partnerName || `Partner ${event.partnerId}`,
         metadata: {
-          tenantId: event.tenantId,
+          partnerId: event.partnerId,
         },
       });
 
-      this.logger.log(`Created billing customer ${customer.id} for tenant ${event.tenantId}`);
+      this.logger.log(`Created billing customer ${customer.id} for partner ${event.partnerId}`);
 
       // Note: Actual subscription in billing provider should be created
       // when payment is processed, not automatically on domain event
@@ -86,19 +86,19 @@ export class BillingEventHandler {
 
   @OnEvent('usage.threshold.reached')
   async handleUsageThresholdReached(event: {
-    tenantId: string;
+    partnerId: string;
     metricKey: string;
     count: number;
     limit: number;
   }) {
     this.logger.debug(
-      `Handling usage.threshold.reached event for tenant: ${event.tenantId}, metric: ${event.metricKey}`,
+      `Handling usage.threshold.reached event for partner: ${event.partnerId}, metric: ${event.metricKey}`,
     );
 
     // This could trigger invoice generation or usage-based charges
     // For now, just log it
     this.logger.warn(
-      `Tenant ${event.tenantId} reached 100% of ${event.metricKey} quota (${event.count}/${event.limit})`,
+      `Partner ${event.partnerId} reached 100% of ${event.metricKey} quota (${event.count}/${event.limit})`,
     );
   }
 }

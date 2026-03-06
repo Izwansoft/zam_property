@@ -93,18 +93,18 @@ export class RateLimitService {
   }
 
   /**
-   * Check API rate limit by tenant and endpoint.
+   * Check API rate limit by partner and endpoint.
    *
-   * @param tenantId Tenant ID
+   * @param partnerId Partner ID
    * @param endpoint Endpoint identifier
    * @param limit Requests per minute (default: 1000)
    */
   async checkApiRateLimitByTenant(
-    tenantId: string,
+    partnerId: string,
     endpoint: string,
     limit: number = 1000,
   ): Promise<RateLimitResult> {
-    const key = RateLimitCacheKeys.byTenantEndpoint(tenantId, endpoint);
+    const key = RateLimitCacheKeys.byTenantEndpoint(partnerId, endpoint);
     return this.checkRateLimit(key, limit, CacheTTL.RATE_API);
   }
 

@@ -44,13 +44,13 @@ export class ExampleProcessor extends BaseProcessor<ExampleJobData> {
    * Implement your business logic here.
    */
   protected async processJob(job: Job<ExampleJobData>): Promise<JobResult> {
-    const { tenantId, itemId } = job.data;
+    const { partnerId, itemId } = job.data;
 
     // Update progress (for long-running jobs)
     await this.updateProgress(job, 10);
 
     // Step 1: Validate
-    this.logger.debug(`Processing item ${itemId} for tenant ${tenantId}`);
+    this.logger.debug(`Processing item ${itemId} for partner ${partnerId}`);
     await this.updateProgress(job, 30);
 
     // Step 2: Do work

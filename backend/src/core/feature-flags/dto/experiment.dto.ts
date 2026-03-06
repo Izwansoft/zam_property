@@ -98,14 +98,14 @@ export class CreateExperimentDto {
   featureFlagKey?: string;
 }
 
-export class SetExperimentTenantOptInDto {
+export class SetExperimentPartnerOptInDto {
   @ApiPropertyOptional({
     example: 'uuid',
-    description: 'Tenant UUID. Defaults to current tenant context.',
+    description: 'Partner UUID. Defaults to current partner context.',
   })
   @IsOptional()
   @IsString()
-  tenantId?: string;
+  partnerId?: string;
 
   @ApiProperty({ example: true })
   @IsBoolean()

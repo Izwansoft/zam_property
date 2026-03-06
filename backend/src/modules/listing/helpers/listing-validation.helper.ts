@@ -19,7 +19,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ListingValidationContext {
-  tenantId: string;
+  partnerId: string;
   vendorId?: string;
   currentStatus: string;
   targetStatus?: string;
@@ -49,7 +49,7 @@ export class ListingValidationHelper {
     this.ensureVerticalRegistered(verticalType);
 
     return this.validationService.validateForDraft(verticalType, attributes, {
-      tenantId: context.tenantId,
+      partnerId: context.partnerId,
       vendorId: context.vendorId,
       currentStatus: 'DRAFT',
       isNew: true,
@@ -71,7 +71,7 @@ export class ListingValidationHelper {
     const phase = context.currentStatus === 'PUBLISHED' ? 'publish' : 'draft';
 
     return this.validationService.validate(verticalType, attributes, phase, {
-      tenantId: context.tenantId,
+      partnerId: context.partnerId,
       vendorId: context.vendorId,
       currentStatus: context.currentStatus,
       isNew: false,
@@ -90,7 +90,7 @@ export class ListingValidationHelper {
     this.ensureVerticalRegistered(verticalType);
 
     return this.validationService.validateForPublish(verticalType, attributes, {
-      tenantId: context.tenantId,
+      partnerId: context.partnerId,
       vendorId: context.vendorId,
       currentStatus: context.currentStatus,
       targetStatus: 'PUBLISHED',

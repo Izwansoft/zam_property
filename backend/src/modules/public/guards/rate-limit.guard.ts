@@ -85,11 +85,11 @@ export class RateLimitGuard implements CanActivate {
       parts.push(`ip:${ip}`);
     }
 
-    // Add tenant if byTenant is enabled
+    // Add partner if byTenant is enabled
     if (options.byTenant) {
-      const tenantId = request.headers['x-tenant-id'] as string;
-      if (tenantId) {
-        parts.push(`tenant:${tenantId}`);
+      const partnerId = request.headers['X-Partner-ID'] as string;
+      if (partnerId) {
+        parts.push(`partner:${partnerId}`);
       }
     }
 

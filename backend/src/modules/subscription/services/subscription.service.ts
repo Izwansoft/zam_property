@@ -8,7 +8,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SubscriptionRepository } from '../repositories/subscription.repository';
 import { PlanRepository } from '../repositories/plan.repository';
-import { TenantContextService } from '@core/tenant-context/tenant-context.service';
+import { PartnerContextService } from '@core/partner-context/partner-context.service';
 import {
   CreateSubscriptionParams,
   ChangePlanParams,
@@ -23,20 +23,20 @@ export class SubscriptionService {
   constructor(
     private readonly subscriptionRepository: SubscriptionRepository,
     private readonly planRepository: PlanRepository,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
-   * Assign a subscription to current tenant
+   * Assign a subscription to current partner
    */
   async assign(params: CreateSubscriptionParams): Promise<SubscriptionRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
-    // Check if tenant already has a subscription
-    const existing = await this.subscriptionRepository.findByTenantId(tenantId);
+    // Check if partner already has a subscription
+    const existing = await this.subscriptionRepository.findBypartnerId(partnerId);
     if (existing) {
-      throw new ConflictException('Tenant already has an active subscription');
+      throw new ConflictException('Partner already has an active subscription');
     }
 
     // Verify plan exists and is active
@@ -51,34 +51,34 @@ export class SubscriptionService {
     const subscription = await this.subscriptionRepository.create(params);
 
     this.eventEmitter.emit('subscription.created', {
-      tenantId,
+      partnerId,
       subscriptionId: subscription.id,
       planId: params.planId,
     });
 
-    this.logger.log(`Subscription created for tenant ${tenantId}`);
+    this.logger.log(`Subscription created for partner ${partnerId}`);
 
     return subscription;
   }
 
   /**
-   * Get current tenant's subscription
+   * Get current partner's subscription
    */
   async getCurrent(): Promise<SubscriptionRecord> {
     const subscription = await this.subscriptionRepository.findCurrent();
     if (!subscription) {
-      throw new NotFoundException('No active subscription found for tenant');
+      throw new NotFoundException('No active subscription found for partner');
     }
     return subscription;
   }
 
   /**
-   * Get subscription by tenant ID (admin only)
+   * Get subscription by partner ID (admin only)
    */
-  async getByTenantId(tenantId: string): Promise<SubscriptionRecord> {
-    const subscription = await this.subscriptionRepository.findByTenantId(tenantId);
+  async getBypartnerId(partnerId: string): Promise<SubscriptionRecord> {
+    const subscription = await this.subscriptionRepository.findBypartnerId(partnerId);
     if (!subscription) {
-      throw new NotFoundException(`No subscription found for tenant ${tenantId}`);
+      throw new NotFoundException(`No subscription found for partner ${partnerId}`);
     }
     return subscription;
   }
@@ -87,7 +87,7 @@ export class SubscriptionService {
    * Update subscription status
    */
   async updateStatus(status: SubscriptionStatus): Promise<SubscriptionRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // Verify subscription exists
     await this.getCurrent();
@@ -96,16 +96,16 @@ export class SubscriptionService {
     const currentSubscription = await this.subscriptionRepository.findCurrent();
     this.validateStatusTransition(currentSubscription!.status, status);
 
-    const subscription = await this.subscriptionRepository.updateStatus(tenantId, status);
+    const subscription = await this.subscriptionRepository.updateStatus(partnerId, status);
 
     this.eventEmitter.emit('subscription.status_changed', {
-      tenantId,
+      partnerId,
       subscriptionId: subscription.id,
       oldStatus: currentSubscription!.status,
       newStatus: status,
     });
 
-    this.logger.log(`Subscription status updated for tenant ${tenantId}: ${status}`);
+    this.logger.log(`Subscription status updated for partner ${partnerId}: ${status}`);
 
     return subscription;
   }
@@ -114,7 +114,7 @@ export class SubscriptionService {
    * Change plan
    */
   async changePlan(params: ChangePlanParams): Promise<SubscriptionRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // Verify current subscription exists
     const currentSubscription = await this.getCurrent();
@@ -136,13 +136,13 @@ export class SubscriptionService {
     const effectiveDate = params.effectiveDate || new Date();
 
     const subscription = await this.subscriptionRepository.changePlan(
-      tenantId,
+      partnerId,
       params.newPlanId,
       effectiveDate,
     );
 
     this.eventEmitter.emit('subscription.plan_changed', {
-      tenantId,
+      partnerId,
       subscriptionId: subscription.id,
       oldPlanId: currentSubscription.planId,
       newPlanId: params.newPlanId,
@@ -150,7 +150,7 @@ export class SubscriptionService {
     });
 
     this.logger.log(
-      `Subscription plan changed for tenant ${tenantId}: ${currentSubscription.planId} -> ${params.newPlanId}`,
+      `Subscription plan changed for partner ${partnerId}: ${currentSubscription.planId} -> ${params.newPlanId}`,
     );
 
     return subscription;
@@ -160,21 +160,21 @@ export class SubscriptionService {
    * Cancel subscription
    */
   async cancel(): Promise<SubscriptionRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     // Verify subscription exists
     await this.getCurrent();
 
-    const subscription = await this.subscriptionRepository.cancel(tenantId);
+    const subscription = await this.subscriptionRepository.cancel(partnerId);
 
     this.eventEmitter.emit('subscription.cancelled', {
-      tenantId,
+      partnerId,
       subscriptionId: subscription.id,
       planId: subscription.planId,
       cancelledAt: subscription.cancelledAt,
     });
 
-    this.logger.log(`Subscription cancelled for tenant ${tenantId}`);
+    this.logger.log(`Subscription cancelled for partner ${partnerId}`);
 
     return subscription;
   }

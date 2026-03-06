@@ -9,7 +9,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma, VendorStatus, VendorType } from '@prisma/client';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { VendorStateMachine } from '@core/workflows';
 
 import { VendorRepository, VendorView, VendorDetailView } from './vendor.repository';
@@ -28,7 +28,7 @@ export interface VendorListResult {
 export class VendorService {
   constructor(
     private readonly vendorRepository: VendorRepository,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
     private readonly eventEmitter: EventEmitter2,
     private readonly vendorStateMachine: VendorStateMachine,
   ) {}
@@ -119,7 +119,7 @@ export class VendorService {
 
       // Emit event
       this.eventEmitter.emit('vendor.created', {
-        tenantId: this.tenantContext.tenantId,
+        partnerId: this.PartnerContext.partnerId,
         vendorId: vendor.id,
         name: vendor.name,
         status: vendor.status,
@@ -158,7 +158,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.updated', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId: updated.id,
       changes: data,
       updatedAt: updated.updatedAt,
@@ -175,7 +175,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.deleted', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId: id,
       deletedAt: new Date(),
     });
@@ -213,7 +213,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.approved', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId: id,
       approvedBy: approvedByUserId,
       approvedAt: updated.approvedAt,
@@ -250,7 +250,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.rejected', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId: id,
       rejectedBy: rejectedByUserId,
       rejectionReason: reason,
@@ -286,7 +286,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.suspended', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId: id,
       suspendedBy: suspendedByUserId,
       reason,
@@ -324,7 +324,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.reactivated', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId: id,
       reactivatedBy: reactivatedByUserId,
       reactivatedAt: updated.approvedAt,
@@ -375,7 +375,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.profile.updated', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId,
       updatedAt: new Date(),
     });
@@ -409,7 +409,7 @@ export class VendorService {
 
     // Emit event
     this.eventEmitter.emit('vendor.settings.updated', {
-      tenantId: this.tenantContext.tenantId,
+      partnerId: this.PartnerContext.partnerId,
       vendorId,
       updatedAt: new Date(),
     });

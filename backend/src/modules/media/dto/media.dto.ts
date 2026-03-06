@@ -56,7 +56,7 @@ export class RequestPresignedUrlDto {
 export class ConfirmUploadDto {
   @ApiProperty({
     description: 'Storage key from presigned URL response',
-    example: 'media/tenant-id/uuid.jpg',
+    example: 'media/partner-id/uuid.jpg',
   })
   @IsString()
   @IsNotEmpty()

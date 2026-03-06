@@ -13,21 +13,21 @@ import { Role } from '@prisma/client';
 
 import { JwtAuthGuard } from '@core/auth';
 import { PermissionsGuard, RequirePermission, Roles, RolesGuard } from '@core/rbac';
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { ApiResponse as SuccessResponse } from '@shared/responses';
 
-import { CreateExperimentDto, ExperimentResponseDto, SetExperimentTenantOptInDto } from './dto';
+import { CreateExperimentDto, ExperimentResponseDto, SetExperimentPartnerOptInDto } from './dto';
 import { ExperimentService } from './experiment.service';
 
 @ApiTags('Admin - Experiments')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('admin/experiments')
-@Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+@Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
 export class ExperimentAdminController {
   constructor(
     private readonly experiments: ExperimentService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   @Get()
@@ -70,18 +70,18 @@ export class ExperimentAdminController {
     return { data: created };
   }
 
-  @Post(':key/tenant-opt-in')
+  @Post(':key/partner-opt-in')
   @RequirePermission('feature-flag:write')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Opt a tenant in/out of an experiment (admin)' })
+  @ApiOperation({ summary: 'Opt a partner in/out of an experiment (admin)' })
   @ApiParam({ name: 'key', type: String })
   @ApiResponse({ status: 200 })
   async setOptIn(
     @Param('key') key: string,
-    @Body() dto: SetExperimentTenantOptInDto,
+    @Body() dto: SetExperimentPartnerOptInDto,
   ): Promise<SuccessResponse<{ ok: true }>> {
-    const tenantId = dto.tenantId ?? this.tenantContext.tenantId;
-    await this.experiments.upsertTenantOptIn(key, tenantId, dto.optIn);
+    const partnerId = dto.partnerId ?? this.PartnerContext.partnerId;
+    await this.experiments.upsertTenantOptIn(key, partnerId, dto.optIn);
     return { data: { ok: true } };
   }
 }

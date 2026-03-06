@@ -37,7 +37,7 @@ export class FeatureFlagResponseDto {
   @ApiPropertyOptional({ type: [String], example: ['real_estate'] })
   allowedVerticals?: string[];
 
-  @ApiPropertyOptional({ isArray: true, enum: Role, example: [Role.TENANT_ADMIN] })
+  @ApiPropertyOptional({ isArray: true, enum: Role, example: [Role.PARTNER_ADMIN] })
   allowedRoles?: Role[];
 
   @ApiPropertyOptional({ example: '2026-02-01T00:00:00Z' })
@@ -91,7 +91,7 @@ export class CreateFeatureFlagDto {
   @IsString({ each: true })
   allowedVerticals?: string[];
 
-  @ApiPropertyOptional({ isArray: true, enum: Role, example: [Role.TENANT_ADMIN] })
+  @ApiPropertyOptional({ isArray: true, enum: Role, example: [Role.PARTNER_ADMIN] })
   @IsOptional()
   @IsArray()
   @IsEnum(Role, { each: true })
@@ -165,10 +165,10 @@ export class UpdateFeatureFlagDto {
 }
 
 export class UpsertFeatureFlagOverrideDto {
-  @ApiPropertyOptional({ example: 'uuid', description: 'Tenant UUID. Omit for global override.' })
+  @ApiPropertyOptional({ example: 'uuid', description: 'Partner UUID. Omit for global override.' })
   @IsOptional()
   @IsUUID()
-  tenantId?: string;
+  partnerId?: string;
 
   @ApiPropertyOptional({ example: 'real_estate' })
   @IsOptional()
@@ -201,9 +201,9 @@ export class UpsertFeatureFlagOverrideDto {
 }
 
 export class SetFeatureFlagUserTargetDto {
-  @ApiProperty({ example: 'uuid', description: 'Tenant UUID' })
+  @ApiProperty({ example: 'uuid', description: 'Partner UUID' })
   @IsUUID()
-  tenantId!: string;
+  partnerId!: string;
 
   @ApiProperty({ example: 'uuid', description: 'User UUID' })
   @IsUUID()

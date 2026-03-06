@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Query,
@@ -55,14 +56,22 @@ import {
   BulkActionResponseDto,
   BulkExpireListingsRequestDto,
   BulkReindexRequestDto,
-  TenantDashboardStatsDto,
+  AdminTenantDetailDto,
+  AdminTenantItemDto,
+  CreatePartnerDto,
+  PartnerQueryDto,
+  SuspendTenantDto,
+  DeactivateTenantDto,
+  UpdatePartnerSettingsDto,
+  PropertyManagementStatsDto,
+  PartnerDashboardStatsDto,
 } from './dto';
 import { AdminService } from './admin.service';
 
 interface AuthenticatedRequest {
   user: {
     sub: string;
-    tenantId: string;
+    partnerId: string;
     role: Role;
     vendorId?: string;
   };
@@ -72,7 +81,7 @@ interface AuthenticatedRequest {
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('admin')
-@Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+@Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
@@ -87,14 +96,135 @@ export class AdminController {
   @Get('dashboard/stats')
   @RequirePermission('admin:read')
   @ApiOperation({
-    summary: 'Get tenant admin dashboard stats',
+    summary: 'Get partner admin dashboard stats',
     description:
-      'Returns tenant-scoped counts for vendors, listings, interactions, and moderation queues.',
+      'Returns partner-scoped counts for vendors, listings, interactions, and moderation queues.',
   })
-  @ApiResponse({ status: 200, type: TenantDashboardStatsDto })
-  async getTenantDashboardStats(): Promise<SuccessResponse<TenantDashboardStatsDto>> {
+  @ApiResponse({ status: 200, type: PartnerDashboardStatsDto })
+  async getTenantDashboardStats(): Promise<SuccessResponse<PartnerDashboardStatsDto>> {
     const stats = await this.adminService.getTenantDashboardStats();
     return { data: stats };
+  }
+
+  @Get('dashboard/pm-stats')
+  @RequirePermission('admin:read')
+  @ApiOperation({
+    summary: 'Get property management dashboard stats',
+    description:
+      'Returns partner-scoped aggregated stats for tenancies, billing, maintenance, payouts, deposits, inspections, claims, legal, tenants, and companies/agents.',
+  })
+  @ApiResponse({ status: 200, type: PropertyManagementStatsDto })
+  async getPropertyManagementStats(): Promise<SuccessResponse<PropertyManagementStatsDto>> {
+    const stats = await this.adminService.getPropertyManagementStats();
+    return { data: stats };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TENANTS (PLATFORM)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Post('partners')
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('admin:create')
+  @ApiOperation({
+    summary: 'Create new partner',
+    description:
+      'Create a new partner with initial admin user and enabled verticals. SUPER_ADMIN only.',
+  })
+  @ApiResponse({ status: 201, type: AdminTenantDetailDto })
+  @ApiResponse({ status: 400, description: 'Invalid vertical types' })
+  @ApiResponse({ status: 409, description: 'Slug already taken' })
+  async createPartner(
+    @Body() dto: CreatePartnerDto,
+  ): Promise<SuccessResponse<AdminTenantDetailDto>> {
+    const partner = await this.adminService.createPartner(dto);
+    return { data: partner };
+  }
+
+  @Get('partners')
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('admin:read')
+  @ApiOperation({
+    summary: 'List tenants (platform)',
+    description: 'Platform-level partner listing with filters, search, and pagination.',
+  })
+  @ApiResponse({ status: 200, type: [AdminTenantItemDto] })
+  async listTenants(@Query() query: PartnerQueryDto): Promise<
+    SuccessResponse<{
+      items: AdminTenantItemDto[];
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    }>
+  > {
+    const result = await this.adminService.listTenants(query);
+    return { data: result };
+  }
+
+  @Get('tenants/:id')
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('admin:read')
+  @ApiOperation({ summary: 'Get partner by ID (platform)' })
+  @ApiParam({ name: 'id', description: 'Partner UUID', type: 'string' })
+  @ApiResponse({ status: 200, type: AdminTenantDetailDto })
+  async getTenantById(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SuccessResponse<AdminTenantDetailDto>> {
+    const partner = await this.adminService.getTenantById(id);
+    return { data: partner };
+  }
+
+  @Patch('tenants/:id/suspend')
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('admin:update')
+  @ApiOperation({ summary: 'Suspend partner (platform)' })
+  @ApiParam({ name: 'id', description: 'Partner UUID', type: 'string' })
+  @ApiResponse({ status: 200, type: AdminTenantDetailDto })
+  async suspendTenant(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SuspendTenantDto,
+  ): Promise<SuccessResponse<AdminTenantDetailDto>> {
+    const partner = await this.adminService.suspendTenant(id, dto);
+    return { data: partner };
+  }
+
+  @Patch('tenants/:id/reactivate')
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('admin:update')
+  @ApiOperation({ summary: 'Reactivate partner (platform)' })
+  @ApiParam({ name: 'id', description: 'Partner UUID', type: 'string' })
+  @ApiResponse({ status: 200, type: AdminTenantDetailDto })
+  async reactivateTenant(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SuccessResponse<AdminTenantDetailDto>> {
+    const partner = await this.adminService.reactivateTenant(id);
+    return { data: partner };
+  }
+
+  @Patch('tenants/:id/deactivate')
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('admin:update')
+  @ApiOperation({ summary: 'Deactivate partner (platform)' })
+  @ApiParam({ name: 'id', description: 'Partner UUID', type: 'string' })
+  @ApiResponse({ status: 200, type: AdminTenantDetailDto })
+  async deactivateTenant(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DeactivateTenantDto,
+  ): Promise<SuccessResponse<AdminTenantDetailDto>> {
+    const partner = await this.adminService.deactivateTenant(id, dto);
+    return { data: partner };
+  }
+
+  @Patch('tenants/:id/settings')
+  @Roles(Role.SUPER_ADMIN)
+  @RequirePermission('admin:update')
+  @ApiOperation({ summary: 'Update partner settings (platform)' })
+  @ApiParam({ name: 'id', description: 'Partner UUID', type: 'string' })
+  @ApiResponse({ status: 200, type: AdminTenantDetailDto })
+  async updatePartnerSettings(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePartnerSettingsDto,
+  ): Promise<SuccessResponse<AdminTenantDetailDto>> {
+    const partner = await this.adminService.updatePartnerSettings(id, dto);
+    return { data: partner };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -105,7 +235,7 @@ export class AdminController {
   @RequirePermission('vendor:read')
   @ApiOperation({
     summary: 'List vendors (admin dashboard)',
-    description: 'Tenant-scoped vendor listing with aggregate counts for dashboard use.',
+    description: 'Partner-scoped vendor listing with aggregate counts for dashboard use.',
   })
   @ApiResponse({ status: 200, type: [AdminVendorDashboardItemDto] })
   async listVendorsDashboard(@Query() query: VendorQueryDto): Promise<
@@ -201,7 +331,7 @@ export class AdminController {
   @ApiOperation({
     summary: 'List listings (admin dashboard)',
     description:
-      'Tenant-scoped listing listing with vendor details and counts for moderation views.',
+      'Partner-scoped listing listing with vendor details and counts for moderation views.',
   })
   @ApiResponse({ status: 200, type: [AdminListingDashboardItemDto] })
   async listListingsDashboard(@Query() query: ListingQueryDto): Promise<

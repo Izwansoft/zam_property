@@ -11,7 +11,7 @@ export * from './services/event-log.service';
 export * from './domain/listing.events';
 export * from './domain/vendor.events';
 export * from './domain/common.events';
-export * from './domain/tenant-user.events';
+export * from './domain/partner-user.events';
 export * from './domain/platform.events';
 
 // Handlers

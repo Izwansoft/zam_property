@@ -97,8 +97,8 @@ export class AuditLogResponseDto {
   @ApiProperty({ description: 'Audit log ID' })
   id!: string;
 
-  @ApiPropertyOptional({ description: 'Tenant ID' })
-  tenantId?: string;
+  @ApiPropertyOptional({ description: 'Partner ID' })
+  partnerId?: string;
 
   @ApiProperty({ description: 'Actor type', enum: AuditActorType })
   actorType!: AuditActorType;

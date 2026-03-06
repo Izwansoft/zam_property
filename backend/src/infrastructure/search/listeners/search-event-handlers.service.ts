@@ -5,20 +5,20 @@ import { Queue } from 'bullmq';
 
 // Event payload interfaces
 interface ListingPublishedEvent {
-  tenantId: string;
+  partnerId: string;
   listingId: string;
   vendorId: string;
   verticalType: string;
 }
 
 interface ListingUpdatedEvent {
-  tenantId: string;
+  partnerId: string;
   listingId: string;
   status: string;
 }
 
 interface ListingRemovedEvent {
-  tenantId: string;
+  partnerId: string;
   listingId: string;
 }
 
@@ -35,7 +35,7 @@ export class SearchEventHandlers {
     await this.searchQueue.add(
       'listing.index',
       {
-        tenantId: event.tenantId,
+        partnerId: event.partnerId,
         listingId: event.listingId,
       },
       {
@@ -56,7 +56,7 @@ export class SearchEventHandlers {
       await this.searchQueue.add(
         'listing.index',
         {
-          tenantId: event.tenantId,
+          partnerId: event.partnerId,
           listingId: event.listingId,
         },
         {
@@ -71,7 +71,7 @@ export class SearchEventHandlers {
       await this.searchQueue.add(
         'listing.delete',
         {
-          tenantId: event.tenantId,
+          partnerId: event.partnerId,
           listingId: event.listingId,
         },
         {
@@ -92,7 +92,7 @@ export class SearchEventHandlers {
     await this.searchQueue.add(
       'listing.delete',
       {
-        tenantId: event.tenantId,
+        partnerId: event.partnerId,
         listingId: event.listingId,
       },
       {
@@ -110,7 +110,7 @@ export class SearchEventHandlers {
     await this.searchQueue.add(
       'listing.delete',
       {
-        tenantId: event.tenantId,
+        partnerId: event.partnerId,
         listingId: event.listingId,
       },
       {
@@ -128,7 +128,7 @@ export class SearchEventHandlers {
     await this.searchQueue.add(
       'listing.delete',
       {
-        tenantId: event.tenantId,
+        partnerId: event.partnerId,
         listingId: event.listingId,
       },
       {

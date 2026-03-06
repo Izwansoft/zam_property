@@ -31,7 +31,22 @@
 | Admin | 38 | ✅ Implemented |
 | Public | 3 | ✅ Implemented |
 | Audit | 6 | ✅ Implemented |
-| **Total** | **160** | |
+| Occupants | 13 | ✅ Implemented |
+| Tenancies | 13 | ✅ Implemented |
+| Contracts | 20 | ✅ Implemented |
+| Deposits | 13 | ✅ Implemented |
+| Rent Billing | 15 | ✅ Implemented |
+| Rent Payment | 6 | ✅ Implemented |
+| Reconciliation | 7 | ✅ Implemented |
+| Tenancy Statement | 1 | ✅ Implemented |
+| Owner Payouts | 7 | ✅ Implemented |
+| Financial Reports | 3 | ✅ Implemented |
+| Company | 9 | ✅ Implemented |
+| Agent | 10 | ✅ Implemented |
+| Commission | 8 | ✅ Implemented |
+| Affiliate | 13 | ✅ Implemented |
+| Legal | 14 | ✅ Implemented |
+| **Total** | **310** | |
 
 ---
 
@@ -5189,6 +5204,83 @@ Tenant-scoped admin dashboard stats.
 
 ---
 
+### GET /api/v1/admin/dashboard/pm-stats
+Property Management dashboard stats — aggregated metrics across all PM modules.
+
+**Permission:** `admin:read` (SUPER_ADMIN, TENANT_ADMIN)
+**Status:** ✅ Implemented (Session 4.2 — PM Extension)
+
+**Headers:**
+| Header | Required | Example | Notes |
+|--------|----------|---------|-------|
+| `Authorization` | ✅ | `Bearer eyJhbG...` | Access token. |
+| `X-Tenant-ID` | ✅ | `demo` | Required for tenant resolution. |
+| `X-Request-ID` | ❌ | `uuid` | Optional request tracking ID. |
+
+**Success Response (200):**
+```json
+{
+  "data": {
+    "tenancy": {
+      "byStatus": [{ "status": "ACTIVE", "count": 85 }],
+      "activeCount": 85,
+      "expiringSoonCount": 5,
+      "totalCount": 120
+    },
+    "billing": {
+      "byStatus": [{ "status": "OVERDUE", "count": 12 }],
+      "overdueCount": 12,
+      "overdueAmount": "15600.00",
+      "collectedThisMonth": "97800.00",
+      "billedThisMonth": "125000.00"
+    },
+    "maintenance": {
+      "byStatus": [{ "status": "OPEN", "count": 10 }],
+      "byPriority": [{ "status": "HIGH", "count": 5 }],
+      "openCount": 23,
+      "unassignedCount": 8
+    },
+    "payout": {
+      "byStatus": [{ "status": "CALCULATED", "count": 15 }],
+      "pendingApprovalAmount": "45200.00",
+      "processedThisMonth": "128500.00"
+    },
+    "deposit": {
+      "byStatus": [{ "status": "COLLECTED", "count": 50 }],
+      "totalHeldAmount": "256000.00",
+      "pendingRefundCount": 4
+    },
+    "inspection": {
+      "byStatus": [{ "status": "SCHEDULED", "count": 7 }],
+      "upcomingCount": 7,
+      "completedThisMonth": 15
+    },
+    "claim": {
+      "byStatus": [{ "status": "SUBMITTED", "count": 6 }],
+      "pendingReviewCount": 6,
+      "disputedCount": 2
+    },
+    "legal": {
+      "byStatus": [{ "status": "NOTICE_SENT", "count": 2 }],
+      "openCount": 3
+    },
+    "occupant": {
+      "totalCount": 95,
+      "activeCount": 82
+    },
+    "companyAgent": {
+      "totalCompanies": 12,
+      "activeCompanies": 9,
+      "totalAgents": 45,
+      "activeAgents": 38
+    },
+    "generatedAt": "2026-02-23T00:00:00.000Z"
+  }
+}
+```
+
+---
+
 ### GET /api/v1/admin/vendors
 Vendor management dashboard (paginated vendor listing + counts).
 
@@ -5861,6 +5953,7 @@ Get detailed statistics for a specific queue.
 - `search.index`
 - `notification.send`
 - `listing.expire`
+- `tenancy.expiry`
 - `analytics.process`
 - `cleanup.process`
 - `billing.process`
@@ -6806,6 +6899,9 @@ Readiness check (includes dependencies).
 | 2026-01-21 | 4.3 | Public API + 3 public endpoints implemented (search listings, listing detail, vendor profile with rate limiting via Redis sliding window) |
 | 2026-01-21 | 4.4 | Audit Logging + 6 audit endpoints implemented (query logs, get by ID/target/actor, action types, target types) |
 | 2026-01-21 | 4.5 | Testing & E2E (no new endpoints - 96 tests: 21 unit + 75 E2E covering auth, listing, vendor, tenant isolation) |
+| 2026-02-21 | 6.1 | Rent Billing Engine + 9 endpoints implemented (generate bill, list/get/download PDF, add line items, apply late fee, mark sent/overdue, write-off) + 28 unit tests |
+| 2026-02-21 | 6.2 | Billing Automation + 3 endpoints (automation status, billing config GET/PATCH) + BillingProcessor (batch/single/overdue/late-fee jobs) + 3 cron schedules + billing notifications + 29 unit tests |
+| 2026-02-21 | 6.5 | Payment Reminder System + 3 endpoints (manual remind, reminder history, legal escalation) + ReminderService (4-tier schedule, batch processing, event-driven) + cron at 7 AM + 29 unit tests |
 
 ---
 
@@ -7120,7 +7216,7 @@ Business Logic → Domain Event → Handler → NotificationService
 - `InteractionNotificationHandler`: interaction.created, interaction.message
 - `ReviewNotificationHandler`: review.submitted, review.approved
 - `SubscriptionNotificationHandler`: subscription.created, subscription.expiring
-- `BillingNotificationHandler`: billing.payment.succeeded, billing.payment.failed
+- `BillingNotificationHandler`: billing.generated, billing.overdue, billing.payment.succeeded, billing.payment.failed
 - `NotificationDeliveryHandler`: notification.deliver (executes actual channel delivery)
 
 ---
@@ -7985,4 +8081,2044 @@ model AuditLog {
 }
 ```
 
+---
+
+##  Occupants Module (Session 5.2)
+
+### Overview
+Occupant profile management for the Property Management extension. Handles occupant lifecycle, document uploads, verification, and screening workflows.
+
+**Base URL:** `/api/v1/occupants`
+
+**Controller:** `OccupantController`
+
+**Guard:** `OccupantGuard` with access levels:
+- `SELF_ONLY` - Occupant can only access own data
+- `VENDOR_PROPERTIES` - Vendor can access occupants in their properties
+- `FULL` - Platform/Tenant admins have full access
+
+---
+
+### Endpoint Summary
+
+| Method | Endpoint | Description | Auth | Roles |
+|--------|----------|-------------|------|-------|
+| GET | `/` | List occupants |  | TENANT_ADMIN, PLATFORM_ADMIN |
+| GET | `/me` | Get own profile |  | OCCUPANT |
+| GET | `/:id` | Get occupant by ID |  | OCCUPANT (self), VENDOR_ADMIN, TENANT_ADMIN |
+| POST | `/` | Create occupant profile |  | Authenticated |
+| PATCH | `/:id` | Update occupant profile |  | OCCUPANT (self), VENDOR_ADMIN, TENANT_ADMIN |
+| PATCH | `/:id/status` | Update verification status |  | VENDOR_ADMIN, TENANT_ADMIN, PLATFORM_ADMIN |
+| POST | `/:id/documents` | Request document upload URL |  | OCCUPANT (self), VENDOR_ADMIN |
+| POST | `/:id/documents/:documentId/confirm` | Confirm document upload |  | OCCUPANT (self), VENDOR_ADMIN |
+| GET | `/:id/documents` | Get occupant documents |  | OCCUPANT (self), VENDOR_ADMIN, TENANT_ADMIN |
+| DELETE | `/:id/documents/:documentId` | Delete document |  | OCCUPANT (self), VENDOR_ADMIN |
+| POST | `/:id/documents/:documentId/verify` | Verify document |  | VENDOR_ADMIN, TENANT_ADMIN, PLATFORM_ADMIN |
+| POST | `/:id/screen` | Run screening check |  | OCCUPANT (self), VENDOR_ADMIN |
+| PATCH | `/:id/screening` | Update screening result |  | VENDOR_ADMIN, TENANT_ADMIN, PLATFORM_ADMIN |
+
+---
+
+### Events Emitted
+
+| Event | When | Payload |
+|-------|------|---------|
+| `occupant.created` | Occupant profile created | `{ occupantId, userId, tenantId }` |
+| `occupant.updated` | Profile updated | `{ occupantId, changes }` |
+| `occupant.status.changed` | Status changed | `{ occupantId, oldStatus, newStatus }` |
+| `occupant.document.uploaded` | Document uploaded | `{ occupantId, documentId, documentType }` |
+| `occupant.document.verified` | Document verified | `{ occupantId, documentId, verified }` |
+| `occupant.screening.completed` | Screening finished | `{ occupantId, passed, results }` |
+
+---
+
+## 🏠 Tenancies Module (Session 5.3)
+
+### Overview
+Tenancy lifecycle management for the Property Management extension. Handles tenancy creation, status transitions, and termination workflows. Only allowed for `TENANT_MANAGED` listings.
+
+**Base URL:** `/api/v1/tenancies`
+
+**Controller:** `TenancyController`
+
+**Guard:** `TenancyGuard` with access levels:
+- `SELF_ONLY` - Occupant can access own tenancies
+- `OWNER_PROPERTIES` - Vendor can access tenancies for their properties
+- `FULL` - Platform/Tenant admins have full access
+
+**State Machine:** `TenancyStateMachine` with status transitions:
+```
+DRAFT → BOOKED (confirm_booking)
+DRAFT → TERMINATED (cancel)
+BOOKED → DEPOSIT_PAID (confirm_deposit)
+BOOKED → TERMINATED (cancel)
+DEPOSIT_PAID → CONTRACT_PENDING (submit_contract)
+CONTRACT_PENDING → ACTIVE (activate)
+ACTIVE → TERMINATION_REQUESTED (request_termination)
+ACTIVE → EXTENDED (extend)
+ACTIVE → MAINTENANCE_HOLD (hold_maintenance)
+MAINTENANCE_HOLD → ACTIVE (resume_from_hold)
+TERMINATION_REQUESTED → TERMINATED (terminate)
+EXTENDED → ACTIVE (activate)
+```
+
+---
+
+### Endpoint Summary
+
+| Method | Endpoint | Description | Auth | Roles |
+|--------|----------|-------------|------|-------|
+| POST | `/` | Create tenancy (booking) | ✅ | TENANT_ADMIN, VENDOR_ADMIN, CUSTOMER, OCCUPANT |
+| GET | `/` | List tenancies | ✅ | TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, OCCUPANT |
+| GET | `/:id` | Get tenancy by ID | ✅ | TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, OCCUPANT |
+| PATCH | `/:id` | Update tenancy details | ✅ | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT (self) |
+| GET | `/:id/history` | Get status history | ✅ | TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, OCCUPANT (self) |
+| POST | `/:id/confirm-booking` | Confirm booking | ✅ | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/:id/confirm-deposit` | Confirm deposit | ✅ | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/:id/submit-contract` | Submit contract | ✅ | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/:id/activate` | Activate tenancy | ✅ | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/:id/request-termination` | Request termination | ✅ | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT (self) |
+| POST | `/:id/terminate` | Complete termination | ✅ | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/:id/extend` | Extend tenancy | ✅ | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/:id/cancel` | Cancel tenancy | ✅ | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT (self) |
+
+---
+
+### Request/Response Examples
+
+#### Create Tenancy
+```http
+POST /api/v1/tenancies
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "listingId": "550e8400-e29b-41d4-a716-446655440000",
+  "occupantId": "550e8400-e29b-41d4-a716-446655440001",
+  "monthlyRent": 2500.00,
+  "securityDeposit": 5000.00,
+  "moveInDate": "2026-03-01",
+  "leaseStartDate": "2026-03-01",
+  "leaseEndDate": "2027-02-28",
+  "billingDay": 1,
+  "paymentDueDay": 7
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "status": "DRAFT",
+    "listingId": "550e8400-e29b-41d4-a716-446655440000",
+    "occupantId": "550e8400-e29b-41d4-a716-446655440001",
+    "ownerId": "550e8400-e29b-41d4-a716-446655440003",
+    "monthlyRent": 2500.00,
+    "securityDeposit": 5000.00,
+    "applicationDate": "2025-01-15T10:00:00Z",
+    "listing": {
+      "id": "...",
+      "title": "Modern Condo Unit",
+      "slug": "modern-condo-unit"
+    },
+    "occupant": {
+      "id": "...",
+      "userId": "...",
+      "user": { "email": "...", "fullName": "John Doe" }
+    },
+    "statusHistory": [
+      { "fromStatus": null, "toStatus": "DRAFT", "changedAt": "..." }
+    ]
+  }
+}
+```
+
+#### Confirm Booking
+```http
+POST /api/v1/tenancies/{id}/confirm-booking
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "reason": "Application approved",
+  "moveInDate": "2026-03-01",
+  "leaseStartDate": "2026-03-01",
+  "leaseEndDate": "2027-02-28"
+}
+```
+
+#### Confirm Deposit
+```http
+POST /api/v1/tenancies/{id}/confirm-deposit
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "paymentReference": "TXN-12345678",
+  "reason": "Deposit received via bank transfer"
+}
+```
+
+#### Request Termination
+```http
+POST /api/v1/tenancies/{id}/request-termination
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "reason": "Relocating for work",
+  "requestedEndDate": "2026-06-30"
+}
+```
+
+---
+
+### Business Rules
+
+1. **TENANT_MANAGED Only**: Tenancy can only be created for listings with `managementType = TENANT_MANAGED`
+2. **Single Active Tenancy**: A listing can only have one active tenancy at a time
+3. **Immutable Financial Terms**: `monthlyRent` and `securityDeposit` cannot be changed after tenancy becomes ACTIVE
+4. **Status History**: All status changes are recorded in `TenancyStatusHistory`
+5. **Access Control**: 
+   - OCCUPANT can only see/manage own tenancies
+   - VENDOR can see/manage tenancies for their properties
+   - TENANT_ADMIN has full access
+
+---
+
+### Events Emitted
+
+| Event | When | Payload |
+|-------|------|---------|
+| `tenancy.created` | Tenancy created | `{ tenancyId, listingId, occupantId, tenantId }` |
+| `tenancy.status.changed` | Any status change | `{ tenancyId, fromStatus, toStatus, reason, changedBy }` |
+| `tenancy.booked` | DRAFT → BOOKED | `{ tenancyId, fromStatus, toStatus, reason, changedBy }` |
+| `tenancy.activated` | CONTRACT_PENDING → ACTIVE | `{ tenancyId, fromStatus, toStatus, reason, changedBy }` |
+| `tenancy.terminated` | Any → TERMINATED | `{ tenancyId, fromStatus, toStatus, reason, changedBy }` |
+| `tenancy.extended` | ACTIVE → EXTENDED | `{ tenancyId, fromStatus, toStatus, reason, changedBy }` |
+| `tenancy.expiry.notice` | Expiry notification sent | `{ tenancyId, tenantId, occupantId, ownerId, daysUntilExpiry, notificationType, leaseEndDate }` |
+| `tenancy.auto.terminated` | Auto-terminated (expired) | `{ tenancyId, tenantId, occupantId, ownerId, reason, terminatedAt }` |
+
+---
+
+### Background Jobs (Queue: `tenancy.expiry`)
+
+**Status:** ✅ Implemented (Session 5.4)
+
+#### Job Types
+
+| Job Type | Schedule | Purpose |
+|----------|----------|---------|
+| `tenancy.check_expiring` | Daily 8:00 AM | Find expiring tenancies (30, 14, 7 days) |
+| `tenancy.notify_expiring` | On-demand | Send expiry notification to occupant/owner |
+| `tenancy.auto_terminate` | Daily Midnight | Auto-terminate past lease end date |
+
+#### Job Payloads
+
+**tenancy.check_expiring** (Scheduled)
+```json
+{
+  "tenantId": "uuid",
+  "type": "tenancy.check_expiring",
+  "daysBeforeExpiry": 30,
+  "batchSize": 100
+}
+```
+
+**tenancy.notify_expiring** (On-demand, queued by check_expiring)
+```json
+{
+  "tenantId": "uuid",
+  "type": "tenancy.notify_expiring",
+  "tenancyId": "uuid",
+  "daysUntilExpiry": 30,
+  "notificationType": "first_notice"
+}
+```
+
+**tenancy.auto_terminate** (Scheduled for expired tenancies)
+```json
+{
+  "tenantId": "uuid",
+  "type": "tenancy.auto_terminate",
+  "tenancyId": "uuid",
+  "reason": "Lease term completed - auto-terminated"
+}
+```
+
+#### Notification Types
+
+| Type | Days Before | Description |
+|------|-------------|-------------|
+| `first_notice` | 30 days | First expiry warning |
+| `reminder` | 14 days | Follow-up reminder |
+| `final_notice` | 7 days | Final urgent notice |
+
+---
+
+## 📝 Contracts Module (Session 5.5, 5.6)
+
+### Contract Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/v1/contracts` | Create contract from tenancy | TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/api/v1/contracts` | List contracts with filters | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| GET | `/api/v1/contracts/:id` | Get contract by ID | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| PATCH | `/api/v1/contracts/:id` | Update contract terms | TENANT_ADMIN, VENDOR_ADMIN |
+| PATCH | `/api/v1/contracts/:id/status` | Update contract status | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/api/v1/contracts/:id/generate-pdf` | Generate contract PDF | TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/api/v1/contracts/:id/download` | Get download URL for PDF | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| GET | `/api/v1/contracts/tenancy/:tenancyId` | Get contract by tenancy | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+
+### E-Signature Endpoints (Session 5.6)
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/v1/contracts/:id/request-signatures` | Send contract for e-signature | TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/api/v1/contracts/:id/signature-status` | Get signature status | TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| POST | `/api/v1/contracts/:id/record-signature` | Manually record signature | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/api/v1/contracts/:id/void-signatures` | Void/cancel signature request | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/api/v1/contracts/:id/resend-signature` | Resend notification to signer | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/api/v1/contracts/webhook` | E-signature provider callback | Public |
+
+### Contract Template Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/v1/contracts/templates` | List contract templates | TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/api/v1/contracts/templates` | Create contract template | TENANT_ADMIN |
+| GET | `/api/v1/contracts/templates/:id` | Get template by ID | TENANT_ADMIN, VENDOR_ADMIN |
+| PATCH | `/api/v1/contracts/templates/:id` | Update template | TENANT_ADMIN |
+| DELETE | `/api/v1/contracts/templates/:id` | Delete (deactivate) template | TENANT_ADMIN |
+| GET | `/api/v1/contracts/templates/variables` | Get available template variables | TENANT_ADMIN, VENDOR_ADMIN |
+
+### DTOs
+
+#### CreateContractDto
+```typescript
+interface CreateContractDto {
+  tenancyId: string;      // Required - UUID of the tenancy
+  templateId?: string;    // Optional - UUID of template to use
+  startDate: string;      // Required - Contract start date (ISO 8601)
+  endDate: string;        // Required - Contract end date (ISO 8601)
+  terms?: Record<string, unknown>;  // Optional - Additional terms
+}
+```
+
+#### UpdateContractDto
+```typescript
+interface UpdateContractDto {
+  startDate?: string;     // Optional - New start date
+  endDate?: string;       // Optional - New end date
+  terms?: Record<string, unknown>;  // Optional - Updated terms
+}
+```
+
+#### UpdateContractStatusDto
+```typescript
+interface UpdateContractStatusDto {
+  status: ContractStatus;  // Required - New status
+  reason?: string;         // Optional - Reason for status change
+}
+```
+
+#### ContractQueryDto
+```typescript
+interface ContractQueryDto {
+  tenancyId?: string;      // Filter by tenancy
+  status?: ContractStatus; // Filter by status
+  contractNumber?: string; // Filter by contract number
+  page?: number;           // Page number (default: 1)
+  limit?: number;          // Items per page (default: 20)
+  sortBy?: string;         // Sort field (default: 'createdAt')
+  sortDir?: 'asc' | 'desc'; // Sort direction (default: 'desc')
+}
+```
+
+#### CreateContractTemplateDto
+```typescript
+interface CreateContractTemplateDto {
+  name: string;           // Required - Template name (2-200 chars)
+  description?: string;   // Optional - Template description
+  content: string;        // Required - Template content with variables
+  variables?: string[];   // Optional - List of template variables
+  isDefault?: boolean;    // Optional - Set as default template
+}
+```
+
+#### RequestSignaturesDto (Session 5.6)
+```typescript
+interface RequestSignaturesDto {
+  callbackUrl?: string;   // Optional - Webhook URL for signature provider callbacks
+}
+```
+
+#### RecordSignatureDto (Session 5.6)
+```typescript
+interface RecordSignatureDto {
+  signerRole: 'owner' | 'occupant';  // Required - Role of the signer
+  signatureUrl?: string;              // Optional - URL to signature image
+  signedBy?: string;                  // Optional - User ID of signer
+}
+```
+
+#### VoidSignatureRequestDto (Session 5.6)
+```typescript
+interface VoidSignatureRequestDto {
+  reason: string;         // Required - Reason for voiding
+}
+```
+
+#### ResendSignatureDto (Session 5.6)
+```typescript
+interface ResendSignatureDto {
+  signerRole: 'owner' | 'occupant';  // Required - Signer to resend to
+}
+```
+
+#### SignatureStatusResponseDto (Session 5.6)
+```typescript
+interface SignatureStatusResponseDto {
+  contractId: string;
+  envelopeId: string;
+  status: 'CREATED' | 'SENT' | 'PARTIALLY_SIGNED' | 'COMPLETED' | 'DECLINED' | 'VOIDED' | 'EXPIRED';
+  signers: Array<{
+    signerId: string;
+    email: string;
+    role: 'owner' | 'occupant';
+    status: 'pending' | 'sent' | 'delivered' | 'signed' | 'declined';
+    signedAt?: Date;
+    signatureUrl?: string;
+  }>;
+  completedDocumentUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+}
+```
+
+### Contract Status Enum
+
+```typescript
+enum ContractStatus {
+  DRAFT = 'DRAFT',                      // Initial state
+  PENDING_SIGNATURE = 'PENDING_SIGNATURE', // Awaiting signatures
+  PARTIALLY_SIGNED = 'PARTIALLY_SIGNED', // One party signed
+  ACTIVE = 'ACTIVE',                    // Both parties signed
+  EXPIRED = 'EXPIRED',                  // Contract term ended
+  TERMINATED = 'TERMINATED',            // Terminated early
+  RENEWED = 'RENEWED'                   // Contract renewed
+}
+```
+
+### Status Transitions
+
+```
+DRAFT → PENDING_SIGNATURE → PARTIALLY_SIGNED → ACTIVE
+                                              → TERMINATED
+           ACTIVE → EXPIRED
+                  → TERMINATED
+                  → RENEWED
+```
+
+### Template Variables
+
+The following variables are available for contract templates using `{{variableName}}` syntax:
+
+| Variable | Description |
+|----------|-------------|
+| `contractNumber` | Auto-generated contract number (CON-YYYY-NNNNN) |
+| `contractDate` | Date contract was created |
+| `propertyTitle` | Listing title |
+| `propertyAddress` | Full property address |
+| `propertyType` | Type of property |
+| `ownerName` | Landlord/property owner name |
+| `ownerEmail` | Owner email address |
+| `ownerIc` | Owner IC number |
+| `ownerAddress` | Owner address |
+| `ownerPhone` | Owner phone number |
+| `occupantName` | Tenant/occupant name |
+| `occupantEmail` | Occupant email address |
+| `occupantIc` | Occupant IC number |
+| `occupantAddress` | Occupant address |
+| `occupantPhone` | Occupant phone number |
+| `rentAmount` | Monthly rent (formatted with currency) |
+| `rentAmountWords` | Rent amount in words |
+| `depositAmount` | Security deposit (formatted) |
+| `depositAmountWords` | Deposit in words |
+| `startDate` | Tenancy start date |
+| `endDate` | Tenancy end date |
+| `leaseDuration` | Duration in months |
+| `paymentDueDay` | Day of month rent is due |
+| `lateFeePercent` | Late payment fee percentage |
+| `signedDate` | Date contract was signed |
+| `currentDate` | Current date |
+
+### PDF Generation
+
+Contract PDFs are generated using PDFKit and stored in S3:
+- Format: `contracts/{tenant-slug}/{contract-id}/{filename}.pdf`
+- Download: Presigned S3 URLs (1-hour expiry)
+- Hash: SHA256 document hash stored for verification
+
+### Events
+
+| Event | Description |
+|-------|-------------|
+| `contract.created` | Contract created for tenancy |
+| `contract.status.changed` | Contract status updated |
+| `contract.signature.requested` | Signatures requested for contract |
+| `contract.signer.signed` | A signer completed their signature |
+| `contract.fully.signed` | Both parties signed, contract is active |
+| `tenancy.activated` | Tenancy auto-activated when contract fully signed |
+
+### E-Signature Workflow (Session 5.6)
+
+```
+1. Contract created in DRAFT status
+2. PDF generated and stored in S3
+3. POST /contracts/:id/request-signatures
+   → Contract status: DRAFT → PENDING_SIGNATURE
+   → Signing URLs returned for both parties
+4. Owner signs (webhook or manual record)
+   → Contract status: PARTIALLY_SIGNED
+   → ownerSignedAt, ownerSignatureUrl set
+5. Occupant signs (webhook or manual record)
+   → Contract status: ACTIVE
+   → occupantSignedAt, occupantSignatureUrl set
+   → Tenancy status: CONTRACT_PENDING → ACTIVE (auto)
+```
+
+### Signature Provider Interface
+
+The system uses a provider abstraction for e-signatures:
+- **Mock Provider** (MVP): Simulates signatures for testing
+- **DocuSign Provider** (Future): Production integration
+- **SignNow Provider** (Future): Alternative provider
+
+Switch providers by changing the `SIGNATURE_PROVIDER` injection in `contract.module.ts`.
+
+---
+
+## 💰 Deposits Module (Session 5.7, 7.6)
+
+Manages security, utility, and key deposits for tenancies. Supports collection tracking, deductions, refunds, forfeiture, and claim-linked deposit finalization.
+
+### Deposit Endpoints
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/v1/deposits` | Create single deposit | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/api/v1/deposits/from-tenancy` | Create all deposits from tenancy amounts | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/api/v1/deposits` | List deposits with filters | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF |
+| GET | `/api/v1/deposits/tenancy/:tenancyId` | Get all deposits for tenancy | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF |
+| GET | `/api/v1/deposits/tenancy/:tenancyId/summary` | Get deposit summary for tenancy | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF |
+| GET | `/api/v1/deposits/:id` | Get deposit by ID | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF |
+| POST | `/api/v1/deposits/:id/collect` | Mark deposit as collected | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/api/v1/deposits/:id/deduction` | Add deduction to deposit | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/api/v1/deposits/:id/refund-calculation` | Calculate refund amount | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF |
+| POST | `/api/v1/deposits/:id/refund` | Process deposit refund | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/api/v1/deposits/:id/forfeit` | Forfeit deposit | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/api/v1/deposits/:id/finalize` | Finalize deposit with claim deductions | SUPER_ADMIN, TENANT_ADMIN |
+| GET | `/api/v1/deposits/tenancy/:tenancyId/deductions` | Calculate deduction summary | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF |
+
+### Request/Response DTOs
+
+#### CreateDepositDto
+```typescript
+interface CreateDepositDto {
+  tenancyId: string;       // Required - UUID of tenancy
+  type: 'SECURITY' | 'UTILITY' | 'KEY';  // Required - Deposit type
+  amount: number;          // Required - Amount > 0
+}
+```
+
+#### CreateDepositsFromTenancyDto
+```typescript
+interface CreateDepositsFromTenancyDto {
+  tenancyId: string;       // Required - UUID of tenancy
+  securityDeposit?: number; // Optional - Override tenancy amount
+  utilityDeposit?: number;  // Optional - Override tenancy amount
+  keyDeposit?: number;      // Optional - Override tenancy amount
+}
+```
+
+#### CollectDepositDto
+```typescript
+interface CollectDepositDto {
+  collectedVia: string;    // Required - Payment method (e.g., 'BANK_TRANSFER', 'CASH')
+  paymentRef?: string;     // Optional - Payment reference number
+}
+```
+
+#### AddDeductionDto
+```typescript
+interface AddDeductionDto {
+  claimId?: string;        // Optional - Link to maintenance claim
+  description: string;     // Required - Description of deduction (2-500 chars)
+  amount: number;          // Required - Deduction amount > 0
+}
+```
+
+#### ProcessRefundDto
+```typescript
+interface ProcessRefundDto {
+  refundRef?: string;      // Optional - Refund reference number
+  refundVia?: string;      // Optional - Refund method
+}
+```
+
+#### ForfeitDepositDto
+```typescript
+interface ForfeitDepositDto {
+  reason: string;          // Required - Reason for forfeiture (5-500 chars)
+}
+```
+
+#### DepositQueryDto
+```typescript
+interface DepositQueryDto {
+  tenancyId?: string;      // Filter by tenancy
+  type?: 'SECURITY' | 'UTILITY' | 'KEY';  // Filter by type
+  status?: DepositStatus;  // Filter by status
+  ownerId?: string;        // Filter by owner
+  occupantId?: string;     // Filter by occupant
+  page?: number;           // Page number (default: 1)
+  limit?: number;          // Items per page (default: 20, max: 100)
+  sortBy?: string;         // Sort field (default: 'createdAt')
+  sortDir?: 'asc' | 'desc'; // Sort direction (default: 'desc')
+}
+```
+
+#### FinalizeDepositDto (Session 7.6)
+```typescript
+interface FinalizeDepositDto {
+  refundRef?: string;      // Optional - Refund reference number
+  notes?: string;          // Optional - Finalization notes
+}
+```
+
+### Deposit Status Enum
+
+```typescript
+enum DepositStatus {
+  PENDING = 'PENDING',                    // Awaiting collection
+  COLLECTED = 'COLLECTED',                // Deposit collected
+  HELD = 'HELD',                          // Held with deductions
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED', // Some amount refunded
+  FULLY_REFUNDED = 'FULLY_REFUNDED',      // Full amount refunded
+  FORFEITED = 'FORFEITED'                 // Deposit forfeited
+}
+```
+
+### Status Transitions
+
+```
+PENDING → COLLECTED → HELD (when deductions added)
+                    → FULLY_REFUNDED (when no deductions)
+                    → PARTIALLY_REFUNDED (when deductions exist)
+                    → FORFEITED (manual forfeit)
+COLLECTED → HELD → PARTIALLY_REFUNDED
+                 → FORFEITED
+```
+
+### Deduction Claims Structure
+
+Deductions are stored as JSON in the `deductionClaims` field:
+```typescript
+interface DeductionClaim {
+  claimId?: string;        // Link to maintenance claim (optional)
+  description: string;     // Deduction description
+  amount: number;          // Deduction amount
+  addedAt: Date;           // When deduction was added
+}
+```
+
+### Deposit Summary Response
+
+```typescript
+interface DepositSummary {
+  tenancyId: string;
+  totalDeposits: number;      // Sum of all deposit amounts
+  totalCollected: number;     // Amount currently held
+  totalRefunded: number;      // Amount refunded
+  totalDeductions: number;    // Total deductions applied
+  totalPending: number;       // Amount pending collection
+  deposits: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    status: DepositStatus;
+    refundableAmount: number | null;
+  }>;
+}
+```
+
+### Refund Calculation Response
+
+```typescript
+interface RefundCalculation {
+  depositId: string;
+  depositType: string;
+  originalAmount: number;
+  totalDeductions: number;
+  refundableAmount: number;
+  deductions: DeductionClaim[];
+  canRefund: boolean;
+  reason?: string;           // If canRefund is false
+}
+```
+
+### Events
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `deposit.created` | New deposit created | `{ depositId, tenancyId, tenantId, type, amount }` |
+| `deposit.collected` | Deposit marked as collected | `{ depositId, tenancyId, tenantId, type, amount }` |
+| `deposit.refunded` | Deposit refund processed | `{ depositId, tenancyId, tenantId, type, refundedAmount, deductions }` |
+| `deposit.finalized` | Deposit finalized with claim deductions | `{ depositId, tenancyId, tenantId, type, originalAmount, totalDeductions, refundedAmount, claimsApplied }` |
+
+### Business Rules
+
+1. **Deposit Types**: Each tenancy can have one deposit of each type (SECURITY, UTILITY, KEY)
+2. **Collection**: Deposits must be in PENDING status to be collected
+3. **Deductions**: Can only be added to COLLECTED or HELD deposits; total cannot exceed deposit amount
+4. **Refunds**: Tenancy must be TERMINATED before refund can be processed
+5. **Forfeit**: Owner can forfeit deposits in COLLECTED or HELD status (e.g., tenant abandonment)
+6. **Claim Linking**: Only APPROVED or PARTIALLY_APPROVED claims can be linked; claim must belong to same tenancy
+7. **Finalize**: Automatically applies all approved claim deductions, marks claims as SETTLED (DEPOSIT_DEDUCTION), determines PARTIALLY_REFUNDED/FULLY_REFUNDED/FORFEITED status
+8. **Deduction Cap**: Total claim deductions capped at deposit amount; excess claims remain unsettled
+
+---
+
+## Rent Billing Module (Phase 6.1)
+
+**Base URL:** `/api/v1/rent-billings`  
+**Auth:** JWT Bearer Token required  
+**Module:** `src/modules/billing/`
+
+### Endpoints
+
+| Method | Endpoint | Description | Roles |
+|--------|----------|-------------|-------|
+| `POST` | `/rent-billings/generate` | Generate a billing statement for a tenancy period | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `GET` | `/rent-billings` | List billing statements with filtering & pagination | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| `GET` | `/rent-billings/:id` | Get a specific billing statement | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| `GET` | `/rent-billings/:id/download` | Download billing statement as PDF | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| `POST` | `/rent-billings/:id/line-items` | Add a line item to an existing bill | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `POST` | `/rent-billings/:id/late-fee` | Apply late fee to a bill | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `POST` | `/rent-billings/:id/send` | Mark bill as sent to occupant | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `POST` | `/rent-billings/:id/overdue` | Mark bill as overdue | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `POST` | `/rent-billings/:id/write-off` | Write off a bill as uncollectable | SUPER_ADMIN, TENANT_ADMIN |
+| `GET` | `/rent-billings/automation/status` | Get billing automation dashboard status | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `GET` | `/rent-billings/config/:tenancyId` | Get billing configuration for a tenancy | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `PATCH` | `/rent-billings/config/:tenancyId` | Update billing configuration for a tenancy | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `POST` | `/rent-billings/:id/remind` | Send a payment reminder (manual trigger) | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| `GET` | `/rent-billings/:id/reminders` | List reminder history for a billing | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| `POST` | `/rent-billings/:id/escalate` | Escalate billing to legal action | SUPER_ADMIN, TENANT_ADMIN |
+
+### Prisma Models
+
+- **RentBilling** — billing statement with amounts, dates, status
+- **RentBillingLineItem** — individual charge line items (RENT, UTILITY, LATE_FEE, CLAIM_DEDUCTION, OTHER)
+- **RentBillingReminder** — reminders sent for overdue bills (EMAIL, SMS, LETTER, LEGAL_NOTICE)
+
+### Bill Number Format
+
+`BILL-{YYYYMM}-{SEQUENCE}` — e.g., `BILL-202603-0001`
+
+### Status Flow
+
+```
+DRAFT → GENERATED → SENT → PAID
+                  ↘       ↗
+              PARTIALLY_PAID
+                  ↘
+                 OVERDUE → WRITTEN_OFF
+```
+
+### Line Item Types
+
+| Type | Description |
+|------|-------------|
+| `RENT` | Monthly rent charge |
+| `UTILITY` | Utility charges (water, electricity, etc.) |
+| `LATE_FEE` | Late payment penalty |
+| `CLAIM_DEDUCTION` | Deduction from maintenance claims |
+| `OTHER` | Miscellaneous charges |
+
+### Events
+
+| Event | Description | Payload |
+|-------|-------------|---------|
+| `billing.generated` | New bill generated | `{ billingId, tenancyId, tenantId, billNumber, totalAmount }` |
+| `billing.overdue` | Bill marked as overdue | `{ billingId, tenancyId, tenantId, billNumber, balanceDue, dueDate }` |
+| `billing.batch.completed` | Batch generation completed | `{ tenantId, billingDay, period, generated, skipped, failed }` |
+| `billing.overdue.batch` | Batch overdue detection completed | `{ tenantId, overdueCount }` |
+
+### Automation (Phase 6.2)
+
+**BillingProcessor** (`billing.process` queue):
+| Job Type | Description | Schedule |
+|----------|-------------|----------|
+| `rent-billing.generate-batch` | Find tenancies by billing day, queue individual bill generation | Daily 6AM |
+| `rent-billing.generate-single` | Generate bill for a single tenancy | Queued by batch |
+| `rent-billing.detect-overdue` | Find past-due bills and mark as OVERDUE | Daily 9AM |
+| `rent-billing.apply-late-fees` | Calculate and add LATE_FEE line items | Daily 10AM |
+
+**Billing Configuration:**
+- `billingDay`: 1-28 (day of month to generate bills)
+- `paymentDueDay`: 1-60 (days after generation for payment)
+- `lateFeePercent`: 0-100% (late fee as percentage of overdue balance)
+
+**Notifications:**
+- `billing.generated` → EMAIL + IN_APP to occupant (bill number, amount, due date, property)
+- `billing.overdue` → Logged (deferred to reminder system in Session 6.5)
+
+### Business Rules
+
+1. **Billable States**: Tenancy must be in ACTIVE, MAINTENANCE_HOLD, INSPECTION_PENDING, or TERMINATION_REQUESTED to generate bills
+2. **Duplicate Prevention**: Only one bill per tenancy per billing period
+3. **Late Fees**: Calculated as percentage of total overdue balance across all outstanding bills
+4. **Line Item Editing**: Can only add line items to DRAFT or GENERATED bills
+5. **PDF Generation**: On-demand PDF generation using PDFKit (not stored in S3)
+6. **Tenant Isolation**: All queries scoped to current tenant via TenantContextService
+
+---
+
+## Rent Payment Module (Phase 6.3)
+
+### Base URL: `/api/v1/rent-payments`
+
+### Endpoints
+
+| Method | Endpoint | Description | Auth | Roles |
+|--------|----------|-------------|------|-------|
+| POST | `/rent-payments/intent` | Create payment intent (Stripe) | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| POST | `/rent-payments/manual` | Record manual/offline payment | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/rent-payments/fpx/banks` | Get FPX bank list (Malaysia) | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| GET | `/rent-payments` | List payments (paginated) | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| GET | `/rent-payments/:id` | Get payment details | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| GET | `/rent-payments/:id/receipt` | Download payment receipt PDF | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+
+### Prisma Model
+
+**RentPayment** — Payment records linked to RentBilling
+- Fields: id, tenantId, billingId, paymentNumber (unique), amount (Decimal 12,2), status (RentPaymentStatus), method, currency, gatewayId, gatewayData, clientSecret, reference, receiptNumber (unique), receiptUrl, paymentDate, processedAt, payerName, payerEmail, createdAt, updatedAt
+- Relations: Tenant, RentBilling
+- Indexes: tenantId, billingId, status, gatewayId
+
+### Payment Number Format
+- Payment: `PAY-{YYYYMM}-{SEQUENCE}` (e.g., PAY-202603-0001)
+- Receipt: `RCP-{YYYYMM}-{SEQUENCE}` (e.g., RCP-202603-0001)
+
+### Payment Methods
+- `CARD` — Credit/debit card via Stripe
+- `FPX` — Malaysian FPX online banking via Stripe
+- `BANK_TRANSFER` — Manual bank transfer
+- `CASH` — Cash payment
+- `OTHER` — Other payment methods
+
+### FPX Banks (Malaysia)
+16 supported banks: Affin Bank, Alliance Bank, AmBank, Bank Islam, Bank Muamalat, Bank Rakyat, BSN, CIMB, Hong Leong Bank, HSBC, Maybank, OCBC, Public Bank, RHB, Standard Chartered, UOB
+
+### Status Flow
+```
+PENDING → PROCESSING → COMPLETED (success via webhook)
+PENDING → FAILED (failure via webhook)
+COMPLETED (immediate for manual payments)
+```
+
+### Events Emitted
+- `rent.payment.completed` — Payment successfully processed
+- `rent.payment.failed` — Payment failed
+- `billing.status.changed` — Billing status updated (PARTIALLY_PAID/PAID)
+
+### Webhook Integration
+- StripeWebhookService detects `paymentType: 'rent'` in PaymentIntent metadata
+- Routes to `rent.payment.webhook.succeeded` / `rent.payment.webhook.failed` events
+- RentPaymentWebhookListener handles events → calls PaymentService
+
+### Business Rules
+
+1. **Payable Statuses**: Only GENERATED, SENT, PARTIALLY_PAID, OVERDUE billing can accept payments
+2. **Amount Validation**: Payment amount must not exceed balance due
+3. **Idempotent Webhooks**: Completed payments are skipped on repeat webhook calls
+4. **Auto-Update Billing**: paidAmount/balanceDue automatically updated; status transitions to PARTIALLY_PAID or PAID
+5. **Receipt Generation**: On-demand PDF receipts for completed payments using PDFKit
+6. **Manual Payments**: Bank transfer/cash payments recorded immediately as COMPLETED
+7. **Tenant Isolation**: All queries scoped to current tenant via TenantContextService
+
+---
+
+## Payment Reconciliation Module (Phase 6.4)
+
+### Base URL: `/api/v1/rent-payments`
+
+### Endpoints
+
+| Method | Endpoint | Description | Auth | Roles |
+|--------|----------|-------------|------|-------|
+| POST | `/rent-payments/advance` | Distribute lump-sum across outstanding billings | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/rent-payments/reassign` | Reassign completed payment to different billing | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/rent-payments/reconcile/billing/:id` | Reconcile single billing (recalculate from payments) | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/rent-payments/reconcile/tenancy/:id` | Batch-reconcile all billings for a tenancy | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/rent-payments/overpayment/:id` | Detect and resolve overpayment on a billing | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/rent-payments/match/:id` | Auto-match or manually assign payment to billing | JWT | SUPER_ADMIN, TENANT_ADMIN |
+
+### Statement of Account
+
+| Method | Endpoint | Description | Auth | Roles |
+|--------|----------|-------------|------|-------|
+| GET | `/tenancies/:id/statement` | Get statement of account for a tenancy | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+
+### Query Parameters (Statement)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fromDate` | ISO 8601 | Statement period start (defaults to lease start) |
+| `toDate` | ISO 8601 | Statement period end (defaults to today) |
+
+### DTOs
+- **StatementQueryDto** — fromDate, toDate (optional ISO date strings)
+- **ReassignPaymentDto** — paymentId, newBillingId, reason (optional)
+- **AdvancePaymentDto** — tenancyId, amount, method (BANK_TRANSFER/CASH/OTHER), reference, payerName, payerEmail
+
+### Statement of Account Response
+```json
+{
+  "tenancyId": "uuid",
+  "property": { "id": "uuid", "title": "Unit 101" },
+  "owner": { "id": "uuid", "name": "John Owner" },
+  "occupant": { "id": "uuid", "name": "Jane Tenant", "email": "jane@test.com" },
+  "period": { "from": "2026-01-01", "to": "2026-03-31" },
+  "openingBalance": 0,
+  "entries": [
+    { "date": "2026-01-01", "type": "BILLING", "description": "Rent for January 2026", "reference": "BILL-202601-0001", "debit": 2500, "credit": 0, "balance": 2500 },
+    { "date": "2026-01-05", "type": "PAYMENT", "description": "Payment — FPX", "reference": "PAY-202601-0001", "debit": 0, "credit": 2500, "balance": 0 }
+  ],
+  "closingBalance": 0,
+  "summary": { "totalBilled": 2500, "totalPaid": 2500, "totalOutstanding": 0, "totalOverdue": 0 }
+}
+```
+
+### Reconciliation Features
+1. **matchPaymentToBill** — Auto-match by exact amount → date proximity; manual override with billingId
+2. **handlePartialPayment** — Updates billing paidAmount/balanceDue; transitions to PARTIALLY_PAID
+3. **handleOverpayment** — Caps billing at totalAmount; creates CREDIT payment on next outstanding bill
+4. **handleAdvancePayment** — Distributes lump-sum across outstanding billings (oldest first); emits events per bill
+5. **reassignPayment** — Reverses old billing, applies to new billing, updates payment.billingId
+6. **reconcileBilling** — Recalculates paidAmount from COMPLETED payments; fixes discrepancies
+7. **reconcileTenancy** — Batch-reconciles all billings for a tenancy
+8. **getStatementOfAccount** — Full statement with opening balance, dated entries, running balance, summary
+
+### Events Emitted
+- `rent.payment.reassigned` — Payment moved between billings
+- `reconciliation.billing.reconciled` — Billing amounts recalculated
+- `reconciliation.overpayment.applied` — Excess credit applied to next billing
+- `reconciliation.overpayment.unresolved` — Excess with no next billing to apply to
+- `billing.status.changed` — Billing status updated during reconciliation
+
+### Business Rules
+1. **Only completed payments** can be matched, reassigned, or reconciled
+2. **Overpayment credit** automatically applied to next outstanding billing (oldest first)
+3. **Advance payments** distributed across all outstanding billings, oldest first
+4. **Auto-match priority**: Exact amount match → Closest billing period date
+5. **Currency**: MYR (Malaysian Ringgit), Decimal(12,2)
+6. **Tenant isolation**: All queries scoped via TenantContextService
+
+---
+## Payment Reminder Module (Phase 6.5)
+
+**Base URL:** `/api/v1/rent-billings`  
+**Auth:** JWT Bearer Token required  
+**Module:** `src/modules/billing/reminder/`
+
+### Endpoints
+
+| Method | Endpoint | Description | Auth | Roles |
+|--------|----------|-------------|------|-------|
+| POST | `/rent-billings/:id/remind` | Send payment reminder (manual trigger) | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/rent-billings/:id/reminders` | List reminder history for a billing | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT |
+| POST | `/rent-billings/:id/escalate` | Escalate billing to legal action | JWT | SUPER_ADMIN, TENANT_ADMIN |
+
+### Request Body (POST /remind)
+```json
+{
+  "sequence": 2  // Optional: 1-4; auto-determines next if omitted
+}
+```
+
+### Reminder Schedule (4-Tier Escalation)
+
+| Sequence | Trigger | Channel | Escalation |
+|----------|---------|---------|------------|
+| 1 | 3 days before due date | EMAIL | No |
+| 2 | On due date | EMAIL | No |
+| 3 | 7 days after due date | EMAIL | No |
+| 4 | 14 days after due date | LEGAL_NOTICE | Yes — flagged for legal action |
+
+### Cron Schedule
+- `0 7 * * *` (Daily at 7 AM) — Batch-scan unpaid billings per tenant and send due reminders
+
+### Job Types
+- `rent-billing.process-reminders` — Via BILLING_PROCESS queue, delegated via event to ReminderService
+
+### Events Emitted
+- `billing.reminder.sent` — Reminder sent (all sequences)
+- `billing.reminder.escalated` — Legal escalation triggered (sequence 4)
+- `billing.reminders.process` — Internal event from processor to ReminderService
+
+### ReminderService Methods
+1. **sendReminder(billingId, sequence?)** — Send at specific sequence or auto-determine next
+2. **scheduleReminders(tenantId)** — Batch scan unpaid billings, send due reminders
+3. **escalateToLegal(billingId)** — Force sequence 4 legal notice
+4. **listReminders(billingId)** — Get all reminders for a billing
+
+### Business Rules
+1. **Eligible statuses**: GENERATED, SENT, PARTIALLY_PAID, OVERDUE
+2. **Sequence limit**: 1-4 per billing (duplicate sequences rejected)
+3. **Auto-escalation**: Sequence 4 automatically flags for legal action
+4. **Occupant email required**: Reminders skipped if no email available
+5. **Tenant isolation**: All operations scoped via TenantContextService
+
+---
+
+## Owner Payout Module (Phase 6.6–6.7)
+
+**Base URL:** `/api/v1/payouts`  
+**Auth:** JWT Bearer Token required  
+**Module:** `src/modules/payout/`
+
+### Endpoints
+
+| Method | Endpoint | Description | Auth | Roles |
+|--------|----------|-------------|------|-------|
+| POST | `/payouts/calculate` | Calculate and create payout for an owner | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| POST | `/payouts/process-batch` | Process approved payouts in batch | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| GET | `/payouts/bank-file` | Download CSV bank file for approved payouts | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| GET | `/payouts` | List payouts with filtering and pagination | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| GET | `/payouts/:id` | Get payout details with all line items | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+| POST | `/payouts/:id/approve` | Approve a calculated payout | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| GET | `/payouts/:id/statement` | Download payout statement PDF | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN |
+
+### Request Body (POST /payouts/calculate)
+```json
+{
+  "ownerId": "550e8400-e29b-41d4-a716-446655440000",
+  "periodStart": "2026-03-01",
+  "periodEnd": "2026-03-31",
+  "platformFeePercent": 10  // Optional, default: 10
+}
+```
+
+### Response (POST /payouts/calculate)
+```json
+{
+  "payoutId": "uuid",
+  "payoutNumber": "PAY-OUT-202603-0001",
+  "ownerId": "uuid",
+  "ownerName": "John Owner",
+  "periodStart": "2026-03-01T00:00:00.000Z",
+  "periodEnd": "2026-03-31T00:00:00.000Z",
+  "grossRental": 5000.00,
+  "platformFee": 500.00,
+  "maintenanceCost": 0.00,
+  "otherDeductions": 0.00,
+  "netPayout": 4500.00,
+  "lineItemCount": 4,
+  "tenancyCount": 2
+}
+```
+
+### Query Parameters (GET /payouts)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| ownerId | UUID | Filter by owner (vendor) ID |
+| status | PayoutStatus | Filter by status (PENDING, CALCULATED, APPROVED, PROCESSING, COMPLETED, FAILED) |
+| periodStart | ISO Date | Filter payouts with period starting from this date |
+| periodEnd | ISO Date | Filter payouts with period ending by this date |
+| page | Integer | Page number (default: 1) |
+| limit | Integer | Items per page (default: 20, max: 100) |
+| sortBy | String | Sort field (default: createdAt) |
+| sortOrder | asc/desc | Sort direction (default: desc) |
+
+### Payout Calculation Logic
+1. Find all ACTIVE tenancies owned by the vendor
+2. Find COMPLETED RentPayments for those tenancies within period
+3. Sum all payments as grossRental
+4. Calculate platformFee = grossRental × platformFeePercent%
+5. netPayout = grossRental - platformFee - maintenanceCost - otherDeductions
+6. Create OwnerPayout record with PayoutLineItems (RENTAL per payment, PLATFORM_FEE per tenancy)
+
+### PayoutLineItem Types
+
+| Type | Description |
+|------|-------------|
+| RENTAL | Rent payment received |
+| PLATFORM_FEE | Platform fee deduction (negative) |
+| MAINTENANCE | Maintenance cost deduction (future) |
+| CLAIM_DEDUCTION | Claim deduction (future) |
+| OTHER | Other adjustments |
+
+### Events Emitted
+- `payout.calculated` — Payout calculated with gross, fee, net amounts
+- `payout.approved` — Payout approved for processing
+- `payout.completed` — Payout successfully processed with bank reference
+- `payout.failed` — Payout processing failed
+
+### PayoutService Methods
+1. **calculatePayout(ownerId, periodStart, periodEnd, platformFeePercent?)** — Calculate and create payout
+2. **getPayout(payoutId)** — Get single payout with line items
+3. **listPayouts(options)** — Paginated list with filters
+4. **approvePayout(payoutId, approvedBy)** — Approve CALCULATED→APPROVED
+5. **processBatch(payoutIds?)** — Batch process APPROVED→COMPLETED/FAILED
+6. **generateBankFile(payoutIds?)** — Generate CSV bank file for approved payouts
+7. **generatePayoutStatementPdf(payoutId)** — Generate A4 PDF statement with line items
+
+### Scheduler
+- **Monthly Payout Run**: Cron `0 8 15 * *` — 15th of each month at 8 AM, enqueues per-tenant payout jobs
+
+### Request Body (POST /payouts/:id/approve)
+```json
+{
+  "approvedBy": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Response (POST /payouts/:id/approve)
+```json
+{
+  "payoutId": "uuid",
+  "payoutNumber": "PAY-OUT-202603-0001",
+  "status": "APPROVED",
+  "approvedBy": "uuid",
+  "approvedAt": "2026-03-15T08:00:00.000Z"
+}
+```
+
+### Request Body (POST /payouts/process-batch)
+```json
+{
+  "payoutIds": ["uuid1", "uuid2"]  // Optional — omit to process all approved
+}
+```
+
+### Response (POST /payouts/process-batch)
+```json
+{
+  "processed": 2,
+  "failed": 0,
+  "results": [
+    { "payoutId": "uuid", "payoutNumber": "PAY-OUT-202603-0001", "status": "COMPLETED" },
+    { "payoutId": "uuid", "payoutNumber": "PAY-OUT-202603-0002", "status": "COMPLETED" }
+  ]
+}
+```
+
+### GET /payouts/bank-file
+- **Query**: `payoutIds` (optional UUID array) — filter specific payouts
+- **Response**: CSV file download (`Content-Type: text/csv`)
+- **CSV Headers**: Payout Number, Beneficiary Name, Bank Name, Account Number, Account Holder Name, Amount (MYR), Reference, Currency
+- **Footer Row**: Total Records count and total amount
+
+### GET /payouts/:id/statement
+- **Response**: PDF file download (`Content-Type: application/pdf`)
+- **Content**: Payout statement with header, payout details, bank details, line items table, summary (gross rental, platform fee, maintenance, deductions, net payout)
+
+### Business Rules
+1. **Overlap prevention**: Cannot create payout for same owner with overlapping period (unless FAILED)
+2. **Eligible tenancy statuses**: ACTIVE, MAINTENANCE_HOLD, INSPECTION_PENDING, TERMINATION_REQUESTED, TERMINATED
+3. **Payment filter**: Only COMPLETED payments within the period
+4. **Platform fee**: Configurable per request (default 10%)
+5. **Payout number format**: PAY-OUT-{YYYYMM}-{SEQUENCE}
+6. **Tenant isolation**: All operations scoped via TenantContextService
+
+---
+
+## 📊 Financial Reports (Session 6.8)
+
+**Base URL:** `/api/v1/reports`  
+**Auth:** JWT Bearer token + X-Tenant-ID header  
+**Tags:** Financial Reports
+
+### Endpoints
+
+| Method | Path | Description | Auth | Roles |
+|--------|------|-------------|------|-------|
+| GET | `/reports/revenue` | Platform revenue report (fee income from payouts) | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| GET | `/reports/collections` | Rent collection report (billed vs collected) | JWT | SUPER_ADMIN, TENANT_ADMIN |
+| GET | `/reports/outstanding` | Outstanding bills report with aging buckets | JWT | SUPER_ADMIN, TENANT_ADMIN |
+
+### GET /reports/revenue
+- **Query Params**: `startDate?`, `endDate?`, `period?` (DAILY/WEEKLY/MONTHLY/QUARTERLY/YEARLY/CUSTOM), `ownerId?`
+- **Response**:
+  ```json
+  {
+    "data": {
+      "summary": { "totalGrossRental", "totalPlatformFee", "totalNetPayout", "totalPayouts" },
+      "byPeriod": [{ "period", "grossRental", "platformFee", "netPayout", "payoutCount" }],
+      "byOwner": [{ "ownerId", "ownerName", "grossRental", "platformFee", "netPayout", "payoutCount" }]
+    }
+  }
+  ```
+
+### GET /reports/collections
+- **Query Params**: `startDate?`, `endDate?`, `period?`, `tenancyId?`
+- **Response**:
+  ```json
+  {
+    "data": {
+      "summary": { "totalBilled", "totalCollected", "totalOutstanding", "collectionRate", "paymentCount" },
+      "byPeriod": [{ "period", "billed", "collected", "outstanding", "paymentCount" }],
+      "byMethod": [{ "method", "amount", "count" }]
+    }
+  }
+  ```
+
+### GET /reports/outstanding
+- **Query Params**: `asOfDate?`, `ownerId?`, `tenancyId?`
+- **Response**:
+  ```json
+  {
+    "data": {
+      "summary": { "totalOutstanding", "totalOverdue", "billCount", "overdueBillCount" },
+      "aging": { "current", "days1to30", "days31to60", "days61to90", "over90days" },
+      "bills": [{ "billId", "billNumber", "tenancyId", "listingTitle", "occupantName", "ownerName", "totalAmount", "paidAmount", "balanceDue", "dueDate", "daysOverdue", "status" }]
+    }
+  }
+  ```
+
+### Business Rules
+1. **Default date range**: Last 12 months if no startDate/endDate provided
+2. **Tenant isolation**: All reports scoped via TenantContextService
+3. **Decimal precision**: All money rounded to 2 decimal places
+4. **Revenue source**: Platform fees from COMPLETED/APPROVED/PROCESSING payouts
+5. **Collection rate**: (totalCollected / totalBilled) × 100
+6. **Aging buckets**: Current (not due), 1-30 days, 31-60 days, 61-90 days, 90+ days
+
+---
+
+## 🔧 Maintenance Tickets (Session 7.1)
+
+**Base URL:** `/api/v1/maintenance`  
+**Auth:** JWT Bearer token + X-Tenant-ID header  
+**Tags:** Maintenance
+
+### Endpoints
+
+| Method | Path | Description | Auth | Roles |
+|--------|------|-------------|------|-------|
+| POST | `/maintenance` | Create a new maintenance ticket | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, CUSTOMER, OCCUPANT |
+| GET | `/maintenance` | List maintenance tickets with filters | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, CUSTOMER, OCCUPANT |
+| GET | `/maintenance/:id` | Get maintenance ticket by ID | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, CUSTOMER, OCCUPANT |
+| PATCH | `/maintenance/:id` | Update a maintenance ticket | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF |
+| POST | `/maintenance/:id/attachments` | Add attachment (returns presigned S3 URL) | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, CUSTOMER, OCCUPANT |
+| POST | `/maintenance/:id/comments` | Add comment/update to ticket | JWT | SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF, CUSTOMER, OCCUPANT |
+
+### POST /maintenance
+- **Body**: `tenancyId` (UUID, required), `title` (string, required), `description` (string, required), `category` (PLUMBING|ELECTRICAL|APPLIANCE|STRUCTURAL|OTHER, required), `location?` (string), `priority?` (LOW|MEDIUM|HIGH|URGENT, default MEDIUM), `estimatedCost?` (number)
+- **Response**: Maintenance ticket with tenancy relations, attachments, updates
+- **Validation**: Tenancy must exist, must be ACTIVE or TERMINATION_REQUESTED
+- **Side effects**: Emits `maintenance.created` event
+
+### GET /maintenance
+- **Query Params**: `status?` (MaintenanceStatus), `priority?` (MaintenancePriority), `category?`, `tenancyId?`, `search?` (ticket number or title), `page?` (default 1), `limit?` (default 20, max 100), `sortBy?` (createdAt|updatedAt|priority|status), `sortOrder?` (asc|desc)
+- **Response**: `{ data: MaintenanceView[], total: number, page: number, limit: number }`
+- **Role filtering**: CUSTOMER role only sees their own tenancy tickets
+
+### GET /maintenance/:id
+- **Params**: `id` (UUID)
+- **Response**: Full maintenance ticket with tenancy, attachments, updates
+- **Role filtering**: CUSTOMER/GUEST roles have internal notes filtered out from updates
+
+### PATCH /maintenance/:id
+- **Params**: `id` (UUID)
+- **Body**: `title?`, `description?`, `category?`, `location?`, `priority?`, `estimatedCost?`, `actualCost?`, `paidBy?` (OWNER|OCCUPANT|SHARED), `assignedTo?`, `resolution?`
+- **Response**: Updated maintenance ticket
+- **Validation**: Cannot update CLOSED or CANCELLED tickets; setting `assignedTo` auto-sets `assignedAt`
+
+### POST /maintenance/:id/attachments
+- **Params**: `id` (UUID)
+- **Body**: `type` (IMAGE|VIDEO|DOCUMENT, required), `fileName` (string, required), `mimeType` (string, required), `fileSize` (integer, required)
+- **Response**: `{ attachment: AttachmentView, uploadUrl: string, expiresAt: Date }`
+- **Flow**: Client sends metadata → receives presigned S3 URL → uploads directly to S3
+- **Validation**: Cannot add to CLOSED or CANCELLED tickets
+
+### POST /maintenance/:id/comments
+- **Params**: `id` (UUID)
+- **Body**: `message` (string, required), `isInternal?` (boolean, default false)
+- **Response**: Created comment/update record
+- **Note**: Internal comments (`isInternal: true`) are hidden from CUSTOMER/GUEST roles
+- **Validation**: Cannot add to CLOSED or CANCELLED tickets
+
+### Business Rules
+1. **Ticket number format**: MNT-YYYYMMDD-XXXX (auto-generated, unique)
+2. **Categories**: PLUMBING, ELECTRICAL, APPLIANCE, STRUCTURAL, OTHER
+3. **Priorities**: LOW, MEDIUM, HIGH, URGENT (default: MEDIUM)
+4. **Tenant isolation**: All operations scoped via TenantContextService (tenancy must belong to tenant)
+5. **Role-based access**: CUSTOMER only sees own tenancy tickets; internal notes hidden from CUSTOMER/GUEST
+6. **Immutability**: CLOSED and CANCELLED tickets cannot be updated, no attachments/comments added
+7. **S3 storage**: Attachments stored at `tenants/{tenantId}/maintenance/{maintenanceId}/{timestamp}-{fileName}`
+8. **Events**: `maintenance.created`, `maintenance.updated`, `maintenance.attachment.added`, `maintenance.comment.added`
+
+---
+
+## Maintenance Workflow (Session 7.2)
+
+### POST /maintenance/:id/verify
+- **Description**: Verify a maintenance ticket (OPEN → VERIFIED)
+- **Auth**: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF)
+- **Params**: `id` (UUID) — Maintenance ticket ID
+- **Body**: `VerifyMaintenanceDto`
+  - `verificationNotes?` (string) — Verification notes from admin/vendor
+- **Response**: Updated maintenance ticket
+- **Status Codes**: 200, 400 (invalid transition), 404
+
+### POST /maintenance/:id/assign
+- **Description**: Assign a maintenance ticket (VERIFIED → ASSIGNED). Supports vendor staff or external contractor.
+- **Auth**: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF)
+- **Params**: `id` (UUID) — Maintenance ticket ID
+- **Body**: `AssignMaintenanceDto`
+  - `assignedTo` (string, required) — Staff name/ID or contractor name
+  - `contractorName?` (string) — External contractor name
+  - `contractorPhone?` (string) — External contractor phone
+  - `estimatedCost?` (number) — Estimated repair cost
+- **Response**: Updated maintenance ticket
+- **Status Codes**: 200, 400 (invalid transition, missing assignee), 404
+
+### POST /maintenance/:id/start
+- **Description**: Start work on a maintenance ticket (ASSIGNED → IN_PROGRESS)
+- **Auth**: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF)
+- **Params**: `id` (UUID) — Maintenance ticket ID
+- **Body**: None
+- **Response**: Updated maintenance ticket with `startedAt` timestamp
+- **Status Codes**: 200, 400 (invalid transition), 404
+
+### POST /maintenance/:id/resolve
+- **Description**: Resolve a maintenance ticket (IN_PROGRESS → PENDING_APPROVAL). Records resolution and actual cost.
+- **Auth**: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, VENDOR_STAFF)
+- **Params**: `id` (UUID) — Maintenance ticket ID
+- **Body**: `ResolveMaintenanceDto`
+  - `resolution` (string, required) — Description of work completed
+  - `actualCost?` (number) — Actual repair cost
+  - `paidBy?` (string, enum: OWNER | OCCUPANT | SHARED) — Who pays
+- **Response**: Updated maintenance ticket
+- **Status Codes**: 200, 400 (invalid transition, missing resolution), 404
+
+### POST /maintenance/:id/close
+- **Description**: Close a maintenance ticket (PENDING_APPROVAL | CLAIM_APPROVED → CLOSED)
+- **Auth**: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- **Params**: `id` (UUID) — Maintenance ticket ID
+- **Body**: `CloseMaintenanceDto`
+  - `closingNotes?` (string) — Optional closing notes
+- **Response**: Updated maintenance ticket with `closedAt` timestamp
+- **Status Codes**: 200, 400 (invalid transition), 404
+
+### POST /maintenance/:id/cancel
+- **Description**: Cancel a maintenance ticket (OPEN | VERIFIED | ASSIGNED → CANCELLED)
+- **Auth**: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- **Params**: `id` (UUID) — Maintenance ticket ID
+- **Body**: `CancelMaintenanceDto`
+  - `reason?` (string) — Cancellation reason
+- **Response**: Updated maintenance ticket
+- **Status Codes**: 200, 400 (invalid transition), 404
+
+### State Machine Transitions
+```
+Primary Flow:
+  OPEN → (verify) → VERIFIED → (assign) → ASSIGNED → (start) → IN_PROGRESS → (resolve) → PENDING_APPROVAL → (close) → CLOSED
+
+Claim Flow:
+  IN_PROGRESS/PENDING_APPROVAL → (submit_claim) → CLAIM_SUBMITTED → (approve_claim) → CLAIM_APPROVED → (close) → CLOSED
+  CLAIM_SUBMITTED → (reject_claim) → CLAIM_REJECTED
+
+Cancel:
+  OPEN/VERIFIED/ASSIGNED → (cancel) → CANCELLED
+
+Reopen:
+  CLOSED → (reopen) → OPEN
+```
+
+### Business Rules
+1. **State machine enforced**: All status changes go through MaintenanceStateMachine — no direct status updates
+2. **Assign guard**: Must provide `assignedTo` when assigning a ticket
+3. **Resolve guard**: Must provide `resolution` description when resolving
+4. **External contractors**: Supports `contractorName` and `contractorPhone` for non-staff assignments
+5. **Cost tracking**: `estimatedCost` set at assignment, `actualCost` + `paidBy` set at resolution
+6. **System timeline**: All workflow actions auto-create internal `MaintenanceUpdate` records
+7. **Events**: `maintenance.status.changed` emitted for every transition (includes fromStatus, toStatus, changedBy)
+8. **Cancel restrictions**: Cannot cancel IN_PROGRESS, PENDING_APPROVAL, or later-state tickets
+9. **Workflow timestamps**: `verifiedAt`, `assignedAt`, `startedAt`, `resolvedAt`, `closedAt` tracked individually
+
+---
+
+## Inspection Core (Session 7.3)
+
+### POST /inspections
+**Schedule a new inspection**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Body: `{ tenancyId, type, scheduledDate?, scheduledTime?, videoRequested?, onsiteRequired?, notes? }`
+- Types: MOVE_IN, PERIODIC, MOVE_OUT, EMERGENCY
+- Response: `{ data: Inspection }`
+- Events: `inspection.created`
+
+### GET /inspections
+**List inspections with filtering and pagination**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Query: `{ tenancyId?, type?, status?, search?, page?, limit? }`
+- Statuses: SCHEDULED, VIDEO_REQUESTED, VIDEO_SUBMITTED, ONSITE_PENDING, COMPLETED, REPORT_GENERATED
+- Response: `{ data: { data: Inspection[], total, page, limit } }`
+
+### GET /inspections/:id
+**Get inspection details by ID**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Includes: checklist items, tenancy (listing, owner, occupant)
+- Response: `{ data: Inspection }`
+
+### PATCH /inspections/:id/checklist
+**Update inspection checklist items**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Body: `{ items: [{ id?, category, item, condition?, notes?, photoUrls? }] }`
+- Categories: BEDROOM, BATHROOM, KITCHEN, LIVING, EXTERIOR, OTHER
+- Conditions: EXCELLENT, GOOD, FAIR, POOR, DAMAGED
+- Validation: Cannot update completed or report-generated inspections
+- Response: `{ data: Inspection }`
+
+### POST /inspections/:id/complete
+**Complete an inspection with overall rating**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Body: `{ overallRating (1-5), notes? }`
+- Validation: Cannot complete already completed inspection
+- Events: `inspection.completed`
+- Response: `{ data: Inspection }`
+
+### GET /inspections/:id/report
+**Generate or retrieve inspection PDF report**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Behavior: Generates PDF on first call, returns cached URL on subsequent calls
+- PDF contents: Header, inspection details, notes, checklist grouped by category
+- Storage: S3 key `inspections/{tenantId}/{inspectionId}/report.pdf`
+- Events: `inspection.report.generated`
+- Response: `{ data: { url: string } }`
+
+### Business Rules
+1. **Tenant scoping**: All queries scoped via `tenancy.tenantId`
+2. **Checklist lock**: Cannot update checklist after inspection is COMPLETED or REPORT_GENERATED
+3. **Report prerequisite**: Inspection must be COMPLETED before generating report
+4. **Report caching**: Once generated, report URL is returned without re-generating
+5. **PDF generation**: PDFKit → Buffer → S3 upload → public URL stored on inspection record
+6. **Status flow**: SCHEDULED → ... → COMPLETED → REPORT_GENERATED
+
+---
+
+## Video Inspection (Session 7.4)
+
+### POST /inspections/:id/request-video
+**Request video inspection from occupant**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Body: `{ message? }`
+- Status guard: Only SCHEDULED or VIDEO_REQUESTED → VIDEO_REQUESTED
+- Clears previous video data on re-request
+- Events: `inspection.video.requested`
+- Response: `{ data: Inspection }`
+
+### POST /inspections/:id/submit-video
+**Submit video for inspection (returns presigned upload URL)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Body: `{ fileName, mimeType, fileSize? }`
+- Status guard: Only VIDEO_REQUESTED or VIDEO_SUBMITTED → VIDEO_SUBMITTED
+- S3 key: `inspections/{tenantId}/{inspectionId}/video/{timestamp}-{fileName}`
+- Presigned URL: 2-hour expiry for large video files
+- Events: `inspection.video.submitted`
+- Response: `{ data: { uploadUrl, expiresAt, inspection } }`
+
+### POST /inspections/:id/review-video
+**Review submitted video (approve or request redo)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Body: `{ decision: 'APPROVED' | 'REQUEST_REDO', notes? }`
+- Status guard: Only VIDEO_SUBMITTED
+- APPROVED → ONSITE_PENDING, REQUEST_REDO → VIDEO_REQUESTED (clears video data)
+- Notes appended to inspection notes field
+- Events: `inspection.video.reviewed`
+- Response: `{ data: Inspection }`
+
+### GET /inspections/:id/video
+**Get presigned download URL for inspection video**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Presigned download URL: 1-hour expiry
+- Response: `{ data: { url } }`
+
+### Video Inspection Business Rules
+1. **Video flow**: SCHEDULED → VIDEO_REQUESTED → VIDEO_SUBMITTED → ONSITE_PENDING (approved) or VIDEO_REQUESTED (redo)
+2. **Presigned uploads**: S3 presigned URLs for direct browser upload (2-hour expiry for large files)
+3. **Re-upload support**: Owners can request redo, which clears previous video and resets status
+4. **Re-submission**: Occupants can re-submit while in VIDEO_SUBMITTED status
+5. **Notes tracking**: Review decisions append notes to inspection record for audit trail
+
+---
+
+## Claim Management
+
+**Base URL:** `/claims`
+**Module:** `ClaimModule`
+**Auth:** JWT + Roles
+
+### POST /claims
+**Submit a new claim**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Body: `{ tenancyId, maintenanceId?, type, title, description, claimedAmount, submittedRole }`
+- Validates tenancy exists and belongs to tenant
+- Validates maintenance ticket if linked (optional, unique per maintenance)
+- Auto-generates claim number: CLM-YYYYMMDD-XXXX
+- Emits: `claim.submitted`
+- Response: `{ data: Claim }`
+
+### GET /claims
+**List claims (paginated)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Query: `{ tenancyId?, type?, status?, search?, page?, limit? }`
+- Search matches: claimNumber, title, description
+- Response: `{ data: Claim[], meta: { total, page, limit, totalPages } }`
+
+### GET /claims/:id
+**Get claim details**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Includes: evidence[], tenancy (listing, owner, occupant)
+- Response: `{ data: ClaimView }`
+
+### POST /claims/:id/evidence
+**Upload claim evidence (S3 presigned URL)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Body: `{ type, fileName, mimeType, fileSize?, description? }`
+- Evidence types: PHOTO, VIDEO, RECEIPT, QUOTE
+- S3 key: `claims/{tenantId}/{claimId}/evidence/{timestamp}-{fileName}`
+- Presigned URL: 1-hour expiry
+- Guards: Cannot upload to SETTLED or REJECTED claims
+- Emits: `claim.evidence.added`
+- Response: `{ data: { evidence, uploadUrl, uploadExpiry } }`
+
+### POST /claims/:id/review
+**Review a claim (approve/partial/reject)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Body: `{ decision, approvedAmount?, notes? }`
+- Decision values: APPROVED (full claimed amount), PARTIALLY_APPROVED (requires approvedAmount < claimedAmount), REJECTED
+- Reviewable from: SUBMITTED, UNDER_REVIEW, DISPUTED
+- Clears dispute flag on re-review of disputed claims
+- Emits: `claim.reviewed`
+- Response: `{ data: Claim }`
+
+### POST /claims/:id/dispute
+**Dispute a claim decision**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN, OCCUPANT)
+- Body: `{ reason, notes? }`
+- Disputable from: APPROVED, PARTIALLY_APPROVED, REJECTED
+- Cannot dispute: SUBMITTED, UNDER_REVIEW, SETTLED, DISPUTED
+- Emits: `claim.disputed`
+- Response: `{ data: Claim }`
+
+### Claim Business Rules
+1. **Claim types**: DAMAGE, CLEANING, MISSING_ITEM, UTILITY, OTHER
+2. **Status flow**: SUBMITTED → UNDER_REVIEW → APPROVED/PARTIALLY_APPROVED/REJECTED → SETTLED or DISPUTED → re-review
+3. **Unique maintenance link**: One claim per maintenance ticket (optional)
+4. **Settlement methods**: DEPOSIT_DEDUCTION, BILLING_DEDUCTION, DIRECT_PAYMENT
+5. **Evidence guard**: No uploads allowed on SETTLED or REJECTED claims
+6. **Dispute re-review**: Reviewing a disputed claim clears the dispute flag and updates status
+7. **Claim number format**: CLM-YYYYMMDD-XXXX (auto-generated, unique)
+
+---
+
+## 🏢 Company Module (Session 8.1)
+
+### POST /api/v1/companies/register
+**Register a new company**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ name, registrationNo, type, email, phone, address? }`
+- Company types: PROPERTY_COMPANY, MANAGEMENT_COMPANY, AGENCY
+- Initial status: PENDING
+- Creator added as owner admin automatically
+- Emits: `company.registered`
+- Response: `{ data: CompanyView }`
+
+### GET /api/v1/companies
+**List companies (paginated, filterable)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Query: `{ type?, status?, search?, page?, limit?, sortBy?, sortDir? }`
+- Response: `{ data: { data: CompanyView[], total, page, limit, totalPages } }`
+
+### GET /api/v1/companies/:id
+**Get company details**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Includes: admins[] with user details
+- Response: `{ data: CompanyView }`
+
+### PATCH /api/v1/companies/:id
+**Update company**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ name?, type?, email?, phone?, address?, businessLicense?, ssmDocument? }`
+- Response: `{ data: CompanyView }`
+
+### POST /api/v1/companies/:id/verify
+**Verify company (PENDING → ACTIVE)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN)
+- Sets verifiedAt, verifiedBy
+- Emits: `company.verified`
+- Response: `{ data: CompanyView }`
+
+### POST /api/v1/companies/:id/suspend
+**Suspend company**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN)
+- Response: `{ data: CompanyView }`
+
+### POST /api/v1/companies/:id/admins
+**Add admin to company**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ userId, role?, isOwner? }`
+- CompanyAdminRole: ADMIN, PIC
+- Validates user exists in same tenant
+- Emits: `company.admin.added`
+- Response: `{ data: CompanyAdminView }`
+
+### GET /api/v1/companies/:id/admins
+**List company admins**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Response: `{ data: CompanyAdminView[] }`
+
+### DELETE /api/v1/companies/:id/admins/:userId
+**Remove admin from company**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Cannot remove owner or last admin
+- Emits: `company.admin.removed`
+- Response: 204 No Content
+
+### Company Enums
+- **CompanyType**: PROPERTY_COMPANY, MANAGEMENT_COMPANY, AGENCY
+- **CompanyStatus**: PENDING, ACTIVE, SUSPENDED
+- **CompanyAdminRole**: ADMIN, PIC
+
+### Business Rules
+1. **Registration number unique per tenant**: @@unique([tenantId, registrationNo])
+2. **Company admin unique**: @@unique([companyId, userId])
+3. **Owner protection**: Cannot remove the company owner admin
+4. **Last admin protection**: Cannot remove the last admin from a company
+5. **Verification flow**: Only PENDING companies can be verified → ACTIVE
+6. **Suspend flow**: Cannot suspend an already suspended company
+7. **Tenant-scoped**: All queries filtered by tenantId from TenantContextService
+
+---
+
+## 🕵️ Agent Module (Session 8.2)
+
+### POST /api/v1/agents
+**Register a new agent**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ companyId, userId, renNumber?, renExpiry?, referredBy? }`
+- Generates unique 8-char referral code
+- Validates company and user exist within tenant
+- Emits: `agent.registered`
+- Response: `{ data: AgentView }`
+
+### GET /api/v1/agents
+**List agents (paginated, filterable)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Query: `{ companyId?, status?, search?, page?, limit?, sortBy?, sortDir? }`
+- Search matches: user fullName, email, renNumber, referralCode
+- Response: `{ data: { data: AgentView[], total, page, limit, totalPages } }`
+
+### GET /api/v1/agents/:id
+**Get agent details**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Includes: company, user, active agentListings with listing details
+- Response: `{ data: AgentView }`
+
+### PATCH /api/v1/agents/:id
+**Update agent profile**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Body: `{ renNumber?, renExpiry? }`
+- Response: `{ data: AgentView }`
+
+### POST /api/v1/agents/:id/assign-listing
+**Assign agent to a listing**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ listingId }`
+- Validates listing exists within tenant
+- Increments agent totalListings
+- Emits: `agent.listing.assigned`
+- Response: `{ data: AgentListingView }`
+
+### DELETE /api/v1/agents/:id/listings/:listingId
+**Unassign agent from a listing**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Soft-removes assignment (sets removedAt)
+- Decrements agent totalListings
+- Emits: `agent.listing.unassigned`
+- Response: 204 No Content
+
+### GET /api/v1/agents/:id/listings
+**Get agent's active listings**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Returns only active assignments (removedAt: null)
+- Response: `{ data: AgentListingView[] }`
+
+### POST /api/v1/agents/:id/suspend
+**Suspend an active agent**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Only ACTIVE agents can be suspended
+- Response: `{ data: AgentView }`
+
+### POST /api/v1/agents/:id/reactivate
+**Reactivate a suspended agent**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Only SUSPENDED agents can be reactivated
+- Response: `{ data: AgentView }`
+
+### POST /api/v1/agents/:id/regenerate-referral
+**Regenerate referral code for an agent**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Generates new unique 8-char uppercase hex code
+- Response: `{ data: AgentView }`
+
+### Agent Enums
+- **AgentStatus**: ACTIVE, INACTIVE, SUSPENDED
+
+### Business Rules
+1. **Agent unique per company**: @@unique([companyId, userId])
+2. **Referral code unique**: @@unique([referralCode])
+3. **Agent-listing unique**: @@unique([agentId, listingId]) in AgentListing
+4. **Soft unassign**: Listing assignments set removedAt instead of delete
+5. **Performance stats**: totalListings, totalDeals, totalRevenue tracked on Agent
+6. **REN number**: Malaysian Real Estate Negotiator registration number (3-50 chars)
+7. **Tenant-scoped**: Agent queries scoped via company.tenantId
+8. **Suspend flow**: Only ACTIVE → SUSPENDED, only SUSPENDED → ACTIVE
+
+---
+
+## 💰 Commission Module (Session 8.3)
+
+### POST /api/v1/commissions
+**Calculate and create a commission**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ agentId, tenancyId, type, rate?, notes? }`
+- Type: BOOKING or RENEWAL
+- Rate: Optional override (default: 1.0 for BOOKING, 0.5 for RENEWAL)
+- Amount calculated: monthlyRent × rate
+- Validates agent and tenancy exist within tenant
+- Emits: `commission.created`
+- Response: `{ data: CommissionView }`
+
+### GET /api/v1/commissions
+**List all commissions (paginated, filterable)**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Query: `{ agentId?, tenancyId?, type?, status?, page?, limit?, sortBy?, sortDir? }`
+- Response: `{ data: { data: CommissionView[], total, page, limit, totalPages } }`
+
+### GET /api/v1/commissions/:id
+**Get commission details**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Includes: agent (with user, company), tenancy (with listing)
+- Response: `{ data: CommissionView }`
+
+### POST /api/v1/commissions/:id/approve
+**Approve a pending commission**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ notes? }`
+- Only PENDING commissions can be approved
+- Sets approvedBy, approvedAt
+- Emits: `commission.approved`
+- Response: `{ data: CommissionView }`
+
+### POST /api/v1/commissions/:id/pay
+**Mark an approved commission as paid**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Body: `{ paidRef?, notes? }`
+- Only APPROVED commissions can be marked paid
+- Updates agent totalRevenue and totalDeals
+- Emits: `commission.paid`
+- Response: `{ data: CommissionView }`
+
+### POST /api/v1/commissions/:id/cancel
+**Cancel a commission**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN)
+- Cannot cancel PAID commissions
+- Emits: `commission.cancelled`
+- Response: `{ data: CommissionView }`
+
+### GET /api/v1/agents/:id/commissions
+**List agent's commissions**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Query: `{ type?, status?, page?, limit?, sortBy?, sortDir? }`
+- Response: `{ data: { data: CommissionView[], total, page, limit, totalPages } }`
+
+### GET /api/v1/agents/:id/commissions/summary
+**Get agent's commission summary**
+- Auth: JWT + Roles (SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT)
+- Response: `{ data: CommissionSummary }`
+- Summary: totalCommissions, totalAmount, pendingCount/Amount, approvedCount/Amount, paidCount/Amount
+
+### Commission Enums
+- **CommissionType**: BOOKING, RENEWAL
+- **CommissionStatus**: PENDING, APPROVED, PAID, CANCELLED
+
+### Event Handlers (Auto-Commission)
+- **tenancy.activated** → Auto-creates BOOKING commission for agent assigned to listing
+- **contract.renewed** → Auto-creates RENEWAL commission for agent assigned to listing
+
+### Business Rules
+1. **Status flow**: PENDING → APPROVED → PAID (forward only)
+2. **Cancel**: Any non-PAID status can be cancelled
+3. **Default rates**: BOOKING = 1.0 month, RENEWAL = 0.5 month
+4. **Custom rate**: Override via rate field (0-12 range)
+5. **Agent stats update**: On PAID, totalRevenue incremented and totalDeals +1
+6. **Duplicate prevention**: Event handlers check for existing commission before creating
+7. **Tenant-scoped**: All queries scoped via agent.company.tenantId
+8. **Approval notes**: Appended to existing notes with [Approval] prefix
+9. **Payment reference**: Optional paidRef for tracking payment receipts
+---
+
+## 🤝 Affiliate Module (Session 8.4)
+
+### POST /api/v1/affiliates
+**Register a new affiliate**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN
+- Body: `{ userId: UUID, type?: AffiliateType, bankName?, bankAccount?, bankAccountName?, notes? }`
+- Generates unique referral code (REF + 8 alphanumeric chars)
+- Emits: `affiliate.created`
+- Response: `{ data: AffiliateView }`
+
+### GET /api/v1/affiliates
+**List all affiliates (paginated, filterable)**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN
+- Query: `{ status?, page?, limit?, sortBy?, sortDir? }`
+- Response: `{ data: { data: AffiliateView[], total, page, limit, totalPages } }`
+
+### GET /api/v1/affiliates/code/:code
+**Look up affiliate by referral code**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT
+- Response: `{ data: AffiliateView }`
+
+### GET /api/v1/affiliates/:id
+**Get affiliate details**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT
+- Response: `{ data: AffiliateView }`
+
+### PATCH /api/v1/affiliates/:id
+**Update affiliate details (bank, type, notes)**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN
+- Body: `{ type?, bankName?, bankAccount?, bankAccountName?, notes? }`
+- Response: `{ data: AffiliateView }`
+
+### POST /api/v1/affiliates/:id/deactivate
+**Deactivate an affiliate**
+- Auth: SUPER_ADMIN, TENANT_ADMIN
+- Emits: `affiliate.deactivated`
+- Response: `{ data: AffiliateView }`
+
+### POST /api/v1/affiliates/:id/referrals
+**Track a new referral for affiliate**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN
+- Body: `{ affiliateId: UUID, referralType: ReferralType, referredId: UUID, commissionRate?, commissionAmount?, notes? }`
+- Default rates: OWNER_REGISTRATION=RM200 flat, TENANT_BOOKING=5% monthly rent, AGENT_SIGNUP=RM100 flat
+- Emits: `affiliate.referral.created`
+- Response: `{ data: ReferralView }`
+
+### GET /api/v1/affiliates/:id/referrals
+**List affiliate's referrals**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT
+- Query: `{ referralType?, status?, page?, limit?, sortBy?, sortDir? }`
+- Response: `{ data: { data: ReferralView[], total, page, limit, totalPages } }`
+
+### POST /api/v1/affiliates/:id/referrals/:refId/confirm
+**Confirm a pending referral (adds to unpaid earnings)**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN
+- Status: PENDING → CONFIRMED
+- Updates affiliate.unpaidEarnings and totalEarnings
+- Emits: `affiliate.referral.confirmed`
+- Response: `{ data: ReferralView }`
+
+### GET /api/v1/affiliates/:id/earnings
+**Get affiliate's earnings summary**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT
+- Response: `{ data: { totalEarnings, unpaidEarnings, pendingReferrals, confirmedReferrals, paidReferrals, byType[] } }`
+
+### POST /api/v1/affiliates/:id/payout
+**Process payout for unpaid affiliate earnings**
+- Auth: SUPER_ADMIN, TENANT_ADMIN
+- Body: `{ reference?, notes? }`
+- Creates payout record (PROCESSING), marks confirmed referrals as PAID, resets unpaidEarnings
+- Emits: `affiliate.payout.created`
+- Response: `{ data: PayoutView }`
+
+### GET /api/v1/affiliates/:id/payouts
+**List affiliate's payout history**
+- Auth: SUPER_ADMIN, TENANT_ADMIN, COMPANY_ADMIN, AGENT
+- Response: `{ data: PayoutView[] }`
+
+### POST /api/v1/affiliates/payouts/:id/complete
+**Mark a processing payout as completed**
+- Auth: SUPER_ADMIN, TENANT_ADMIN
+- Body: `{ reference?, notes? }`
+- Status: PROCESSING → COMPLETED
+- Emits: `affiliate.payout.completed`
+- Response: `{ data: PayoutView }`
+
+### Affiliate Enums
+- **AffiliateType**: INDIVIDUAL, COMPANY
+- **AffiliateStatus**: ACTIVE, INACTIVE, SUSPENDED
+- **ReferralType**: OWNER_REGISTRATION, TENANT_BOOKING, AGENT_SIGNUP
+- **ReferralStatus**: PENDING, CONFIRMED, PAID, CANCELLED
+- **AffiliatePayoutStatus**: PENDING, PROCESSING, COMPLETED, FAILED
+
+### Event Handlers (Auto-Referral)
+- **vendor.approved** → Auto-tracks OWNER_REGISTRATION referral if referralCode present
+- **tenancy.activated** → Auto-tracks TENANT_BOOKING referral if referralCode present
+
+### Business Rules
+1. **Unique code**: Each affiliate gets a unique REF + 8 char code
+2. **Unique per tenant**: One affiliate per user per tenant
+3. **Referral flow**: PENDING → CONFIRMED → PAID
+4. **Earnings update**: On CONFIRMED, affiliate.unpaidEarnings and totalEarnings increment
+5. **Payout flow**: PENDING → PROCESSING → COMPLETED/FAILED
+6. **Payout creates batch**: All CONFIRMED referrals marked PAID, unpaidEarnings reset to 0
+7. **Default commission**: OWNER_REGISTRATION=RM200, TENANT_BOOKING=5% rent, AGENT_SIGNUP=RM100
+8. **Custom override**: commissionRate and commissionAmount can be overridden per referral
+9. **Duplicate prevention**: Cannot create duplicate referral for same affiliate + referredId
+10. **Active-only tracking**: Only ACTIVE affiliates can have referrals tracked
+---
+
+## ⚖️ Legal Module (Session 8.5, 8.6)
+
+### POST /api/v1/legal-cases
+**Create a new legal case**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Body: `{ tenancyId: UUID, reason: LegalCaseReason, description: string, amountOwed: number, notes?: string }`
+- Emits: `legal.case.created`
+- Response: `{ data: LegalCaseView }`
+
+### GET /api/v1/legal-cases
+**List legal cases (paginated, filterable)**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Query: `status?`, `reason?`, `tenancyId?`, `page=1`, `limit=20`, `sortBy=createdAt`, `sortDir=desc`
+- Response: `{ data: { data: LegalCaseView[], total, page, limit, totalPages } }`
+
+### GET /api/v1/legal-cases/:id
+**Get legal case details**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Response: `{ data: LegalCaseView }` (includes lawyer and documents)
+
+### PATCH /api/v1/legal-cases/:id
+**Update legal case details**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Body: `{ description?, amountOwed?, courtDate?, notes? }`
+- Response: `{ data: LegalCaseView }`
+
+### POST /api/v1/legal-cases/:id/assign-lawyer
+**Assign a panel lawyer to a legal case**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Body: `{ lawyerId: UUID }`
+- Emits: `legal.lawyer.assigned`
+- Response: `{ data: LegalCaseView }`
+
+### POST /api/v1/legal-cases/:id/notice
+**Generate a notice document for a legal case**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Body: `{ type: NoticeType, notes?: string }`
+- Emits: `legal.notice.generated`
+- Response: `{ data: LegalDocumentView }`
+
+### POST /api/v1/legal-cases/:id/status
+**Update legal case status (validated state machine)**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Query: `status=LegalCaseStatus`
+- Emits: `legal.case.status.changed`
+- Response: `{ data: LegalCaseView }`
+
+### POST /api/v1/legal-cases/:id/resolve
+**Resolve and close a legal case**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Body: `{ resolution?, settlementAmount?, notes? }`
+- Emits: `legal.case.resolved`
+- Response: `{ data: LegalCaseView }`
+
+### GET /api/v1/legal-cases/:id/documents
+**List documents for a legal case**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Response: `{ data: LegalDocumentView[] }`
+
+### POST /api/v1/legal-cases/:id/documents
+**Upload/attach a document to a legal case**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Body: `{ type: LegalDocumentType, title: string, fileName: string, fileUrl: string, notes?: string }`
+- Emits: `legal.document.uploaded`
+- Response: `{ data: LegalDocumentView }`
+- Validation: Case must exist and not be CLOSED
+
+### POST /api/v1/panel-lawyers
+**Create a panel lawyer**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Body: `{ name: string, firm?: string, email: string, phone: string, specialization?: string[], notes?: string }`
+- Response: `{ data: PanelLawyerView }`
+
+### GET /api/v1/panel-lawyers
+**List panel lawyers**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Query: `activeOnly=true|false`
+- Response: `{ data: PanelLawyerView[] }`
+
+### GET /api/v1/panel-lawyers/:id
+**Get panel lawyer details**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN, VENDOR_ADMIN)
+- Response: `{ data: PanelLawyerView }` (includes activeCaseCount)
+
+### PATCH /api/v1/panel-lawyers/:id
+**Update panel lawyer details**
+- Auth: JWT (SUPER_ADMIN, TENANT_ADMIN)
+- Body: `{ name?, firm?, email?, phone?, specialization?, isActive?, notes? }`
+- Response: `{ data: PanelLawyerView }`
+
+### Enums
+- **LegalCaseStatus**: NOTICE_SENT, RESPONSE_PENDING, MEDIATION, COURT_FILED, HEARING_SCHEDULED, JUDGMENT, ENFORCING, CLOSED
+- **LegalCaseReason**: NON_PAYMENT, BREACH, DAMAGE, OTHER
+- **NoticeType**: FIRST_REMINDER, SECOND_REMINDER, LEGAL_NOTICE, TERMINATION_NOTICE
+- **LegalDocumentType**: NOTICE, RESPONSE, COURT_FILING, JUDGMENT, FIRST_REMINDER, SECOND_REMINDER, LEGAL_NOTICE, TERMINATION_NOTICE, EVIDENCE, CORRESPONDENCE, SETTLEMENT, OTHER
+
+### Status Transitions (State Machine)
+- NOTICE_SENT → RESPONSE_PENDING, CLOSED
+- RESPONSE_PENDING → MEDIATION, COURT_FILED, CLOSED
+- MEDIATION → COURT_FILED, CLOSED
+- COURT_FILED → HEARING_SCHEDULED, CLOSED
+- HEARING_SCHEDULED → JUDGMENT, CLOSED
+- JUDGMENT → ENFORCING, CLOSED
+- ENFORCING → CLOSED
+- CLOSED → (terminal)
+
+### Event Handlers
+- **billing.escalated.legal** → Auto-creates legal case from overdue billing with NON_PAYMENT reason
+
+### Events Emitted
+- **legal.case.created** — When a new legal case is created (manual or auto)
+- **legal.lawyer.assigned** — When a panel lawyer is assigned to a case
+- **legal.notice.generated** — When a notice document is generated
+- **legal.case.status.changed** — When case status transitions
+- **legal.case.resolved** — When a case is resolved/closed
+- **legal.document.uploaded** — When a document is uploaded to a case
+
+### Notice Templates
+1. **FIRST_REMINDER**: Payment reminder with 7-day deadline
+2. **SECOND_REMINDER**: Urgent final reminder with 3-day deadline, legal proceedings warning
+3. **LEGAL_NOTICE**: Formal 14-day legal notice with specific remedies and consequences
+4. **TERMINATION_NOTICE**: Tenancy termination with vacate requirements
+
+### Business Rules
+1. **Unique case number**: LEG + 8 random alphanumeric characters
+2. **One active case per tenancy**: Cannot create duplicate active case for same tenancy
+3. **14-day default deadline**: Notice deadline set to 14 days from case creation
+4. **Lawyer must be active**: Only active panel lawyers can be assigned to cases
+5. **Closed cases immutable**: Cannot update, assign lawyer, or generate notices for closed cases
+6. **Template substitution**: Notice content generated from templates with variable replacement
+7. **Status validation**: All transitions validated against state machine rules
+8. **Resolution tracking**: Closed cases track resolution text, settlement amount, and resolvedAt
+9. **Tenant isolation**: All queries filtered by tenant context
+10. **Auto-create from billing**: billing.escalated.legal event triggers auto case creation
 ---

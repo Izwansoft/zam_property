@@ -8,7 +8,7 @@ export class StatusCountDto {
   count!: number;
 }
 
-export class TenantDashboardStatsDto {
+export class PartnerDashboardStatsDto {
   @ApiProperty({ type: [StatusCountDto] })
   vendorsByStatus!: StatusCountDto[];
 

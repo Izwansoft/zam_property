@@ -4,7 +4,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { OpenSearchService } from '@infrastructure/search/opensearch.service';
 import { getListingsIndexName } from '@infrastructure/search/mappings/listings.mapping';
 
@@ -82,24 +82,24 @@ export class RealEstateSearchService {
 
   constructor(
     private readonly opensearchService: OpenSearchService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   /**
    * Search real estate listings with full filter and facet support
    */
   async search(
-    tenantId: string,
+    partnerId: string,
     query: RealEstateSearchQueryDto,
   ): Promise<{
     hits: RealEstateSearchResultDto[];
     total: number;
     facets: RealEstateFacetsDto;
   }> {
-    const indexName = getListingsIndexName(tenantId);
+    const indexName = getListingsIndexName(partnerId);
 
     try {
-      const searchBody = this.buildSearchQuery(tenantId, query);
+      const searchBody = this.buildSearchQuery(partnerId, query);
 
       this.logger.debug(`Real estate search on ${indexName}: ${JSON.stringify(searchBody)}`);
 
@@ -116,7 +116,7 @@ export class RealEstateSearchService {
         facets,
       };
     } catch (error) {
-      this.logger.error(`Real estate search failed for tenant ${tenantId}:`, error);
+      this.logger.error(`Real estate search failed for partner ${partnerId}:`, error);
       throw error;
     }
   }
@@ -125,11 +125,11 @@ export class RealEstateSearchService {
    * Get suggestions for autocomplete
    */
   async getSuggestions(
-    tenantId: string,
+    partnerId: string,
     prefix: string,
     limit: number = 10,
   ): Promise<{ id: string; title: string; slug: string; price: number | null; city?: string }[]> {
-    const indexName = getListingsIndexName(tenantId);
+    const indexName = getListingsIndexName(partnerId);
 
     try {
       const result = await this.opensearchService.search<SearchHit>(indexName, {
@@ -145,7 +145,7 @@ export class RealEstateSearchService {
               },
             ],
             filter: [
-              { term: { tenantId } },
+              { term: { partnerId } },
               { term: { verticalType: 'real_estate' } },
               { term: { status: 'PUBLISHED' } },
             ],
@@ -163,7 +163,7 @@ export class RealEstateSearchService {
         city: hit.location?.city,
       }));
     } catch (error) {
-      this.logger.error(`Suggestions failed for tenant ${tenantId}:`, error);
+      this.logger.error(`Suggestions failed for partner ${partnerId}:`, error);
       return [];
     }
   }
@@ -171,15 +171,15 @@ export class RealEstateSearchService {
   /**
    * Get facet counts for filter sidebar (without running full search)
    */
-  async getFacetCounts(tenantId: string): Promise<RealEstateFacetsDto> {
-    const indexName = getListingsIndexName(tenantId);
+  async getFacetCounts(partnerId: string): Promise<RealEstateFacetsDto> {
+    const indexName = getListingsIndexName(partnerId);
 
     try {
       const result = await this.opensearchService.search<SearchHit>(indexName, {
         query: {
           bool: {
             filter: [
-              { term: { tenantId } },
+              { term: { partnerId } },
               { term: { verticalType: 'real_estate' } },
               { term: { status: 'PUBLISHED' } },
             ],
@@ -193,7 +193,7 @@ export class RealEstateSearchService {
         result.aggregations as Record<string, { buckets?: AggregationBucket[] }> | undefined,
       );
     } catch (error) {
-      this.logger.error(`Facet counts failed for tenant ${tenantId}:`, error);
+      this.logger.error(`Facet counts failed for partner ${partnerId}:`, error);
       return this.emptyFacets();
     }
   }
@@ -203,14 +203,14 @@ export class RealEstateSearchService {
   // ─────────────────────────────────────────────────────────────────────────────
 
   private buildSearchQuery(
-    tenantId: string,
+    partnerId: string,
     query: RealEstateSearchQueryDto,
   ): Record<string, unknown> {
     const must: Record<string, unknown>[] = [];
     const filter: Record<string, unknown>[] = [];
 
     // Base filters
-    filter.push({ term: { tenantId } });
+    filter.push({ term: { partnerId } });
     filter.push({ term: { verticalType: 'real_estate' } });
     filter.push({ term: { status: 'PUBLISHED' } });
 

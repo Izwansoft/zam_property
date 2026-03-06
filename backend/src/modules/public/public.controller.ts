@@ -6,8 +6,9 @@
  * All endpoints are rate-limited and cached.
  */
 
-import { Controller, Get, Param, Query, UseGuards, Headers, Logger } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
+import type { Request } from 'express';
 
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { RateLimit, RateLimitPresets } from './decorators/rate-limit.decorator';
@@ -36,8 +37,8 @@ export class PublicController {
       'Search published listings without authentication. Rate limited to 60 requests per minute per IP.',
   })
   @ApiHeader({
-    name: 'X-Tenant-ID',
-    description: 'Tenant identifier (required)',
+    name: 'X-Partner-ID',
+    description: 'Partner identifier (required)',
     required: true,
   })
   @ApiResponse({
@@ -50,14 +51,12 @@ export class PublicController {
     description: 'Rate limit exceeded',
   })
   async searchListings(
-    @Headers('x-tenant-id') tenantId: string,
+    @Req() req: Request,
     @Query() query: PublicSearchQueryDto,
   ): Promise<PublicSearchResponseDto> {
-    if (!tenantId) {
-      tenantId = 'demo'; // Fallback for testing
-    }
+    const partnerId = req.PartnerContext?.partnerId ?? 'demo';
 
-    const result = await this.publicService.searchListings(tenantId, query);
+    const result = await this.publicService.searchListings(partnerId, query);
     const totalPages = Math.ceil(result.total / (query.pageSize || 20));
 
     return {
@@ -70,9 +69,33 @@ export class PublicController {
           totalItems: result.total,
           totalPages,
         },
-        facets: result.aggregations as Record<string, { value: string; count: number }[]>,
+        facets: this.transformAggregationsToFacets(result.aggregations),
       },
     };
+  }
+
+  /**
+   * Transform raw OpenSearch aggregations into flat facet arrays.
+   * Raw shape: { verticalTypes: { buckets: [{ key, doc_count }] } }
+   * Output shape: { verticalTypes: [{ value, count }] }
+   */
+  private transformAggregationsToFacets(
+    aggregations?: Record<string, unknown>,
+  ): Record<string, { value: string; count: number }[]> | undefined {
+    if (!aggregations) return undefined;
+    const result: Record<string, { value: string; count: number }[]> = {};
+    for (const [key, agg] of Object.entries(aggregations)) {
+      const aggObj = agg as { buckets?: { key: string | number; doc_count: number; from?: number; to?: number }[] };
+      if (aggObj?.buckets && Array.isArray(aggObj.buckets)) {
+        result[key] = aggObj.buckets.map((bucket) => ({
+          value: String(bucket.key),
+          count: bucket.doc_count,
+          ...(bucket.from != null ? { from: bucket.from } : {}),
+          ...(bucket.to != null ? { to: bucket.to } : {}),
+        }));
+      }
+    }
+    return result;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -87,8 +110,8 @@ export class PublicController {
       'Get published listing details by ID or slug. Rate limited to 120 requests per minute per IP.',
   })
   @ApiHeader({
-    name: 'X-Tenant-ID',
-    description: 'Tenant identifier (required)',
+    name: 'X-Partner-ID',
+    description: 'Partner identifier (required)',
     required: true,
   })
   @ApiParam({
@@ -110,14 +133,12 @@ export class PublicController {
     description: 'Rate limit exceeded',
   })
   async getPublicListing(
-    @Headers('x-tenant-id') tenantId: string,
+    @Req() req: Request,
     @Param('idOrSlug') idOrSlug: string,
   ): Promise<PublicListingResponseDto> {
-    if (!tenantId) {
-      tenantId = 'demo';
-    }
+    const partnerId = req.PartnerContext?.partnerId ?? 'demo';
 
-    const listing = await this.publicService.getPublicListing(tenantId, idOrSlug);
+    const listing = await this.publicService.getPublicListing(partnerId, idOrSlug);
 
     return {
       data: listing,
@@ -139,8 +160,8 @@ export class PublicController {
       'Get approved vendor profile by ID or slug. Rate limited to 120 requests per minute per IP.',
   })
   @ApiHeader({
-    name: 'X-Tenant-ID',
-    description: 'Tenant identifier (required)',
+    name: 'X-Partner-ID',
+    description: 'Partner identifier (required)',
     required: true,
   })
   @ApiParam({
@@ -162,14 +183,12 @@ export class PublicController {
     description: 'Rate limit exceeded',
   })
   async getPublicVendor(
-    @Headers('x-tenant-id') tenantId: string,
+    @Req() req: Request,
     @Param('idOrSlug') idOrSlug: string,
   ): Promise<PublicVendorResponseDto> {
-    if (!tenantId) {
-      tenantId = 'demo';
-    }
+    const partnerId = req.PartnerContext?.partnerId ?? 'demo';
 
-    const vendor = await this.publicService.getPublicVendor(tenantId, idOrSlug);
+    const vendor = await this.publicService.getPublicVendor(partnerId, idOrSlug);
 
     return {
       data: vendor,

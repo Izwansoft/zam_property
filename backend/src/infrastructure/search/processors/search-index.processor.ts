@@ -38,7 +38,7 @@ export class SearchIndexProcessor extends WorkerHost {
       queue: QUEUE_NAMES.SEARCH_INDEX,
       jobId: job.id,
       jobType: name,
-      tenantId: data.tenantId,
+      partnerId: data.partnerId,
     });
 
     try {
@@ -95,18 +95,18 @@ export class SearchIndexProcessor extends WorkerHost {
    * Handle single listing indexing.
    */
   private async handleListingIndex(job: Job<ListingIndexJob>): Promise<JobResult> {
-    const { tenantId, listingId } = job.data;
+    const { partnerId, listingId } = job.data;
 
-    this.logger.debug(`Indexing listing ${listingId} for tenant ${tenantId}`);
+    this.logger.debug(`Indexing listing ${listingId} for partner ${partnerId}`);
 
     await job.updateProgress(10);
-    await this.indexingService.indexListing(tenantId, listingId);
+    await this.indexingService.indexListing(partnerId, listingId);
     await job.updateProgress(100);
 
     return {
       success: true,
       message: `Listing ${listingId} indexed successfully`,
-      data: { listingId, tenantId },
+      data: { listingId, partnerId },
       processedAt: new Date().toISOString(),
     };
   }
@@ -115,18 +115,18 @@ export class SearchIndexProcessor extends WorkerHost {
    * Handle single listing deletion from index.
    */
   private async handleListingDelete(job: Job<ListingDeleteJob>): Promise<JobResult> {
-    const { tenantId, listingId } = job.data;
+    const { partnerId, listingId } = job.data;
 
-    this.logger.debug(`Deleting listing ${listingId} from index for tenant ${tenantId}`);
+    this.logger.debug(`Deleting listing ${listingId} from index for partner ${partnerId}`);
 
     await job.updateProgress(10);
-    await this.indexingService.deleteListing(tenantId, listingId);
+    await this.indexingService.deleteListing(partnerId, listingId);
     await job.updateProgress(100);
 
     return {
       success: true,
       message: `Listing ${listingId} deleted from index`,
-      data: { listingId, tenantId },
+      data: { listingId, partnerId },
       processedAt: new Date().toISOString(),
     };
   }
@@ -137,19 +137,19 @@ export class SearchIndexProcessor extends WorkerHost {
    * This is a placeholder for future implementation.
    */
   private async handleVendorIndex(job: Job<VendorIndexJob>): Promise<JobResult> {
-    const { tenantId, vendorId } = job.data;
+    const { partnerId, vendorId } = job.data;
 
-    this.logger.debug(`Indexing vendor ${vendorId} for tenant ${tenantId}`);
+    this.logger.debug(`Indexing vendor ${vendorId} for partner ${partnerId}`);
 
     await job.updateProgress(10);
     // TODO: Implement vendor indexing when vendor search is needed
-    // await this.indexingService.indexVendor(tenantId, vendorId);
+    // await this.indexingService.indexVendor(partnerId, vendorId);
     await job.updateProgress(100);
 
     return {
       success: true,
       message: `Vendor ${vendorId} indexing placeholder - not yet implemented`,
-      data: { vendorId, tenantId },
+      data: { vendorId, partnerId },
       processedAt: new Date().toISOString(),
     };
   }
@@ -159,14 +159,14 @@ export class SearchIndexProcessor extends WorkerHost {
    * Processes listings in batches with progress updates.
    */
   private async handleBulkReindex(job: Job<BulkReindexJob>): Promise<JobResult> {
-    const { tenantId, entityType, filters, batchSize = 100 } = job.data;
+    const { partnerId, entityType, filters, batchSize = 100 } = job.data;
 
-    this.logger.log(`Starting bulk reindex for tenant ${tenantId}, entity: ${entityType}`);
+    this.logger.log(`Starting bulk reindex for partner ${partnerId}, entity: ${entityType}`);
 
     await job.updateProgress(5);
 
     if (entityType === 'listing') {
-      const result = await this.indexingService.reindexTenant(tenantId, filters?.verticalType);
+      const result = await this.indexingService.reindexTenant(partnerId, filters?.verticalType);
 
       await job.updateProgress(100);
 
@@ -174,7 +174,7 @@ export class SearchIndexProcessor extends WorkerHost {
         success: true,
         message: `Bulk reindex completed: ${result.indexed} listings indexed`,
         data: {
-          tenantId,
+          partnerId,
           entityType,
           indexed: result.indexed,
           batchSize,
@@ -187,7 +187,7 @@ export class SearchIndexProcessor extends WorkerHost {
     return {
       success: true,
       message: `Bulk reindex for ${entityType} not yet implemented`,
-      data: { tenantId, entityType },
+      data: { partnerId, entityType },
       processedAt: new Date().toISOString(),
     };
   }

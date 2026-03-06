@@ -40,13 +40,13 @@ export class PricingCalculationService {
    * Calculate charge for given event
    */
   async calculateChargeForEvent(
-    tenantId: string,
+    partnerId: string,
     input: ChargeCalculationInput,
   ): Promise<ChargeCalculationResult> {
-    this.logger.debug(`Calculating charge for tenant ${tenantId}, event: ${input.eventType}`);
+    this.logger.debug(`Calculating charge for partner ${partnerId}, event: ${input.eventType}`);
 
-    // Get active pricing configs for this tenant and event type
-    const configs = await this.pricingRepo.findActiveConfigs(tenantId, input.eventType);
+    // Get active pricing configs for this partner and event type
+    const configs = await this.pricingRepo.findActiveConfigs(partnerId, input.eventType);
 
     if (configs.length === 0) {
       this.logger.debug(`No active pricing configs for event: ${input.eventType}`);
@@ -91,7 +91,7 @@ export class PricingCalculationService {
           result.pricingRuleId = rule.id;
 
           // Create charge event
-          await this.createChargeEvent(tenantId, input, result);
+          await this.createChargeEvent(partnerId, input, result);
 
           return result;
         }
@@ -108,7 +108,7 @@ export class PricingCalculationService {
    * Create charge event
    */
   async createChargeEvent(
-    tenantId: string,
+    partnerId: string,
     input: ChargeCalculationInput,
     result: ChargeCalculationResult,
   ): Promise<void> {
@@ -117,7 +117,7 @@ export class PricingCalculationService {
     }
 
     await this.pricingRepo.createChargeEvent({
-      tenantId,
+      partnerId,
       chargeType: result.chargeType,
       amount: result.amount,
       currency: result.currency || 'MYR',
@@ -135,7 +135,7 @@ export class PricingCalculationService {
 
     // Emit domain event
     this.eventEmitter.emit('charge.created', {
-      tenantId,
+      partnerId,
       chargeType: result.chargeType,
       amount: result.amount,
       currency: result.currency,
@@ -210,13 +210,13 @@ export class PricingCalculationService {
   }
 
   /**
-   * Get charge summary for tenant
+   * Get charge summary for partner
    */
-  async getChargeSummary(tenantId: string): Promise<{
+  async getChargeSummary(partnerId: string): Promise<{
     totalPending: number;
     totalProcessed: number;
     breakdownByType: Record<string, number>;
   }> {
-    return this.pricingRepo.getChargeSummary(tenantId);
+    return this.pricingRepo.getChargeSummary(partnerId);
   }
 }

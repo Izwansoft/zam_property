@@ -1,9 +1,9 @@
-import type { TenantContext } from '@core/tenant-context';
+import type { PartnerContext } from '@core/partner-context';
 
 declare global {
   namespace Express {
     interface Request {
-      tenantContext?: TenantContext;
+      PartnerContext?: PartnerContext;
     }
   }
 }

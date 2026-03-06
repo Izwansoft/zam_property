@@ -14,7 +14,7 @@ interface ListingViewedPayload {
 
 interface InteractionCreatedPayload {
   interactionId: string;
-  tenantId: string;
+  partnerId: string;
   vendorId: string;
   listingId: string;
   interactionType: string;
@@ -29,7 +29,7 @@ export class AnalyticsListeners {
 
   @OnEvent('listing.listing.viewed')
   async handleListingViewed(event: DomainEvent<ListingViewedPayload>): Promise<void> {
-    if (!event.tenantId) {
+    if (!event.partnerId) {
       return;
     }
 
@@ -37,7 +37,7 @@ export class AnalyticsListeners {
 
     const job: EventTrackJob = {
       type: 'event.track',
-      tenantId: event.tenantId,
+      partnerId: event.partnerId,
       eventType: ANALYTICS_EVENT_TYPES.LISTING_VIEW,
       eventCategory: 'listing',
       entityId: payload.listingId,
@@ -60,13 +60,13 @@ export class AnalyticsListeners {
   @OnEvent('interaction.created')
   async handleInteractionCreated(payload: InteractionCreatedPayload): Promise<void> {
     // Existing code emits a raw object (not a DomainEvent)
-    if (!payload.tenantId) {
+    if (!payload.partnerId) {
       return;
     }
 
     const job: EventTrackJob = {
       type: 'event.track',
-      tenantId: payload.tenantId,
+      partnerId: payload.partnerId,
       eventType: 'interaction.created',
       eventCategory: 'interaction',
       entityId: payload.interactionId,

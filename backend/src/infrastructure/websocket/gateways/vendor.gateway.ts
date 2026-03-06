@@ -157,7 +157,7 @@ export class VendorGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     const interaction = await this.prisma.interaction.findFirst({
       where: {
         id: data.interactionId,
-        tenantId: socket.data.tenantId,
+        partnerId: socket.data.partnerId,
         vendorId: socket.data.vendorId,
       },
       select: { id: true, contactName: true },
@@ -297,7 +297,7 @@ export class VendorGateway implements OnGatewayInit, OnGatewayConnection, OnGate
       case WsErrorCode.TOKEN_EXPIRED:
         return 'Token has expired';
       case WsErrorCode.TENANT_ACCESS_DENIED:
-        return 'Tenant access denied';
+        return 'Partner access denied';
       case WsErrorCode.FORBIDDEN:
         return 'Access forbidden';
       default:

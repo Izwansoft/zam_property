@@ -308,7 +308,7 @@ export const REAL_ESTATE_OPENSEARCH_MAPPING = {
     properties: {
       // Identity fields (from base listing)
       id: { type: 'keyword' },
-      tenantId: { type: 'keyword' },
+      partnerId: { type: 'keyword' },
       vendorId: { type: 'keyword' },
       verticalType: { type: 'keyword' },
       status: { type: 'keyword' },

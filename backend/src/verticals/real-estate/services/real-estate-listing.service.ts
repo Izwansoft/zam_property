@@ -6,7 +6,7 @@
 import { Injectable, BadRequestException, Scope } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { PrismaService } from '@infrastructure/database';
 
 import {
@@ -103,7 +103,7 @@ export interface UpdateRealEstateListingData {
 
 export interface RealEstateListingView {
   id: string;
-  tenantId: string;
+  partnerId: string;
   vendorId: string;
   verticalType: string;
   title: string;
@@ -134,7 +134,7 @@ export class RealEstateListingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -226,9 +226,9 @@ export class RealEstateListingService {
    * Create a new real estate listing
    */
   async create(data: CreateRealEstateListingData): Promise<RealEstateListingView> {
-    const tenantId = this.tenantContext.tenantId;
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    const partnerId = this.PartnerContext.partnerId;
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
 
     // Validate attributes for draft
@@ -241,7 +241,7 @@ export class RealEstateListingService {
     }
 
     // Generate slug
-    const slug = await this.generateSlug(tenantId, data.title);
+    const slug = await this.generateSlug(partnerId, data.title);
 
     // Determine price type from listing type
     const priceType =
@@ -249,7 +249,7 @@ export class RealEstateListingService {
 
     const listing = await this.prisma.listing.create({
       data: {
-        tenantId: tenantId,
+        partnerId: partnerId,
         vendorId: data.vendorId,
         verticalType: this.verticalType,
         schemaVersion: '1.0',
@@ -272,14 +272,14 @@ export class RealEstateListingService {
    * Update a real estate listing
    */
   async update(id: string, data: UpdateRealEstateListingData): Promise<RealEstateListingView> {
-    const tenantId = this.tenantContext.tenantId;
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    const partnerId = this.PartnerContext.partnerId;
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
 
     // Get existing listing
     const existing = await this.prisma.listing.findFirst({
-      where: { id, tenantId, verticalType: this.verticalType, deletedAt: null },
+      where: { id, partnerId, verticalType: this.verticalType, deletedAt: null },
     });
 
     if (!existing) {
@@ -304,7 +304,7 @@ export class RealEstateListingService {
     // Update slug if title changed
     let slug = existing.slug;
     if (data.title && data.title !== existing.title) {
-      slug = await this.generateSlug(tenantId, data.title, id);
+      slug = await this.generateSlug(partnerId, data.title, id);
     }
 
     // Merge location if provided
@@ -341,13 +341,13 @@ export class RealEstateListingService {
    * Get a real estate listing by ID
    */
   async findById(id: string): Promise<RealEstateListingView | null> {
-    const tenantId = this.tenantContext.tenantId;
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    const partnerId = this.PartnerContext.partnerId;
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
 
     const listing = await this.prisma.listing.findFirst({
-      where: { id, tenantId, verticalType: this.verticalType, deletedAt: null },
+      where: { id, partnerId, verticalType: this.verticalType, deletedAt: null },
     });
 
     return listing ? this.mapToView(listing) : null;
@@ -387,7 +387,7 @@ export class RealEstateListingService {
   // HELPERS
   // ─────────────────────────────────────────────────────────────────────────
 
-  private async generateSlug(tenantId: string, title: string, excludeId?: string): Promise<string> {
+  private async generateSlug(partnerId: string, title: string, excludeId?: string): Promise<string> {
     const baseSlug = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
@@ -402,7 +402,7 @@ export class RealEstateListingService {
     while (true) {
       const existing = await this.prisma.listing.findFirst({
         where: {
-          tenantId: tenantId,
+          partnerId: partnerId,
           slug,
           ...(excludeId && { NOT: { id: excludeId } }),
         },
@@ -425,7 +425,7 @@ export class RealEstateListingService {
 
   private mapToView(listing: {
     id: string;
-    tenantId: string;
+    partnerId: string;
     vendorId: string;
     verticalType: string;
     title: string;
@@ -447,7 +447,7 @@ export class RealEstateListingService {
   }): RealEstateListingView {
     return {
       id: listing.id,
-      tenantId: listing.tenantId,
+      partnerId: listing.partnerId,
       vendorId: listing.vendorId,
       verticalType: listing.verticalType,
       title: listing.title,

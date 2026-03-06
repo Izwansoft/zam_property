@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { DatabaseModule } from '../../database/database.module';
+import { DatabaseModule } from '@infrastructure/database';
 import { NotificationController } from './controllers/notification.controller';
 import { NotificationRepository } from './repositories/notification.repository';
 import { NotificationService } from './services/notification.service';
@@ -23,7 +23,7 @@ import {
  * - Multi-channel delivery (EMAIL, IN_APP, SMS, PUSH, WhatsApp)
  * - Event-driven notifications (async, non-blocking)
  * - User preference management (opt-out model)
- * - Tenant-customizable templates
+ * - Partner-customizable templates
  *
  * Architecture:
  * - Domain events → Notification handlers

@@ -13,33 +13,33 @@ import type { DomainEvent } from '@infrastructure/events';
 /**
  * Event payloads for cache invalidation.
  */
-export interface TenantUpdatedEvent {
-  tenantId: string;
+export interface PartnerUpdatedEvent {
+  partnerId: string;
 }
 
-export interface TenantSuspendedEvent {
-  tenantId: string;
+export interface PartnerSuspendedEvent {
+  partnerId: string;
 }
 
 export interface VendorUpdatedEvent {
-  tenantId: string;
+  partnerId: string;
   vendorId: string;
 }
 
 export interface ListingUpdatedEvent {
-  tenantId: string;
+  partnerId: string;
   listingId: string;
   vendorId?: string;
 }
 
 export interface ListingPublishedEvent {
-  tenantId: string;
+  partnerId: string;
   listingId: string;
   vendorId: string;
 }
 
 export interface SubscriptionChangedEvent {
-  tenantId: string;
+  partnerId: string;
 }
 
 export interface PlanUpdatedEvent {
@@ -55,7 +55,7 @@ export interface VerticalSchemaUpdatedEvent {
 }
 
 export interface UserUpdatedEvent {
-  tenantId: string;
+  partnerId: string;
   userId: string;
 }
 
@@ -64,8 +64,8 @@ export interface UserUpdatedEvent {
  * Listens to domain events and invalidates relevant cache keys.
  *
  * Per part-32.md Cascading Invalidation Map:
- * - tenant.updated → ent:t:{id}:tenant, cfg:t:{id}:*
- * - tenant.suspended → ent:t:{id}:*, comp:t:{id}:*, cfg:t:{id}:*
+ * - partner.updated → ent:t:{id}:partner, cfg:t:{id}:*
+ * - partner.suspended → ent:t:{id}:*, comp:t:{id}:*, cfg:t:{id}:*
  * - vendor.updated → ent:t:{tid}:vendor:{id}, comp:t:{tid}:vendor:{id}:*
  * - listing.updated → ent:t:{tid}:listing:{id}*
  * - listing.published → ent:t:{tid}:listing:{id}*, comp:t:{tid}:stats:*
@@ -81,30 +81,30 @@ export class CacheInvalidationService {
   constructor(private readonly cacheService: CacheService) {}
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Tenant Events
+  // Partner Events
   // ───────────────────────────────────────────────────────────────────────────
 
-  @OnEvent('tenant.updated')
-  async handleTenantUpdated(event: TenantUpdatedEvent): Promise<void> {
-    const { tenantId } = event;
-    this.logger.debug(`Invalidating cache for tenant.updated: ${tenantId}`);
+  @OnEvent('partner.updated')
+  async handleTenantUpdated(event: PartnerUpdatedEvent): Promise<void> {
+    const { partnerId } = event;
+    this.logger.debug(`Invalidating cache for partner.updated: ${partnerId}`);
 
     await Promise.all([
-      this.cacheService.del(EntityCacheKeys.tenant(tenantId)),
-      this.cacheService.delByPattern(CachePatterns.allTenantConfig(tenantId)),
+      this.cacheService.del(EntityCacheKeys.partner(partnerId)),
+      this.cacheService.delByPattern(CachePatterns.allTenantConfig(partnerId)),
     ]);
   }
 
-  @OnEvent('tenant.suspended')
-  async handleTenantSuspended(event: TenantSuspendedEvent): Promise<void> {
-    const { tenantId } = event;
-    this.logger.debug(`Invalidating cache for tenant.suspended: ${tenantId}`);
+  @OnEvent('partner.suspended')
+  async handleTenantSuspended(event: PartnerSuspendedEvent): Promise<void> {
+    const { partnerId } = event;
+    this.logger.debug(`Invalidating cache for partner.suspended: ${partnerId}`);
 
-    // Invalidate all tenant-scoped caches
+    // Invalidate all partner-scoped caches
     await Promise.all([
-      this.cacheService.delByPattern(CachePatterns.allTenantEntities(tenantId)),
-      this.cacheService.delByPattern(CachePatterns.allTenantComputed(tenantId)),
-      this.cacheService.delByPattern(CachePatterns.allTenantConfig(tenantId)),
+      this.cacheService.delByPattern(CachePatterns.allTenantEntities(partnerId)),
+      this.cacheService.delByPattern(CachePatterns.allTenantComputed(partnerId)),
+      this.cacheService.delByPattern(CachePatterns.allTenantConfig(partnerId)),
     ]);
   }
 
@@ -114,12 +114,12 @@ export class CacheInvalidationService {
 
   @OnEvent('vendor.updated')
   async handleVendorUpdated(event: VendorUpdatedEvent): Promise<void> {
-    const { tenantId, vendorId } = event;
-    this.logger.debug(`Invalidating cache for vendor.updated: ${tenantId}/${vendorId}`);
+    const { partnerId, vendorId } = event;
+    this.logger.debug(`Invalidating cache for vendor.updated: ${partnerId}/${vendorId}`);
 
     await Promise.all([
-      this.cacheService.del(EntityCacheKeys.vendor(tenantId, vendorId)),
-      this.cacheService.delByPattern(CachePatterns.allVendor(tenantId, vendorId)),
+      this.cacheService.del(EntityCacheKeys.vendor(partnerId, vendorId)),
+      this.cacheService.delByPattern(CachePatterns.allVendor(partnerId, vendorId)),
     ]);
   }
 
@@ -129,17 +129,17 @@ export class CacheInvalidationService {
 
   @OnEvent('listing.updated')
   async handleListingUpdated(event: ListingUpdatedEvent): Promise<void> {
-    const { tenantId, listingId, vendorId } = event;
-    this.logger.debug(`Invalidating cache for listing.updated: ${tenantId}/${listingId}`);
+    const { partnerId, listingId, vendorId } = event;
+    this.logger.debug(`Invalidating cache for listing.updated: ${partnerId}/${listingId}`);
 
     const invalidations = [
-      this.cacheService.del(EntityCacheKeys.listing(tenantId, listingId)),
-      this.cacheService.del(EntityCacheKeys.listingFull(tenantId, listingId)),
+      this.cacheService.del(EntityCacheKeys.listing(partnerId, listingId)),
+      this.cacheService.del(EntityCacheKeys.listingFull(partnerId, listingId)),
     ];
 
     // Also invalidate vendor stats if vendorId is known
     if (vendorId) {
-      invalidations.push(this.cacheService.del(ComputedCacheKeys.vendorStats(tenantId, vendorId)));
+      invalidations.push(this.cacheService.del(ComputedCacheKeys.vendorStats(partnerId, vendorId)));
     }
 
     await Promise.all(invalidations);
@@ -147,14 +147,14 @@ export class CacheInvalidationService {
 
   @OnEvent('listing.published')
   async handleListingPublished(event: ListingPublishedEvent): Promise<void> {
-    const { tenantId, listingId, vendorId } = event;
-    this.logger.debug(`Invalidating cache for listing.published: ${tenantId}/${listingId}`);
+    const { partnerId, listingId, vendorId } = event;
+    this.logger.debug(`Invalidating cache for listing.published: ${partnerId}/${listingId}`);
 
     await Promise.all([
-      this.cacheService.del(EntityCacheKeys.listing(tenantId, listingId)),
-      this.cacheService.del(EntityCacheKeys.listingFull(tenantId, listingId)),
-      this.cacheService.del(ComputedCacheKeys.dashboardStats(tenantId)),
-      this.cacheService.del(ComputedCacheKeys.vendorStats(tenantId, vendorId)),
+      this.cacheService.del(EntityCacheKeys.listing(partnerId, listingId)),
+      this.cacheService.del(EntityCacheKeys.listingFull(partnerId, listingId)),
+      this.cacheService.del(ComputedCacheKeys.dashboardStats(partnerId)),
+      this.cacheService.del(ComputedCacheKeys.vendorStats(partnerId, vendorId)),
     ]);
   }
 
@@ -164,12 +164,12 @@ export class CacheInvalidationService {
 
   @OnEvent('subscription.changed')
   async handleSubscriptionChanged(event: SubscriptionChangedEvent): Promise<void> {
-    const { tenantId } = event;
-    this.logger.debug(`Invalidating cache for subscription.changed: ${tenantId}`);
+    const { partnerId } = event;
+    this.logger.debug(`Invalidating cache for subscription.changed: ${partnerId}`);
 
     await Promise.all([
-      this.cacheService.del(ComputedCacheKeys.entitlements(tenantId)),
-      this.cacheService.delByPattern(`comp:t:${tenantId}:usage:*`),
+      this.cacheService.del(ComputedCacheKeys.entitlements(partnerId)),
+      this.cacheService.delByPattern(`comp:t:${partnerId}:usage:*`),
     ]);
   }
 
@@ -199,11 +199,11 @@ export class CacheInvalidationService {
     await Promise.all([
       this.cacheService.del(ConfigCacheKeys.featureFlags()),
       this.cacheService.del(ConfigCacheKeys.experiments()),
-      event.tenantId
-        ? this.cacheService.del(ConfigCacheKeys.featureFlagsTenantOverrides(event.tenantId))
+      event.partnerId
+        ? this.cacheService.del(ConfigCacheKeys.featureFlagsTenantOverrides(event.partnerId))
         : Promise.resolve(),
-      event.tenantId
-        ? this.cacheService.del(ConfigCacheKeys.experimentOptInsForTenant(event.tenantId))
+      event.partnerId
+        ? this.cacheService.del(ConfigCacheKeys.experimentOptInsForTenant(event.partnerId))
         : Promise.resolve(),
     ]);
   }
@@ -226,10 +226,10 @@ export class CacheInvalidationService {
 
   @OnEvent('user.updated')
   async handleUserUpdated(event: UserUpdatedEvent): Promise<void> {
-    const { tenantId, userId } = event;
-    this.logger.debug(`Invalidating cache for user.updated: ${tenantId}/${userId}`);
+    const { partnerId, userId } = event;
+    this.logger.debug(`Invalidating cache for user.updated: ${partnerId}/${userId}`);
 
-    await this.cacheService.del(EntityCacheKeys.user(tenantId, userId));
+    await this.cacheService.del(EntityCacheKeys.user(partnerId, userId));
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -237,34 +237,34 @@ export class CacheInvalidationService {
   // ───────────────────────────────────────────────────────────────────────────
 
   /**
-   * Invalidate all caches for a tenant.
+   * Invalidate all caches for a partner.
    * Use with caution - this is expensive!
    */
-  async invalidateTenantCache(tenantId: string): Promise<void> {
-    this.logger.warn(`Invalidating ALL cache for tenant: ${tenantId}`);
-    await this.cacheService.delByPattern(CachePatterns.allTenant(tenantId));
+  async invalidateTenantCache(partnerId: string): Promise<void> {
+    this.logger.warn(`Invalidating ALL cache for partner: ${partnerId}`);
+    await this.cacheService.delByPattern(CachePatterns.allTenant(partnerId));
   }
 
   /**
    * Invalidate a specific entity cache.
    */
   async invalidateEntity(
-    tenantId: string,
+    partnerId: string,
     entityType: 'listing' | 'vendor' | 'user',
     entityId: string,
   ): Promise<void> {
-    this.logger.debug(`Manual cache invalidation: ${entityType} ${tenantId}/${entityId}`);
+    this.logger.debug(`Manual cache invalidation: ${entityType} ${partnerId}/${entityId}`);
 
     switch (entityType) {
       case 'listing':
-        await this.cacheService.del(EntityCacheKeys.listing(tenantId, entityId));
-        await this.cacheService.del(EntityCacheKeys.listingFull(tenantId, entityId));
+        await this.cacheService.del(EntityCacheKeys.listing(partnerId, entityId));
+        await this.cacheService.del(EntityCacheKeys.listingFull(partnerId, entityId));
         break;
       case 'vendor':
-        await this.cacheService.del(EntityCacheKeys.vendor(tenantId, entityId));
+        await this.cacheService.del(EntityCacheKeys.vendor(partnerId, entityId));
         break;
       case 'user':
-        await this.cacheService.del(EntityCacheKeys.user(tenantId, entityId));
+        await this.cacheService.del(EntityCacheKeys.user(partnerId, entityId));
         break;
     }
   }

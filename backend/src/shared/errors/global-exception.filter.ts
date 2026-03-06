@@ -122,7 +122,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (code !== 'VALIDATION_ERROR') {
       this.logger.warn(
         `[${status}] ${code}: ${message}`,
-        `RequestId: ${requestId}, Path: ${request.url}`,
+        `RequestId: ${requestId}, Path: ${request.originalUrl}`,
       );
     }
 

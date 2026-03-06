@@ -90,7 +90,7 @@ export type PricingConfigWithRules = PricingConfig & {
 };
 
 export type ChargeEventDetail = ChargeEvent & {
-  tenant?: { name: string; slug: string };
+  partner?: { name: string; slug: string };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ export type ChargeEventDetail = ChargeEvent & {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface PricingSummary {
-  tenantId: string;
+  partnerId: string;
   activeConfigs: PricingConfigWithRules[];
   totalCharges: {
     current: number;

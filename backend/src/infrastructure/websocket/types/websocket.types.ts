@@ -7,7 +7,7 @@ import { Socket } from 'socket.io';
 export interface AuthenticatedSocket extends Socket {
   data: {
     userId: string;
-    tenantId: string;
+    partnerId: string;
     email?: string;
     roles: string[];
     vendorId?: string;
@@ -21,8 +21,8 @@ export interface AuthenticatedSocket extends Socket {
 export enum WsNamespace {
   /** Default/public (limited) - no auth required */
   DEFAULT = '/',
-  /** Tenant-scoped events - requires tenant membership */
-  TENANT = '/tenant',
+  /** Partner-scoped events - requires partner membership */
+  TENANT = '/partner',
   /** Vendor-specific events - requires vendor user */
   VENDOR = '/vendor',
   /** Platform admin events - requires platform admin */
@@ -35,8 +35,8 @@ export enum WsNamespace {
  * Room naming convention: {scope}:{entity_type}:{entity_id}
  */
 export interface RoomNames {
-  tenant: (tenantId: string) => string;
-  tenantListings: (tenantId: string) => string;
+  partner: (partnerId: string) => string;
+  partnerListings: (partnerId: string) => string;
   vendor: (vendorId: string) => string;
   listing: (listingId: string) => string;
   user: (userId: string) => string;
@@ -44,8 +44,8 @@ export interface RoomNames {
 }
 
 export const ROOM_NAMES: RoomNames = {
-  tenant: (tenantId) => `tenant:${tenantId}`,
-  tenantListings: (tenantId) => `tenant:${tenantId}:listings`,
+  partner: (partnerId) => `partner:${partnerId}`,
+  partnerListings: (partnerId) => `partner:${partnerId}:listings`,
   vendor: (vendorId) => `vendor:${vendorId}`,
   listing: (listingId) => `listing:${listingId}`,
   user: (userId) => `user:${userId}`,
@@ -58,7 +58,7 @@ export const ROOM_NAMES: RoomNames = {
 export const ROOM_LIMITS = {
   listing: 1000, // Max viewers per listing
   interaction: 10, // Max participants per chat
-  tenant: 10000, // Max connections per tenant
+  partner: 10000, // Max connections per partner
 };
 
 /**

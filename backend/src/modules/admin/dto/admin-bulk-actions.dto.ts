@@ -36,7 +36,7 @@ export class BulkReindexRequestDto {
 
 export class BulkExpireListingsRequestDto {
   @ApiProperty({
-    description: 'Listing IDs to expire (tenant-scoped)',
+    description: 'Listing IDs to expire (partner-scoped)',
     type: [String],
     example: ['550e8400-e29b-41d4-a716-446655440000'],
   })

@@ -4,10 +4,10 @@ const WILDCARD_ALL = '*:*';
 
 const ROLE_PERMISSIONS: Record<Role, string[]> = {
   SUPER_ADMIN: [WILDCARD_ALL],
-  TENANT_ADMIN: [
+  PARTNER_ADMIN: [
     'admin:*',
     'feature-flag:*',
-    'tenant:*',
+    'partner:*',
     'user:*',
     'vendor:*',
     'listing:*',
@@ -20,7 +20,7 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'search:*',
     'jobs:*',
   ],
-  VENDOR_ADMIN: ['vendor:read', 'vendor:update', 'listing:*', 'media:*', 'interaction:*'],
+  VENDOR_ADMIN: ['vendor:read', 'vendor:update', 'listing:*', 'media:*', 'interaction:*', 'property-member:*'],
   VENDOR_STAFF: [
     'vendor:read',
     'listing:read',
@@ -28,6 +28,7 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'listing:update',
     'media:*',
     'interaction:*',
+    'property-member:read',
   ],
   CUSTOMER: [
     'listing:read',
@@ -37,7 +38,43 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'user:read',
     'user:update',
   ],
+  TENANT: [
+    'listing:read',
+    'search:read',
+    'user:read',
+    'user:update',
+    'tenancy:read',
+    'tenancy:update',
+    'contract:read',
+    'deposit:read',
+    'maintenance:create',
+    'maintenance:read',
+    'inspection:read',
+  ],
   GUEST: ['listing:read', 'search:read', 'vendor:read'],
+  COMPANY_ADMIN: [
+    'company:*',
+    'listing:*',
+    'media:*',
+    'vendor:read',
+    'user:read',
+    'user:update',
+    'interaction:*',
+    'analytics:read',
+  ],
+  AGENT: [
+    'agent:read',
+    'agent:update',
+    'commission:read',
+    'affiliate:read',
+    'listing:read',
+    'listing:create',
+    'listing:update',
+    'media:*',
+    'interaction:*',
+    'user:read',
+    'user:update',
+  ],
 };
 
 export function getPermissionsForRole(role: Role): string[] {

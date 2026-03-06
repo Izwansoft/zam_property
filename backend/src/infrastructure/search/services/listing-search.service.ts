@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenSearchService } from '../opensearch.service';
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import {
   SearchListingsQuery,
   SearchResult,
@@ -39,17 +39,17 @@ export class ListingSearchService {
 
   constructor(
     private readonly opensearchService: OpenSearchService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   async searchListings(
-    tenantId: string,
+    partnerId: string,
     query: SearchListingsQuery,
   ): Promise<SearchResult<ListingSearchDocument>> {
-    const indexName = getListingsIndexName(tenantId);
+    const indexName = getListingsIndexName(partnerId);
 
     try {
-      const searchBody = this.buildSearchQuery(tenantId, query);
+      const searchBody = this.buildSearchQuery(partnerId, query);
 
       this.logger.debug(`Searching index ${indexName} with query: ${JSON.stringify(searchBody)}`);
 
@@ -60,17 +60,17 @@ export class ListingSearchService {
 
       return result;
     } catch (error) {
-      this.logger.error(`Search failed for tenant ${tenantId}:`, error);
+      this.logger.error(`Search failed for partner ${partnerId}:`, error);
       throw error;
     }
   }
 
   async getSuggestions(
-    tenantId: string,
+    partnerId: string,
     prefix: string,
     limit: number = 10,
   ): Promise<Suggestion[]> {
-    const indexName = getListingsIndexName(tenantId);
+    const indexName = getListingsIndexName(partnerId);
 
     try {
       const result = await this.opensearchService.search<ListingSearchDocument>(indexName, {
@@ -92,17 +92,17 @@ export class ListingSearchService {
         city: hit.location?.city,
       }));
     } catch (error) {
-      this.logger.error(`Suggestions failed for tenant ${tenantId}:`, error);
+      this.logger.error(`Suggestions failed for partner ${partnerId}:`, error);
       return [];
     }
   }
 
-  private buildSearchQuery(tenantId: string, query: SearchListingsQuery): Record<string, unknown> {
+  private buildSearchQuery(partnerId: string, query: SearchListingsQuery): Record<string, unknown> {
     const must: QueryDslQueryContainer[] = [];
     const filter: QueryDslQueryContainer[] = [];
 
-    // Always filter by tenant
-    filter.push({ term: { tenantId } });
+    // Always filter by partner
+    filter.push({ term: { partnerId } });
 
     // Status filter (default: PUBLISHED)
     const status = query.filters?.verticalType === 'all' ? undefined : 'PUBLISHED';

@@ -36,7 +36,7 @@ export class SearchIndexEventHandler {
       // TODO: Implement actual indexing
       // await this.searchIndexService.indexListing({
       //   listingId: event.payload.listingId,
-      //   tenantId: event.tenantId,
+      //   partnerId: event.partnerId,
       //   title: event.payload.title,
       //   price: event.payload.price,
       //   location: event.payload.location,
@@ -64,7 +64,7 @@ export class SearchIndexEventHandler {
       // TODO: Implement actual re-indexing
       // await this.searchIndexService.updateListing({
       //   listingId: event.payload.listingId,
-      //   tenantId: event.tenantId,
+      //   partnerId: event.partnerId,
       //   changes: event.payload.changes,
       // });
 
@@ -88,7 +88,7 @@ export class SearchIndexEventHandler {
       // TODO: Implement actual removal
       // await this.searchIndexService.removeListing({
       //   listingId: event.payload.listingId,
-      //   tenantId: event.tenantId,
+      //   partnerId: event.partnerId,
       // });
 
       this.logger.log(`Removed unpublished listing from index: ${event.payload.listingId}`);
@@ -111,7 +111,7 @@ export class SearchIndexEventHandler {
       // TODO: Implement actual removal
       // await this.searchIndexService.removeListing({
       //   listingId: event.payload.listingId,
-      //   tenantId: event.tenantId,
+      //   partnerId: event.partnerId,
       // });
 
       this.logger.log(`Removed expired listing from index: ${event.payload.listingId}`);
@@ -134,7 +134,7 @@ export class SearchIndexEventHandler {
       // TODO: Implement actual removal
       // await this.searchIndexService.removeListing({
       //   listingId: event.payload.listingId,
-      //   tenantId: event.tenantId,
+      //   partnerId: event.partnerId,
       // });
 
       this.logger.log(`Removed archived listing from index: ${event.payload.listingId}`);

@@ -1,7 +1,7 @@
 // Search Document Types
 export interface ListingSearchDocument extends Record<string, unknown> {
   id: string;
-  tenantId: string;
+  partnerId: string;
   vendorId: string;
   verticalType: string;
   status: string;

@@ -44,7 +44,7 @@ export class ListingExpireProcessor extends WorkerHost {
       queue: 'listing.expire',
       jobId: job.id,
       jobType: name,
-      tenantId: data.tenantId,
+      partnerId: data.partnerId,
     });
 
     try {
@@ -102,17 +102,17 @@ export class ListingExpireProcessor extends WorkerHost {
    * This is a scheduled job that runs periodically.
    */
   private async handleCheckExpired(job: Job<ListingCheckExpiredJob>): Promise<JobResult> {
-    const { tenantId, checkDate, batchSize = 100 } = job.data;
+    const { partnerId, checkDate, batchSize = 100 } = job.data;
     const checkDateTime = new Date(checkDate);
 
-    this.logger.log(`Checking for expired listings as of ${checkDate} for tenant ${tenantId}`);
+    this.logger.log(`Checking for expired listings as of ${checkDate} for partner ${partnerId}`);
 
     await job.updateProgress(10);
 
     // Find all PUBLISHED listings that have expired
     const expiredListings = await this.prisma.listing.findMany({
       where: {
-        tenantId,
+        partnerId,
         status: ListingStatus.PUBLISHED,
         expiresAt: {
           lte: checkDateTime,
@@ -129,16 +129,16 @@ export class ListingExpireProcessor extends WorkerHost {
     await job.updateProgress(30);
 
     if (expiredListings.length === 0) {
-      this.logger.log(`No expired listings found for tenant ${tenantId}`);
+      this.logger.log(`No expired listings found for partner ${partnerId}`);
       return {
         success: true,
         message: 'No expired listings found',
-        data: { expiredCount: 0, tenantId },
+        data: { expiredCount: 0, partnerId },
         processedAt: new Date().toISOString(),
       };
     }
 
-    this.logger.log(`Found ${expiredListings.length} expired listings for tenant ${tenantId}`);
+    this.logger.log(`Found ${expiredListings.length} expired listings for partner ${partnerId}`);
 
     // Expire all listings in a transaction
     const listingIds = expiredListings.map((l) => l.id);
@@ -148,7 +148,7 @@ export class ListingExpireProcessor extends WorkerHost {
     for (let i = 0; i < listingIds.length; i++) {
       const listingId = listingIds[i];
       try {
-        await this.expireListing(tenantId, listingId, 'Automatic expiration');
+        await this.expireListing(partnerId, listingId, 'Automatic expiration');
         expiredCount++;
 
         // Update progress
@@ -184,14 +184,14 @@ export class ListingExpireProcessor extends WorkerHost {
    * Expire a single listing.
    */
   private async handleExpireSingle(job: Job<ListingExpireSingleJob>): Promise<JobResult> {
-    const { tenantId, listingId, reason } = job.data;
+    const { partnerId, listingId, reason } = job.data;
 
-    this.logger.debug(`Expiring listing ${listingId} for tenant ${tenantId}`);
+    this.logger.debug(`Expiring listing ${listingId} for partner ${partnerId}`);
 
     await job.updateProgress(10);
 
     try {
-      await this.expireListing(tenantId, listingId, reason);
+      await this.expireListing(partnerId, listingId, reason);
       await job.updateProgress(100);
 
       const result: ListingExpirationResult = {
@@ -217,9 +217,9 @@ export class ListingExpireProcessor extends WorkerHost {
    * Expire multiple listings in batch.
    */
   private async handleExpireBatch(job: Job<ListingExpireBatchJob>): Promise<JobResult> {
-    const { tenantId, listingIds, reason } = job.data;
+    const { partnerId, listingIds, reason } = job.data;
 
-    this.logger.log(`Expiring ${listingIds.length} listings for tenant ${tenantId}`);
+    this.logger.log(`Expiring ${listingIds.length} listings for partner ${partnerId}`);
 
     await job.updateProgress(10);
 
@@ -229,7 +229,7 @@ export class ListingExpireProcessor extends WorkerHost {
     for (let i = 0; i < listingIds.length; i++) {
       const listingId = listingIds[i];
       try {
-        await this.expireListing(tenantId, listingId, reason);
+        await this.expireListing(partnerId, listingId, reason);
         expiredCount++;
 
         const progress = 10 + Math.floor((i / listingIds.length) * 85);
@@ -263,7 +263,7 @@ export class ListingExpireProcessor extends WorkerHost {
    * Renew an expired listing.
    */
   private async handleRenew(job: Job<ListingRenewJob>): Promise<JobResult> {
-    const { tenantId, listingId, newExpiresAt } = job.data;
+    const { partnerId, listingId, newExpiresAt } = job.data;
 
     this.logger.debug(`Renewing listing ${listingId} until ${newExpiresAt}`);
 
@@ -273,7 +273,7 @@ export class ListingExpireProcessor extends WorkerHost {
     const listing = await this.prisma.listing.findFirst({
       where: {
         id: listingId,
-        tenantId,
+        partnerId,
       },
     });
 
@@ -297,7 +297,7 @@ export class ListingExpireProcessor extends WorkerHost {
 
     // Emit renewal event
     this.eventEmitter.emit('listing.renewed', {
-      tenantId,
+      partnerId,
       listingId,
       vendorId: listing.vendorId,
       previousStatus: listing.status,
@@ -317,12 +317,12 @@ export class ListingExpireProcessor extends WorkerHost {
   /**
    * Expire a single listing (internal helper).
    */
-  private async expireListing(tenantId: string, listingId: string, reason?: string): Promise<void> {
+  private async expireListing(partnerId: string, listingId: string, reason?: string): Promise<void> {
     // Find listing
     const listing = await this.prisma.listing.findFirst({
       where: {
         id: listingId,
-        tenantId,
+        partnerId,
         status: ListingStatus.PUBLISHED,
       },
     });
@@ -341,7 +341,7 @@ export class ListingExpireProcessor extends WorkerHost {
 
     // Emit expiration event
     this.eventEmitter.emit('listing.expired', {
-      tenantId,
+      partnerId,
       listingId,
       vendorId: listing.vendorId,
       title: listing.title,

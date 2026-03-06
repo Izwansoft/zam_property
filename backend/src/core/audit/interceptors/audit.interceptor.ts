@@ -109,13 +109,13 @@ export class AuditInterceptor implements NestInterceptor {
     // Extract user from request (set by auth guard)
     const user = (request as Request & { user?: { id: string; email?: string; role?: string } })
       .user;
-    const tenantId = (request as Request & { tenantId?: string }).tenantId;
+    const partnerId = (request as Request & { partnerId?: string }).partnerId;
 
     // Determine actor type
     let actorType: AuditActorType = AuditActorType.ANONYMOUS;
     if (user) {
       actorType =
-        user.role === 'SUPER_ADMIN' || user.role === 'TENANT_ADMIN'
+        user.role === 'SUPER_ADMIN' || user.role === 'PARTNER_ADMIN'
           ? AuditActorType.ADMIN
           : AuditActorType.USER;
     }
@@ -160,7 +160,7 @@ export class AuditInterceptor implements NestInterceptor {
 
     // Log asynchronously
     this.auditService.log({
-      tenantId,
+      partnerId,
       actorType,
       actorId: user?.id,
       actorEmail: user?.email,

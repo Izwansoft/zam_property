@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenSearchService } from '../opensearch.service';
-import { ListingRepository } from '@modules/listing/listing.repository';
-import { VendorRepository } from '@modules/vendor/vendor.repository';
+import { PrismaService } from '@infrastructure/database';
 import { getListingsIndexName, getListingsIndexSettings } from '../mappings/listings.mapping';
 import { ListingSearchDocument, BulkIndexResult, ReindexResult } from '../types/search.types';
-import type { ListingDetailView } from '@modules/listing/listing.repository';
+import type { Prisma } from '@prisma/client';
+import type { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class IndexingService {
@@ -12,12 +12,102 @@ export class IndexingService {
 
   constructor(
     private readonly opensearchService: OpenSearchService,
-    private readonly listingRepository: ListingRepository,
-    private readonly vendorRepository: VendorRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
-  async ensureIndex(tenantId: string): Promise<void> {
-    const indexName = getListingsIndexName(tenantId);
+  private readonly listingDetailSelect = {
+    id: true,
+    partnerId: true,
+    vendorId: true,
+    verticalType: true,
+    schemaVersion: true,
+    title: true,
+    description: true,
+    slug: true,
+    price: true,
+    currency: true,
+    priceType: true,
+    location: true,
+    attributes: true,
+    status: true,
+    publishedAt: true,
+    expiresAt: true,
+    isFeatured: true,
+    featuredUntil: true,
+    viewCount: true,
+    createdAt: true,
+    updatedAt: true,
+    vendor: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    },
+    media: {
+      select: {
+        id: true,
+        filename: true,
+        mimeType: true,
+        size: true,
+        mediaType: true,
+        cdnUrl: true,
+        thumbnailUrl: true,
+        visibility: true,
+        sortOrder: true,
+        isPrimary: true,
+        altText: true,
+      },
+      where: { deletedAt: null },
+      orderBy: { sortOrder: 'asc' as const },
+    },
+  } as const;
+
+  private async findListingDetailForTenant(
+    partnerId: string,
+    listingId: string,
+  ): Promise<ListingDetailForIndexing | null> {
+    return this.prisma.listing.findFirst({
+      where: {
+        id: listingId,
+        partnerId,
+        deletedAt: null,
+      },
+      select: this.listingDetailSelect,
+    });
+  }
+
+  private async findListingsDetailedBatchForTenant(params: {
+    partnerId: string;
+    page: number;
+    pageSize: number;
+    verticalType?: string;
+    status?: Array<'PUBLISHED' | 'EXPIRED'>;
+  }): Promise<ListingDetailForIndexing[]> {
+    const where: Prisma.ListingWhereInput = {
+      partnerId: params.partnerId,
+      deletedAt: null,
+    };
+
+    if (params.verticalType) {
+      where.verticalType = params.verticalType;
+    }
+
+    if (params.status && params.status.length > 0) {
+      where.status = { in: params.status };
+    }
+
+    return this.prisma.listing.findMany({
+      where,
+      orderBy: { id: 'asc' },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+      select: this.listingDetailSelect,
+    });
+  }
+
+  async ensureIndex(partnerId: string): Promise<void> {
+    const indexName = getListingsIndexName(partnerId);
     const indexSettings = getListingsIndexSettings();
 
     try {
@@ -29,21 +119,21 @@ export class IndexingService {
     }
   }
 
-  async indexListing(tenantId: string, listingId: string): Promise<void> {
-    const indexName = getListingsIndexName(tenantId);
+  async indexListing(partnerId: string, listingId: string): Promise<void> {
+    const indexName = getListingsIndexName(partnerId);
 
     try {
       // Fetch listing with vendor and media
-      const listing = await this.listingRepository.findDetailById(listingId);
+      const listing = await this.findListingDetailForTenant(partnerId, listingId);
 
       if (!listing) {
         this.logger.warn(`Listing ${listingId} not found, skipping indexing`);
         return;
       }
 
-      if (listing.tenantId !== tenantId) {
+      if (listing.partnerId !== partnerId) {
         this.logger.error(
-          `Tenant mismatch: listing ${listingId} belongs to ${listing.tenantId}, not ${tenantId}`,
+          `Partner mismatch: listing ${listingId} belongs to ${listing.partnerId}, not ${partnerId}`,
         );
         return;
       }
@@ -51,7 +141,7 @@ export class IndexingService {
       // Only index published or expired listings
       if (listing.status !== 'PUBLISHED' && listing.status !== 'EXPIRED') {
         this.logger.debug(`Listing ${listingId} status is ${listing.status}, removing from index`);
-        await this.deleteListing(tenantId, listingId);
+        await this.deleteListing(partnerId, listingId);
         return;
       }
 
@@ -65,8 +155,8 @@ export class IndexingService {
     }
   }
 
-  async deleteListing(tenantId: string, listingId: string): Promise<void> {
-    const indexName = getListingsIndexName(tenantId);
+  async deleteListing(partnerId: string, listingId: string): Promise<void> {
+    const indexName = getListingsIndexName(partnerId);
 
     try {
       await this.opensearchService.deleteDocument(indexName, listingId);
@@ -78,10 +168,10 @@ export class IndexingService {
   }
 
   async bulkIndexListings(
-    tenantId: string,
-    listings: ListingDetailView[],
+    partnerId: string,
+    listings: ListingDetailForIndexing[],
   ): Promise<BulkIndexResult> {
-    const indexName = getListingsIndexName(tenantId);
+    const indexName = getListingsIndexName(partnerId);
 
     const documents = listings
       .filter((listing) => listing.status === 'PUBLISHED' || listing.status === 'EXPIRED')
@@ -104,24 +194,23 @@ export class IndexingService {
     }
   }
 
-  async reindexTenant(tenantId: string, verticalType?: string): Promise<ReindexResult> {
+  async reindexTenant(partnerId: string, verticalType?: string): Promise<ReindexResult> {
     const BATCH_SIZE = 100;
     let indexed = 0;
     let page = 0;
 
     try {
       // Ensure index exists
-      await this.ensureIndex(tenantId);
+      await this.ensureIndex(partnerId);
 
       let hasMore = true;
       while (hasMore) {
-        const listings = await this.listingRepository.findManyDetailed({
+        const listings = await this.findListingsDetailedBatchForTenant({
+          partnerId,
           page: page + 1,
           pageSize: BATCH_SIZE,
-          filters: {
-            ...(verticalType && { verticalType }),
-            status: ['PUBLISHED', 'EXPIRED'],
-          },
+          verticalType,
+          status: ['PUBLISHED', 'EXPIRED'],
         });
 
         if (!listings || listings.length === 0) {
@@ -129,26 +218,26 @@ export class IndexingService {
           break;
         }
 
-        const result = await this.bulkIndexListings(tenantId, listings);
+        const result = await this.bulkIndexListings(partnerId, listings);
         indexed += result.successful;
         page++;
 
-        this.logger.log(`Reindex progress: ${indexed} listings indexed for tenant ${tenantId}`);
+        this.logger.log(`Reindex progress: ${indexed} listings indexed for partner ${partnerId}`);
 
         if (listings.length < BATCH_SIZE) {
           break;
         }
       }
 
-      this.logger.log(`Reindex complete: ${indexed} listings indexed for tenant ${tenantId}`);
+      this.logger.log(`Reindex complete: ${indexed} listings indexed for partner ${partnerId}`);
       return { indexed };
     } catch (error) {
-      this.logger.error(`Reindex failed for tenant ${tenantId}:`, error);
+      this.logger.error(`Reindex failed for partner ${partnerId}:`, error);
       throw error;
     }
   }
 
-  private buildListingDocument(listing: ListingDetailView): ListingSearchDocument {
+  private buildListingDocument(listing: ListingDetailForIndexing): ListingSearchDocument {
     // Extract location data
     const location = listing.location as {
       address?: string;
@@ -165,7 +254,7 @@ export class IndexingService {
 
     return {
       id: listing.id,
-      tenantId: listing.tenantId,
+      partnerId: listing.partnerId,
       vendorId: listing.vendorId,
       verticalType: listing.verticalType,
       status: listing.status,
@@ -207,3 +296,45 @@ export class IndexingService {
     };
   }
 }
+
+type ListingDetailForIndexing = {
+  id: string;
+  partnerId: string;
+  vendorId: string;
+  verticalType: string;
+  schemaVersion: string;
+  title: string;
+  description: string | null;
+  slug: string;
+  price: Decimal | null;
+  currency: string;
+  priceType: string | null;
+  location: Prisma.JsonValue | null;
+  attributes: Prisma.JsonValue | null;
+  status: 'DRAFT' | 'PUBLISHED' | 'EXPIRED' | 'ARCHIVED';
+  publishedAt: Date | null;
+  expiresAt: Date | null;
+  isFeatured: boolean;
+  featuredUntil: Date | null;
+  viewCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+  vendor: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  media: Array<{
+    id: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    mediaType: string;
+    cdnUrl: string | null;
+    thumbnailUrl: string | null;
+    visibility: string;
+    sortOrder: number;
+    isPrimary: boolean;
+    altText: string | null;
+  }>;
+};

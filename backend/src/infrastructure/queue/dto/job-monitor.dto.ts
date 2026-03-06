@@ -90,7 +90,7 @@ export class JobInfoResponse {
   @ApiProperty({ example: 1 })
   attemptsMade!: number;
 
-  @ApiProperty({ example: { mediaId: 'abc123', tenantId: 'tenant-1' } })
+  @ApiProperty({ example: { mediaId: 'abc123', partnerId: 'partner-1' } })
   data!: Record<string, unknown>;
 
   @ApiPropertyOptional({ example: { success: true } })
@@ -165,7 +165,7 @@ export class AddJobDto {
   @IsString()
   jobType!: string;
 
-  @ApiProperty({ example: { tenantId: 'tenant-1', type: 'bulk.reindex' } })
+  @ApiProperty({ example: { partnerId: 'partner-1', type: 'bulk.reindex' } })
   @IsObject()
   data!: Record<string, unknown>;
 

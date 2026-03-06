@@ -20,13 +20,13 @@ interface AuthenticatedRequest {
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
-  @Get('tenant/overview')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Get('partner/overview')
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
-    summary: 'Get tenant-wide analytics overview',
-    description: 'Read-only aggregated analytics for the current tenant over a date range.',
+    summary: 'Get partner-wide analytics overview',
+    description: 'Read-only aggregated analytics for the current partner over a date range.',
   })
-  @ApiResponse({ status: 200, description: 'Tenant analytics overview' })
+  @ApiResponse({ status: 200, description: 'Partner analytics overview' })
   async getTenantOverview(
     @Query() query: AnalyticsDateRangeQueryDto,
     @Request() req: AuthenticatedRequest,
@@ -36,7 +36,7 @@ export class AnalyticsController {
   }
 
   @Get('vendor/overview')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
   @ApiOperation({
     summary: 'Get vendor analytics overview',
     description:
@@ -52,7 +52,7 @@ export class AnalyticsController {
   }
 
   @Get('vendor/listings')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
   @ApiOperation({
     summary: 'Get vendor listing performance analytics',
     description:

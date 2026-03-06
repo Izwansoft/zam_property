@@ -84,7 +84,7 @@ export type SubscriptionRecord = Subscription & {
 };
 
 export interface CreateSubscriptionParams {
-  tenantId: string;
+  partnerId: string;
   planId: string;
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
@@ -130,13 +130,13 @@ export interface EntitlementCheckResult {
 export type UsageCounterRecord = UsageCounter;
 
 export interface IncrementUsageParams {
-  tenantId: string;
+  partnerId: string;
   metricKey: string;
   amount?: number; // defaults to 1
 }
 
 export interface GetUsageParams {
-  tenantId: string;
+  partnerId: string;
   metricKey: string;
   periodStart: Date;
   periodEnd: Date;

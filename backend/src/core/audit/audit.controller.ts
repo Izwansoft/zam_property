@@ -11,7 +11,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@ne
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/rbac/guards/roles.guard';
 import { Roles } from '@core/rbac/decorators/roles.decorator';
-import { TenantContextService } from '@core/tenant-context/tenant-context.service';
+import { PartnerContextService } from '@core/partner-context/partner-context.service';
 
 import { AuditService } from './audit.service';
 import {
@@ -24,20 +24,20 @@ import {
 
 @ApiTags('Audit')
 @ApiBearerAuth()
-@Controller('api/v1/audit')
+@Controller('audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AuditController {
   constructor(
     private readonly auditService: AuditService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   @Get('logs')
-  @Roles('TENANT_ADMIN', 'SUPER_ADMIN')
+  @Roles('PARTNER_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({
     summary: 'Get audit logs',
     description:
-      'Query audit logs with filtering by action, actor, target, and date range. Only accessible by tenant admins.',
+      'Query audit logs with filtering by action, actor, target, and date range. Only accessible by partner admins.',
   })
   @ApiResponse({
     status: 200,
@@ -45,11 +45,11 @@ export class AuditController {
     type: AuditLogListResponseDto,
   })
   async getAuditLogs(@Query() query: AuditLogQueryDto): Promise<AuditLogListResponseDto> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     const result = await this.auditService.findAll(
       {
-        tenantId,
+        partnerId,
         actorId: query.actorId,
         actorType: query.actorType,
         actionType: query.actionType,
@@ -67,7 +67,7 @@ export class AuditController {
   }
 
   @Get('logs/:id')
-  @Roles('TENANT_ADMIN', 'SUPER_ADMIN')
+  @Roles('PARTNER_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({
     summary: 'Get audit log by ID',
     description: 'Get a single audit log entry by its ID.',
@@ -80,13 +80,13 @@ export class AuditController {
   })
   @ApiResponse({ status: 404, description: 'Audit log not found' })
   async getAuditLogById(@Param('id') id: string): Promise<{ data: AuditLogResponseDto | null }> {
-    const tenantId = this.tenantContext.tenantId;
-    const log = await this.auditService.findById(id, tenantId);
+    const partnerId = this.PartnerContext.partnerId;
+    const log = await this.auditService.findById(id, partnerId);
     return { data: log };
   }
 
   @Get('target/:targetType/:targetId')
-  @Roles('TENANT_ADMIN', 'SUPER_ADMIN')
+  @Roles('PARTNER_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({
     summary: 'Get audit logs for a specific entity',
     description: 'Get all audit logs related to a specific entity (e.g., user, listing, vendor).',
@@ -107,18 +107,18 @@ export class AuditController {
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
   ): Promise<AuditLogListResponseDto> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
     return this.auditService.findByTarget(
       targetType,
       targetId,
-      tenantId,
+      partnerId,
       page || 1,
       pageSize || 20,
     );
   }
 
   @Get('actor/:actorId')
-  @Roles('TENANT_ADMIN', 'SUPER_ADMIN')
+  @Roles('PARTNER_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({
     summary: 'Get audit logs for a specific actor',
     description: 'Get all audit logs for actions performed by a specific user.',
@@ -134,12 +134,12 @@ export class AuditController {
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
   ): Promise<AuditLogListResponseDto> {
-    const tenantId = this.tenantContext.tenantId;
-    return this.auditService.findByActor(actorId, tenantId, page || 1, pageSize || 20);
+    const partnerId = this.PartnerContext.partnerId;
+    return this.auditService.findByActor(actorId, partnerId, page || 1, pageSize || 20);
   }
 
   @Get('action-types')
-  @Roles('TENANT_ADMIN', 'SUPER_ADMIN')
+  @Roles('PARTNER_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({
     summary: 'Get distinct action types',
     description: 'Get a list of all distinct action types in the audit logs (for filtering UI).',
@@ -150,13 +150,13 @@ export class AuditController {
     type: AuditActionTypesResponseDto,
   })
   async getActionTypes(): Promise<AuditActionTypesResponseDto> {
-    const tenantId = this.tenantContext.tenantId;
-    const actionTypes = await this.auditService.getActionTypes(tenantId);
+    const partnerId = this.PartnerContext.partnerId;
+    const actionTypes = await this.auditService.getActionTypes(partnerId);
     return { actionTypes };
   }
 
   @Get('target-types')
-  @Roles('TENANT_ADMIN', 'SUPER_ADMIN')
+  @Roles('PARTNER_ADMIN', 'SUPER_ADMIN')
   @ApiOperation({
     summary: 'Get distinct target types',
     description: 'Get a list of all distinct target types in the audit logs (for filtering UI).',
@@ -167,8 +167,8 @@ export class AuditController {
     type: AuditTargetTypesResponseDto,
   })
   async getTargetTypes(): Promise<AuditTargetTypesResponseDto> {
-    const tenantId = this.tenantContext.tenantId;
-    const targetTypes = await this.auditService.getTargetTypes(tenantId);
+    const partnerId = this.PartnerContext.partnerId;
+    const targetTypes = await this.auditService.getTargetTypes(partnerId);
     return { targetTypes };
   }
 }

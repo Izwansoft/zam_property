@@ -37,7 +37,7 @@ export class PublicService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async searchListings(
-    tenantId: string,
+    partnerId: string,
     query: PublicSearchQueryDto,
   ): Promise<{
     hits: PublicSearchResultDto[];
@@ -64,10 +64,19 @@ export class PublicService {
     }
 
     // Parse attribute filters from query params
-    const attributeFilters: Record<string, { eq?: unknown }> = {};
+    const attributeFilters: Record<string, { eq?: unknown; gte?: number }> = {};
+    if (query.listingType) {
+      attributeFilters.listingType = { eq: query.listingType };
+    }
+    if (query.propertyType) {
+      attributeFilters.propertyType = { eq: query.propertyType };
+    }
+    if (query.bedroomsMin != null) {
+      attributeFilters.bedrooms = { gte: query.bedroomsMin };
+    }
 
     // Call search service
-    const result = await this.listingSearchService.searchListings(tenantId, {
+    const result = await this.listingSearchService.searchListings(partnerId, {
       q: query.q,
       filters: {
         verticalType: query.verticalType,
@@ -103,11 +112,19 @@ export class PublicService {
             city: hit.location.city,
             state: hit.location.state,
             country: hit.location.country,
+            latitude: hit.location.coordinates?.lat,
+            longitude: hit.location.coordinates?.lon,
           }
         : undefined,
       verticalType: hit.verticalType,
-      vendorName: hit.vendor?.name,
-      vendorSlug: hit.vendor?.slug,
+      attributes: hit.attributes || {},
+      vendor: hit.vendor
+        ? {
+            id: hit.vendor.id,
+            name: hit.vendor.name,
+            slug: hit.vendor.slug,
+          }
+        : { id: '', name: 'Unknown', slug: '' },
       isFeatured: hit.isFeatured,
       publishedAt: hit.publishedAt || new Date().toISOString(),
       highlights: hit.highlights as Record<string, string[]> | undefined,
@@ -124,9 +141,9 @@ export class PublicService {
   // LISTING DETAIL
   // ─────────────────────────────────────────────────────────────────────────
 
-  async getPublicListing(tenantId: string, idOrSlug: string): Promise<PublicListingDetailDto> {
+  async getPublicListing(partnerId: string, idOrSlug: string): Promise<PublicListingDetailDto> {
     // Check cache first
-    const cacheKey = `public:listing:${tenantId}:${idOrSlug}`;
+    const cacheKey = `public:listing:${partnerId}:${idOrSlug}`;
     const cached = await this.cacheService.get<PublicListingDetailDto>(cacheKey);
     if (cached) {
       return cached;
@@ -137,7 +154,7 @@ export class PublicService {
 
     const listing = await this.prisma.listing.findFirst({
       where: {
-        tenantId,
+        partnerId,
         status: ListingStatus.PUBLISHED,
         ...(isUuid ? { id: idOrSlug } : { slug: idOrSlug }),
       },
@@ -182,6 +199,7 @@ export class PublicService {
       description: listing.description || undefined,
       verticalType: listing.verticalType,
       price: listing.price?.toNumber(),
+      priceType: listing.priceType || undefined,
       currency: listing.currency,
       isFeatured: listing.isFeatured,
       publishedAt: listing.publishedAt?.toISOString() || listing.createdAt.toISOString(),
@@ -194,14 +212,8 @@ export class PublicService {
             postalCode: (listing.location as Record<string, unknown>).postalCode as
               | string
               | undefined,
-            coordinates:
-              (listing.location as Record<string, unknown>).lat &&
-              (listing.location as Record<string, unknown>).lng
-                ? {
-                    lat: (listing.location as Record<string, unknown>).lat as number,
-                    lng: (listing.location as Record<string, unknown>).lng as number,
-                  }
-                : undefined,
+            latitude: (listing.location as Record<string, unknown>).lat as number | undefined,
+            longitude: (listing.location as Record<string, unknown>).lng as number | undefined,
           }
         : undefined,
       attributes: listing.attributes as Record<string, unknown> | undefined,
@@ -233,9 +245,9 @@ export class PublicService {
   // VENDOR PROFILE
   // ─────────────────────────────────────────────────────────────────────────
 
-  async getPublicVendor(tenantId: string, idOrSlug: string): Promise<PublicVendorProfileDto> {
+  async getPublicVendor(partnerId: string, idOrSlug: string): Promise<PublicVendorProfileDto> {
     // Check cache first
-    const cacheKey = `public:vendor:${tenantId}:${idOrSlug}`;
+    const cacheKey = `public:vendor:${partnerId}:${idOrSlug}`;
     const cached = await this.cacheService.get<PublicVendorProfileDto>(cacheKey);
     if (cached) {
       return cached;
@@ -246,7 +258,7 @@ export class PublicService {
 
     const vendor = await this.prisma.vendor.findFirst({
       where: {
-        tenantId,
+        partnerId,
         status: VendorStatus.APPROVED,
         ...(isUuid ? { id: idOrSlug } : { slug: idOrSlug }),
       },
@@ -269,7 +281,7 @@ export class PublicService {
     // Get featured listings
     const featuredListings = await this.prisma.listing.findMany({
       where: {
-        tenantId,
+        partnerId,
         vendorId: vendor.id,
         status: ListingStatus.PUBLISHED,
         isFeatured: true,
@@ -291,7 +303,7 @@ export class PublicService {
         ? featuredListings
         : await this.prisma.listing.findMany({
             where: {
-              tenantId,
+              partnerId,
               vendorId: vendor.id,
               status: ListingStatus.PUBLISHED,
             },
@@ -309,7 +321,7 @@ export class PublicService {
     // Get rating aggregation
     const reviewAgg = await this.prisma.review.aggregate({
       where: {
-        tenantId,
+        partnerId,
         targetType: 'vendor',
         targetId: vendor.id,
         status: 'APPROVED',
@@ -323,7 +335,7 @@ export class PublicService {
     const ratingCounts = await this.prisma.review.groupBy({
       by: ['rating'],
       where: {
-        tenantId,
+        partnerId,
         targetType: 'vendor',
         targetId: vendor.id,
         status: 'APPROVED',

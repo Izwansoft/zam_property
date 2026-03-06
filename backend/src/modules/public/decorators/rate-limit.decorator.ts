@@ -18,7 +18,7 @@ export interface RateLimitOptions {
   keyPrefix?: string;
   /** Use IP-based rate limiting (default: true for public endpoints) */
   byIp?: boolean;
-  /** Use tenant-based rate limiting */
+  /** Use partner-based rate limiting */
   byTenant?: boolean;
   /** Use user-based rate limiting */
   byUser?: boolean;

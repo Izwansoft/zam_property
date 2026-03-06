@@ -18,7 +18,7 @@ export class AdminListingDashboardItemDto {
   id!: string;
 
   @ApiProperty({ format: 'uuid' })
-  tenantId!: string;
+  partnerId!: string;
 
   @ApiProperty({ format: 'uuid' })
   vendorId!: string;

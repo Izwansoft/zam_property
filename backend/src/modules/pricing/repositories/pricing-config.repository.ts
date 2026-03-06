@@ -18,7 +18,7 @@ export class PricingConfigRepository {
   // ─────────────────────────────────────────────────────────────────────────────
 
   async createConfig(data: {
-    tenantId: string;
+    partnerId: string;
     model: PricingModel;
     name: string;
     description?: string;
@@ -28,7 +28,7 @@ export class PricingConfigRepository {
   }): Promise<PricingConfig> {
     return this.prisma.pricingConfig.create({
       data: {
-        tenantId: data.tenantId,
+        partnerId: data.partnerId,
         model: data.model,
         name: data.name,
         description: data.description,
@@ -39,25 +39,25 @@ export class PricingConfigRepository {
     });
   }
 
-  async findConfigById(id: string, tenantId: string): Promise<PricingConfigWithRules | null> {
+  async findConfigById(id: string, partnerId: string): Promise<PricingConfigWithRules | null> {
     return this.prisma.pricingConfig.findFirst({
-      where: { id, tenantId },
+      where: { id, partnerId },
       include: { rules: true },
     });
   }
 
   async findConfigs(params: {
-    tenantId: string;
+    partnerId: string;
     model?: PricingModel;
     isActive?: boolean;
     verticalId?: string;
     page?: number;
     pageSize?: number;
   }): Promise<{ items: PricingConfigWithRules[]; total: number }> {
-    const { tenantId, model, isActive, verticalId, page = 1, pageSize = 20 } = params;
+    const { partnerId, model, isActive, verticalId, page = 1, pageSize = 20 } = params;
 
     const where: Prisma.PricingConfigWhereInput = {
-      tenantId,
+      partnerId,
       ...(model && { model }),
       ...(isActive !== undefined && { isActive }),
       ...(verticalId && { verticalId }),
@@ -77,9 +77,9 @@ export class PricingConfigRepository {
     return { items, total };
   }
 
-  async findActiveConfigs(tenantId: string, eventType?: string): Promise<PricingConfigWithRules[]> {
+  async findActiveConfigs(partnerId: string, eventType?: string): Promise<PricingConfigWithRules[]> {
     const where: Prisma.PricingConfigWhereInput = {
-      tenantId,
+      partnerId,
       isActive: true,
       rules: {
         some: {
@@ -104,7 +104,7 @@ export class PricingConfigRepository {
 
   async updateConfig(
     id: string,
-    tenantId: string,
+    partnerId: string,
     data: {
       name?: string;
       description?: string;
@@ -113,14 +113,14 @@ export class PricingConfigRepository {
     },
   ): Promise<PricingConfig> {
     return this.prisma.pricingConfig.update({
-      where: { id, tenantId },
+      where: { id, partnerId },
       data,
     });
   }
 
-  async deleteConfig(id: string, tenantId: string): Promise<void> {
+  async deleteConfig(id: string, partnerId: string): Promise<void> {
     await this.prisma.pricingConfig.delete({
-      where: { id, tenantId },
+      where: { id, partnerId },
     });
   }
 
@@ -194,7 +194,7 @@ export class PricingConfigRepository {
   // ─────────────────────────────────────────────────────────────────────────────
 
   async createChargeEvent(data: {
-    tenantId: string;
+    partnerId: string;
     chargeType: string;
     amount: number;
     currency?: string;
@@ -207,7 +207,7 @@ export class PricingConfigRepository {
   }): Promise<void> {
     await this.prisma.chargeEvent.create({
       data: {
-        tenantId: data.tenantId,
+        partnerId: data.partnerId,
         chargeType: data.chargeType as
           | 'SUBSCRIPTION'
           | 'LEAD'
@@ -234,7 +234,7 @@ export class PricingConfigRepository {
   }
 
   async findChargeEvents(params: {
-    tenantId: string;
+    partnerId: string;
     chargeType?: string;
     eventType?: string;
     processed?: boolean;
@@ -244,7 +244,7 @@ export class PricingConfigRepository {
     pageSize?: number;
   }): Promise<{ items: unknown[]; total: number }> {
     const {
-      tenantId,
+      partnerId,
       chargeType,
       eventType,
       processed,
@@ -255,7 +255,7 @@ export class PricingConfigRepository {
     } = params;
 
     const where: Prisma.ChargeEventWhereInput = {
-      tenantId,
+      partnerId,
       ...(chargeType && {
         chargeType: chargeType as
           | 'SUBSCRIPTION'
@@ -301,23 +301,23 @@ export class PricingConfigRepository {
     });
   }
 
-  async getChargeSummary(tenantId: string): Promise<{
+  async getChargeSummary(partnerId: string): Promise<{
     totalPending: number;
     totalProcessed: number;
     breakdownByType: Record<string, number>;
   }> {
     const [pending, processed, breakdown] = await Promise.all([
       this.prisma.chargeEvent.aggregate({
-        where: { tenantId, processed: false },
+        where: { partnerId, processed: false },
         _sum: { amount: true },
       }),
       this.prisma.chargeEvent.aggregate({
-        where: { tenantId, processed: true },
+        where: { partnerId, processed: true },
         _sum: { amount: true },
       }),
       this.prisma.chargeEvent.groupBy({
         by: ['chargeType'],
-        where: { tenantId, processed: false },
+        where: { partnerId, processed: false },
         _sum: { amount: true },
       }),
     ]);

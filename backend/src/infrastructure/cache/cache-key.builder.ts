@@ -14,7 +14,7 @@
  *
  * Scope Abbreviations:
  * - g: Global (platform-wide)
- * - t: Tenant-scoped
+ * - t: Partner-scoped
  * - v: Vendor-scoped
  * - u: User-scoped
  */
@@ -49,23 +49,23 @@ export const SessionCacheKeys = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const EntityCacheKeys = {
-  /** Tenant details - TTL: 1h */
-  tenant: (tenantId: string) => buildCacheKey('ent', 't', tenantId, 'tenant'),
+  /** Partner details - TTL: 1h */
+  partner: (partnerId: string) => buildCacheKey('ent', 't', partnerId, 'partner'),
 
   /** Vendor details - TTL: 15m */
-  vendor: (tenantId: string, vendorId: string) =>
-    buildCacheKey('ent', 't', tenantId, 'vendor', vendorId),
+  vendor: (partnerId: string, vendorId: string) =>
+    buildCacheKey('ent', 't', partnerId, 'vendor', vendorId),
 
   /** Listing details - TTL: 5m */
-  listing: (tenantId: string, listingId: string) =>
-    buildCacheKey('ent', 't', tenantId, 'listing', listingId),
+  listing: (partnerId: string, listingId: string) =>
+    buildCacheKey('ent', 't', partnerId, 'listing', listingId),
 
   /** Listing with relations - TTL: 5m */
-  listingFull: (tenantId: string, listingId: string) =>
-    buildCacheKey('ent', 't', tenantId, 'listing', listingId, 'full'),
+  listingFull: (partnerId: string, listingId: string) =>
+    buildCacheKey('ent', 't', partnerId, 'listing', listingId, 'full'),
 
   /** User profile - TTL: 15m */
-  user: (tenantId: string, userId: string) => buildCacheKey('ent', 't', tenantId, 'user', userId),
+  user: (partnerId: string, userId: string) => buildCacheKey('ent', 't', partnerId, 'user', userId),
 
   /** Plan details (global) - TTL: 1h */
   plan: (planId: string) => buildCacheKey('ent', 'g', 'plan', planId),
@@ -77,18 +77,18 @@ export const EntityCacheKeys = {
 
 export const ComputedCacheKeys = {
   /** Resolved entitlements - TTL: 5m */
-  entitlements: (tenantId: string) => buildCacheKey('comp', 't', tenantId, 'entitlements'),
+  entitlements: (partnerId: string) => buildCacheKey('comp', 't', partnerId, 'entitlements'),
 
   /** Usage counters - TTL: 1m */
-  usage: (tenantId: string, period: string) =>
-    buildCacheKey('comp', 't', tenantId, 'usage', period),
+  usage: (partnerId: string, period: string) =>
+    buildCacheKey('comp', 't', partnerId, 'usage', period),
 
   /** Dashboard stats - TTL: 5m */
-  dashboardStats: (tenantId: string) => buildCacheKey('comp', 't', tenantId, 'stats', 'dashboard'),
+  dashboardStats: (partnerId: string) => buildCacheKey('comp', 't', partnerId, 'stats', 'dashboard'),
 
   /** Vendor statistics - TTL: 5m */
-  vendorStats: (tenantId: string, vendorId: string) =>
-    buildCacheKey('comp', 't', tenantId, 'vendor', vendorId, 'stats'),
+  vendorStats: (partnerId: string, vendorId: string) =>
+    buildCacheKey('comp', 't', partnerId, 'vendor', vendorId, 'stats'),
 
   /** Available verticals (global) - TTL: 1h */
   verticalsList: () => buildCacheKey('comp', 'g', 'verticals', 'list'),
@@ -102,26 +102,26 @@ export const ConfigCacheKeys = {
   /** Global feature flags - TTL: 1m */
   featureFlags: () => buildCacheKey('cfg', 'g', 'feature-flags'),
 
-  /** Tenant feature flag overrides - TTL: 1m */
-  featureFlagsTenantOverrides: (tenantId: string) =>
-    buildCacheKey('cfg', 't', tenantId, 'feature-flag-overrides'),
+  /** Partner feature flag overrides - TTL: 1m */
+  featureFlagsTenantOverrides: (partnerId: string) =>
+    buildCacheKey('cfg', 't', partnerId, 'feature-flag-overrides'),
 
   /** Experiments (global) - TTL: 1m */
   experiments: () => buildCacheKey('cfg', 'g', 'experiments'),
 
-  /** Experiment opt-ins for a tenant - TTL: 1m */
-  experimentOptInsForTenant: (tenantId: string) =>
-    buildCacheKey('cfg', 't', tenantId, 'experiments', 'opt-ins'),
+  /** Experiment opt-ins for a partner - TTL: 1m */
+  experimentOptInsForTenant: (partnerId: string) =>
+    buildCacheKey('cfg', 't', partnerId, 'experiments', 'opt-ins'),
 
-  /** Tenant settings - TTL: 5m */
-  tenantSettings: (tenantId: string) => buildCacheKey('cfg', 't', tenantId, 'settings'),
+  /** Partner settings - TTL: 5m */
+  PartnerSettings: (partnerId: string) => buildCacheKey('cfg', 't', partnerId, 'settings'),
 
   /** Enabled verticals - TTL: 15m */
-  tenantVerticals: (tenantId: string) => buildCacheKey('cfg', 't', tenantId, 'verticals'),
+  PartnerVerticals: (partnerId: string) => buildCacheKey('cfg', 't', partnerId, 'verticals'),
 
   /** Vertical schema - TTL: 1h */
-  verticalSchema: (tenantId: string, verticalType: string) =>
-    buildCacheKey('cfg', 't', tenantId, 'vertical', verticalType, 'schema'),
+  verticalSchema: (partnerId: string, verticalType: string) =>
+    buildCacheKey('cfg', 't', partnerId, 'vertical', verticalType, 'schema'),
 
   /** Active plans list (global) - TTL: 15m */
   activePlans: () => buildCacheKey('cfg', 'g', 'plans', 'active'),
@@ -135,8 +135,8 @@ export const RateLimitCacheKeys = {
   /** IP-based rate limit - TTL: 1m */
   byIp: (ip: string) => `rate:api:ip:${ip}`,
 
-  /** Tenant endpoint limit - TTL: 1m */
-  byTenantEndpoint: (tenantId: string, endpoint: string) => `rate:api:t:${tenantId}:${endpoint}`,
+  /** Partner endpoint limit - TTL: 1m */
+  byTenantEndpoint: (partnerId: string, endpoint: string) => `rate:api:t:${partnerId}:${endpoint}`,
 
   /** User endpoint limit - TTL: 1m */
   byUserEndpoint: (userId: string, endpoint: string) => `rate:api:u:${userId}:${endpoint}`,
@@ -175,7 +175,7 @@ export const LockCacheKeys = {
   listingPublish: (listingId: string) => `lock:listing:publish:${listingId}`,
 
   /** Subscription change lock - TTL: 60s */
-  subscription: (tenantId: string) => `lock:subscription:${tenantId}`,
+  subscription: (partnerId: string) => `lock:subscription:${partnerId}`,
 
   /** Invoice generation lock - TTL: 120s */
   invoice: (subscriptionId: string, period: string) => `lock:invoice:${subscriptionId}:${period}`,
@@ -244,21 +244,21 @@ export const CacheTTL = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CachePatterns = {
-  /** All keys for a tenant */
-  allTenant: (tenantId: string) => `*:t:${tenantId}:*`,
+  /** All keys for a partner */
+  allTenant: (partnerId: string) => `*:t:${partnerId}:*`,
 
-  /** All entity keys for a tenant */
-  allTenantEntities: (tenantId: string) => `ent:t:${tenantId}:*`,
+  /** All entity keys for a partner */
+  allTenantEntities: (partnerId: string) => `ent:t:${partnerId}:*`,
 
-  /** All computed keys for a tenant */
-  allTenantComputed: (tenantId: string) => `comp:t:${tenantId}:*`,
+  /** All computed keys for a partner */
+  allTenantComputed: (partnerId: string) => `comp:t:${partnerId}:*`,
 
-  /** All config keys for a tenant */
-  allTenantConfig: (tenantId: string) => `cfg:t:${tenantId}:*`,
+  /** All config keys for a partner */
+  allTenantConfig: (partnerId: string) => `cfg:t:${partnerId}:*`,
 
   /** All listing keys */
-  allListings: (tenantId: string, listingId: string) => `ent:t:${tenantId}:listing:${listingId}*`,
+  allListings: (partnerId: string, listingId: string) => `ent:t:${partnerId}:listing:${listingId}*`,
 
   /** All vendor keys */
-  allVendor: (tenantId: string, vendorId: string) => `*:t:${tenantId}:vendor:${vendorId}*`,
+  allVendor: (partnerId: string, vendorId: string) => `*:t:${partnerId}:vendor:${vendorId}*`,
 };

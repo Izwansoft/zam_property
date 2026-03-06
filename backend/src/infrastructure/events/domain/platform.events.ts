@@ -6,7 +6,7 @@ import { BaseDomainEvent, EventOptionsWithoutType } from '../base-domain-event';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface EntitlementComputedPayload {
-  tenantId: string;
+  partnerId: string;
   subscriptionId: string;
   planId: string;
   entitlements: Record<string, number | boolean | string>;
@@ -25,7 +25,7 @@ export class EntitlementComputedEvent extends BaseDomainEvent<EntitlementCompute
 }
 
 export interface EntitlementExceededPayload {
-  tenantId: string;
+  partnerId: string;
   metricKey: string;
   currentValue: number;
   limitValue: number;
@@ -49,7 +49,7 @@ export class EntitlementExceededEvent extends BaseDomainEvent<EntitlementExceede
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface UsageIncrementedPayload {
-  tenantId: string;
+  partnerId: string;
   metricKey: string;
   incrementBy: number;
   newTotal: number;
@@ -70,7 +70,7 @@ export class UsageIncrementedEvent extends BaseDomainEvent<UsageIncrementedPaylo
 }
 
 export interface UsageThresholdWarningPayload {
-  tenantId: string;
+  partnerId: string;
   metricKey: string;
   currentValue: number;
   threshold: number;
@@ -90,7 +90,7 @@ export class UsageThresholdWarningEvent extends BaseDomainEvent<UsageThresholdWa
 }
 
 export interface UsagePeriodResetPayload {
-  tenantId: string;
+  partnerId: string;
   metricKey: string;
   previousTotal: number;
   newPeriodStart: string;
@@ -116,7 +116,7 @@ export class UsagePeriodResetEvent extends BaseDomainEvent<UsagePeriodResetPaylo
 export interface SearchIndexRequestedPayload {
   documentType: string;
   documentId: string;
-  tenantId: string;
+  partnerId: string;
   operation: 'index' | 'delete';
 }
 
@@ -135,7 +135,7 @@ export class SearchIndexRequestedEvent extends BaseDomainEvent<SearchIndexReques
 export interface SearchIndexCompletedPayload {
   documentType: string;
   documentId: string;
-  tenantId: string;
+  partnerId: string;
   operation: 'index' | 'delete';
   success: boolean;
   error?: string;
@@ -160,7 +160,7 @@ export class SearchIndexCompletedEvent extends BaseDomainEvent<SearchIndexComple
 
 export interface NotificationCreatedPayload {
   notificationId: string;
-  tenantId?: string;
+  partnerId?: string;
   userId: string;
   type: string;
   channels: string[];

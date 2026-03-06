@@ -51,7 +51,7 @@ export class CleanupProcessor extends WorkerHost {
       queue: QUEUE_NAMES.CLEANUP_PROCESS,
       jobId: job.id,
       jobType: name,
-      tenantId: data.tenantId,
+      partnerId: data.partnerId,
     });
 
     try {
@@ -115,11 +115,11 @@ export class CleanupProcessor extends WorkerHost {
    * Clean up orphaned media files (files without owner).
    */
   private async handleMediaOrphaned(job: Job<MediaOrphanedCleanupJob>): Promise<JobResult> {
-    const { tenantId, olderThan, batchSize, dryRun = false } = job.data;
+    const { partnerId, olderThan, batchSize, dryRun = false } = job.data;
     const olderThanDate = new Date(olderThan);
 
     this.logger.log(
-      `Cleaning orphaned media older than ${olderThan} for tenant ${tenantId} (dryRun: ${dryRun})`,
+      `Cleaning orphaned media older than ${olderThan} for partner ${partnerId} (dryRun: ${dryRun})`,
     );
 
     await job.updateProgress(10);
@@ -127,7 +127,7 @@ export class CleanupProcessor extends WorkerHost {
     // Find orphaned media (PENDING status older than threshold)
     const orphanedMedia = await this.prisma.media.findMany({
       where: {
-        tenantId,
+        partnerId,
         processingStatus: 'PENDING',
         createdAt: {
           lt: olderThanDate,
@@ -189,7 +189,7 @@ export class CleanupProcessor extends WorkerHost {
 
     this.eventEmitter.emit('cleanup.completed', {
       type: 'media.orphaned',
-      tenantId,
+      partnerId,
       deletedCount,
       dryRun,
     });
@@ -208,16 +208,16 @@ export class CleanupProcessor extends WorkerHost {
    * Clean up expired sessions.
    */
   private async handleSessionsExpired(job: Job<SessionsExpiredCleanupJob>): Promise<JobResult> {
-    const { tenantId, olderThan, batchSize } = job.data;
+    const { partnerId, olderThan, batchSize } = job.data;
     const olderThanDate = new Date(olderThan);
 
-    this.logger.log(`Cleaning expired sessions older than ${olderThan} for tenant ${tenantId}`);
+    this.logger.log(`Cleaning expired sessions older than ${olderThan} for partner ${partnerId}`);
 
     await job.updateProgress(10);
 
     // Clean session data from Redis
     const redis = this.redisService.getClient();
-    const pattern = `session:${tenantId}:*`;
+    const pattern = `session:${partnerId}:*`;
     let deletedCount = 0;
     let cursor = '0';
 
@@ -255,7 +255,7 @@ export class CleanupProcessor extends WorkerHost {
    * Clean up expired tokens (refresh tokens, password reset tokens, etc.).
    */
   private async handleTokensExpired(job: Job<TokensExpiredCleanupJob>): Promise<JobResult> {
-    const { tenantId, olderThan, batchSize = 1000, tokenType = 'all' } = job.data;
+    const { partnerId, olderThan, batchSize = 1000, tokenType = 'all' } = job.data;
     const _olderThanDate = new Date(olderThan);
 
     this.logger.log(`Cleaning expired ${tokenType} tokens older than ${olderThan}`);
@@ -267,13 +267,13 @@ export class CleanupProcessor extends WorkerHost {
     const patterns: string[] = [];
 
     if (tokenType === 'all' || tokenType === 'refresh') {
-      patterns.push(`refresh_token:${tenantId}:*`);
+      patterns.push(`refresh_token:${partnerId}:*`);
     }
     if (tokenType === 'all' || tokenType === 'reset') {
-      patterns.push(`password_reset:${tenantId}:*`);
+      patterns.push(`password_reset:${partnerId}:*`);
     }
     if (tokenType === 'all' || tokenType === 'verification') {
-      patterns.push(`email_verification:${tenantId}:*`);
+      patterns.push(`email_verification:${partnerId}:*`);
     }
 
     let deletedCount = 0;
@@ -307,7 +307,7 @@ export class CleanupProcessor extends WorkerHost {
    */
   private async handleLogsArchive(job: Job<LogsArchiveJob>): Promise<JobResult> {
     const {
-      tenantId: _tenantId,
+      partnerId: _partnerId,
       logType,
       olderThan,
       destinationBucket,
@@ -351,11 +351,11 @@ export class CleanupProcessor extends WorkerHost {
    * Purge soft-deleted records permanently.
    */
   private async handleSoftDeletesPurge(job: Job<SoftDeletesPurgeJob>): Promise<JobResult> {
-    const { tenantId, entityType = 'all', olderThan, batchSize: _batchSize } = job.data;
+    const { partnerId, entityType = 'all', olderThan, batchSize: _batchSize } = job.data;
     const olderThanDate = new Date(olderThan);
 
     this.logger.log(
-      `Purging ${entityType} soft-deleted records older than ${olderThan} for tenant ${tenantId}`,
+      `Purging ${entityType} soft-deleted records older than ${olderThan} for partner ${partnerId}`,
     );
 
     await job.updateProgress(10);
@@ -368,7 +368,7 @@ export class CleanupProcessor extends WorkerHost {
       try {
         const result = await this.prisma.listing.deleteMany({
           where: {
-            tenantId,
+            partnerId,
             deletedAt: {
               not: null,
               lt: olderThanDate,
@@ -388,7 +388,7 @@ export class CleanupProcessor extends WorkerHost {
       try {
         const result = await this.prisma.media.deleteMany({
           where: {
-            tenantId,
+            partnerId,
             deletedAt: {
               not: null,
               lt: olderThanDate,
@@ -425,9 +425,9 @@ export class CleanupProcessor extends WorkerHost {
    * Clear cache entries.
    */
   private async handleCacheClear(job: Job<CacheClearJob>): Promise<JobResult> {
-    const { tenantId, pattern, prefix, all = false } = job.data;
+    const { partnerId, pattern, prefix, all = false } = job.data;
 
-    this.logger.log(`Clearing cache for tenant ${tenantId}`);
+    this.logger.log(`Clearing cache for partner ${partnerId}`);
 
     await job.updateProgress(10);
 
@@ -435,20 +435,20 @@ export class CleanupProcessor extends WorkerHost {
     let deletedCount = 0;
 
     if (all) {
-      // Clear all cache for tenant
-      const keys = await this.scanKeys(redis, `cache:${tenantId}:*`);
+      // Clear all cache for partner
+      const keys = await this.scanKeys(redis, `cache:${partnerId}:*`);
       if (keys.length > 0) {
         await redis.del(...keys);
         deletedCount = keys.length;
       }
     } else if (pattern) {
-      const keys = await this.scanKeys(redis, `cache:${tenantId}:${pattern}`);
+      const keys = await this.scanKeys(redis, `cache:${partnerId}:${pattern}`);
       if (keys.length > 0) {
         await redis.del(...keys);
         deletedCount = keys.length;
       }
     } else if (prefix) {
-      const keys = await this.scanKeys(redis, `cache:${tenantId}:${prefix}*`);
+      const keys = await this.scanKeys(redis, `cache:${partnerId}:${prefix}*`);
       if (keys.length > 0) {
         await redis.del(...keys);
         deletedCount = keys.length;
@@ -462,7 +462,7 @@ export class CleanupProcessor extends WorkerHost {
       message: `Cleared ${deletedCount} cache entries`,
       data: {
         jobType: 'cache.clear',
-        tenantId,
+        partnerId,
         deletedCount,
         pattern: pattern || prefix || 'all',
       },

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Vendor E2E Tests
  * Session 4.5 - Testing & E2E
  *
@@ -62,7 +62,7 @@ describe('Vendor E2E Tests', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
-  let testTenantId: string;
+  let testpartnerId: string;
   let adminAccessToken: string;
   const adminEmail = `e2e-vendor-admin-${Date.now()}@example.com`;
   const adminPassword = 'AdminPassword123!';
@@ -92,10 +92,10 @@ describe('Vendor E2E Tests', () => {
 
     prisma = app.get(PrismaService);
 
-    // Create test tenant - let DB generate UUID
-    const tenant = await prisma.tenant.create({
+    // Create test partner - let DB generate UUID
+    const partner = await prisma.partner.create({
       data: {
-        name: 'E2E Vendor Test Tenant',
+        name: 'E2E Vendor Test Partner',
         slug: `e2e-vendor-${Date.now()}`,
         enabledVerticals: ['real_estate', 'jobs', 'automotive'],
         settings: {
@@ -103,17 +103,17 @@ describe('Vendor E2E Tests', () => {
         },
       },
     });
-    testTenantId = tenant.id;
+    testpartnerId = partner.id;
 
-    // Create tenant admin user
+    // Create partner admin user
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
     await prisma.user.create({
       data: {
-        tenantId: testTenantId,
+        partnerId: testpartnerId,
         email: adminEmail,
         passwordHash: hashedPassword,
         fullName: 'E2E Vendor Admin',
-        role: Role.TENANT_ADMIN,
+        role: Role.PARTNER_ADMIN,
         status: UserStatus.ACTIVE,
       },
     });
@@ -121,7 +121,7 @@ describe('Vendor E2E Tests', () => {
     // Login admin to get access token
     const loginResponse = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
-      .set('X-Tenant-ID', testTenantId)
+      .set('X-Partner-ID', testpartnerId)
       .send({
         email: adminEmail,
         password: adminPassword,
@@ -134,13 +134,13 @@ describe('Vendor E2E Tests', () => {
   afterAll(async () => {
     // Cleanup test data
     try {
-      await prisma.listing.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.vendorSettings.deleteMany({ where: { vendor: { tenantId: testTenantId } } });
-      await prisma.vendorProfile.deleteMany({ where: { vendor: { tenantId: testTenantId } } });
-      await prisma.user.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.vendor.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.tenantSettings.deleteMany({ where: { tenantId: testTenantId } });
-      await prisma.tenant.delete({ where: { id: testTenantId } });
+      await prisma.listing.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.vendorSettings.deleteMany({ where: { vendor: { partnerId: testpartnerId } } });
+      await prisma.vendorProfile.deleteMany({ where: { vendor: { partnerId: testpartnerId } } });
+      await prisma.user.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.vendor.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.partnerSettings.deleteMany({ where: { partnerId: testpartnerId } });
+      await prisma.partner.delete({ where: { id: testpartnerId } });
     } catch {
       // Ignore cleanup errors
     }
@@ -159,7 +159,7 @@ describe('Vendor E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/v1/vendors')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(vendorData);
 
@@ -182,7 +182,7 @@ describe('Vendor E2E Tests', () => {
       // Create first vendor
       const first = await request(app.getHttpServer())
         .post('/api/v1/vendors')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(vendorData);
 
@@ -191,7 +191,7 @@ describe('Vendor E2E Tests', () => {
       // Try to create with same name
       const response = await request(app.getHttpServer())
         .post('/api/v1/vendors')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(vendorData);
 
@@ -201,7 +201,7 @@ describe('Vendor E2E Tests', () => {
     it('should return 400 for missing required fields', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/vendors')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send({
           // Missing name which is required
@@ -216,7 +216,7 @@ describe('Vendor E2E Tests', () => {
     it('should return paginated vendors', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/vendors')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`);
 
       expect(response.status).toBe(200);
@@ -228,7 +228,7 @@ describe('Vendor E2E Tests', () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/vendors')
         .query({ status: 'PENDING' })
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`);
 
       expect(response.status).toBe(200);
@@ -242,7 +242,7 @@ describe('Vendor E2E Tests', () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/vendors')
         .query({ search: 'E2E Test Agency' })
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`);
 
       expect(response.status).toBe(200);
@@ -256,7 +256,7 @@ describe('Vendor E2E Tests', () => {
     it('should return vendor by ID', async () => {
       const response = await request(app.getHttpServer())
         .get(`/api/v1/vendors/${createdVendorId}`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`);
 
       expect(response.status).toBe(200);
@@ -268,7 +268,7 @@ describe('Vendor E2E Tests', () => {
     it('should return 404 for non-existent vendor', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/v1/vendors/00000000-0000-0000-0000-000000000000')
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`);
 
       expect(response.status).toBe(404);
@@ -284,7 +284,7 @@ describe('Vendor E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .patch(`/api/v1/vendors/${createdVendorId}`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(updateData);
 
@@ -300,7 +300,7 @@ describe('Vendor E2E Tests', () => {
       it('should approve a PENDING vendor', async () => {
         const response = await request(app.getHttpServer())
           .post(`/api/v1/vendors/${createdVendorId}/actions/approve`)
-          .set('X-Tenant-ID', testTenantId)
+          .set('X-Partner-ID', testpartnerId)
           .set('Authorization', `Bearer ${adminAccessToken}`)
           .send({});
 
@@ -312,7 +312,7 @@ describe('Vendor E2E Tests', () => {
       it('should return 400 when trying to approve already approved vendor', async () => {
         const response = await request(app.getHttpServer())
           .post(`/api/v1/vendors/${createdVendorId}/actions/approve`)
-          .set('X-Tenant-ID', testTenantId)
+          .set('X-Partner-ID', testpartnerId)
           .set('Authorization', `Bearer ${adminAccessToken}`)
           .send({});
 
@@ -324,7 +324,7 @@ describe('Vendor E2E Tests', () => {
       it('should suspend an APPROVED vendor', async () => {
         const response = await request(app.getHttpServer())
           .post(`/api/v1/vendors/${createdVendorId}/actions/suspend`)
-          .set('X-Tenant-ID', testTenantId)
+          .set('X-Partner-ID', testpartnerId)
           .set('Authorization', `Bearer ${adminAccessToken}`)
           .send({
             reason: 'Violation of terms of service',
@@ -340,7 +340,7 @@ describe('Vendor E2E Tests', () => {
       it('should reactivate a SUSPENDED vendor', async () => {
         const response = await request(app.getHttpServer())
           .post(`/api/v1/vendors/${createdVendorId}/actions/reactivate`)
-          .set('X-Tenant-ID', testTenantId)
+          .set('X-Partner-ID', testpartnerId)
           .set('Authorization', `Bearer ${adminAccessToken}`)
           .send({});
 
@@ -358,7 +358,7 @@ describe('Vendor E2E Tests', () => {
       // Create a vendor to reject
       const vendor = await prisma.vendor.create({
         data: {
-          tenantId: testTenantId,
+          partnerId: testpartnerId,
           name: 'Vendor to Reject',
           slug: `reject-vendor-${Date.now()}`,
           email: 'reject@example.com',
@@ -378,7 +378,7 @@ describe('Vendor E2E Tests', () => {
     it('should reject a PENDING vendor', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/v1/vendors/${vendorToReject}/actions/reject`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send({
           reason: 'Incomplete documentation',
@@ -392,7 +392,7 @@ describe('Vendor E2E Tests', () => {
     it('should not allow approval of REJECTED vendor', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/v1/vendors/${vendorToReject}/actions/approve`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send({});
 
@@ -416,7 +416,7 @@ describe('Vendor E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .patch(`/api/v1/vendors/${createdVendorId}/profile`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(profileData);
 
@@ -441,7 +441,7 @@ describe('Vendor E2E Tests', () => {
 
       const response = await request(app.getHttpServer())
         .patch(`/api/v1/vendors/${createdVendorId}/settings`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`)
         .send(settingsData);
 
@@ -457,7 +457,7 @@ describe('Vendor E2E Tests', () => {
   //   it('should list users associated with a vendor', async () => {
   //     const response = await request(app.getHttpServer())
   //       .get(`/api/v1/vendors/${createdVendorId}/users`)
-  //       .set('X-Tenant-ID', testTenantId)
+  //       .set('X-Partner-ID', testpartnerId)
   //       .set('Authorization', `Bearer ${adminAccessToken}`);
 
   //     expect(response.status).toBe(200);
@@ -471,7 +471,7 @@ describe('Vendor E2E Tests', () => {
   //   it('should list listings for a vendor', async () => {
   //     const response = await request(app.getHttpServer())
   //       .get(`/api/v1/vendors/${createdVendorId}/listings`)
-  //       .set('X-Tenant-ID', testTenantId)
+  //       .set('X-Partner-ID', testpartnerId)
   //       .set('Authorization', `Bearer ${adminAccessToken}`);
 
   //     expect(response.status).toBe(200);
@@ -487,7 +487,7 @@ describe('Vendor E2E Tests', () => {
       // Create a vendor to delete
       const vendor = await prisma.vendor.create({
         data: {
-          tenantId: testTenantId,
+          partnerId: testpartnerId,
           name: 'Vendor to Delete',
           slug: `delete-vendor-${Date.now()}`,
           email: 'delete@example.com',
@@ -507,7 +507,7 @@ describe('Vendor E2E Tests', () => {
     it('should soft delete a vendor', async () => {
       const response = await request(app.getHttpServer())
         .delete(`/api/v1/vendors/${vendorToDelete}`)
-        .set('X-Tenant-ID', testTenantId)
+        .set('X-Partner-ID', testpartnerId)
         .set('Authorization', `Bearer ${adminAccessToken}`);
 
       // DELETE returns 204 No Content on success

@@ -2,7 +2,7 @@
  * Vertical Service
  * Part 8 - Vertical Module Contract
  *
- * Manages vertical definitions and tenant-vertical enablement.
+ * Manages vertical definitions and partner-vertical enablement.
  */
 
 import {
@@ -15,16 +15,16 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { VerticalDefinitionRepository } from '../repositories/vertical-definition.repository';
-import { TenantVerticalRepository } from '../repositories/tenant-vertical.repository';
+import { PartnerVerticalRepository } from '../repositories/partner-vertical.repository';
 import {
   CreateVerticalDefinitionDto,
   UpdateVerticalDefinitionDto,
   EnableVerticalDto,
-  UpdateTenantVerticalDto,
+  UpdatePartnerVerticalDto,
   VerticalQueryDto,
-  TenantVerticalQueryDto,
+  PartnerVerticalQueryDto,
 } from '../dto/vertical.dto';
 
 @Injectable()
@@ -33,8 +33,8 @@ export class VerticalService {
 
   constructor(
     private readonly verticalDefinitionRepo: VerticalDefinitionRepository,
-    private readonly tenantVerticalRepo: TenantVerticalRepository,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerVerticalRepo: PartnerVerticalRepository,
+    private readonly PartnerContext: PartnerContextService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -195,7 +195,7 @@ export class VerticalService {
     const usageCount = await this.verticalDefinitionRepo.countTenantUsage(id);
     if (usageCount > 0) {
       throw new BadRequestException(
-        `Cannot delete vertical: ${usageCount} tenant(s) are using it. Deactivate first.`,
+        `Cannot delete vertical: ${usageCount} partner(s) are using it. Deactivate first.`,
       );
     }
 
@@ -211,14 +211,14 @@ export class VerticalService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // TENANT VERTICAL MANAGEMENT (Tenant-level)
+  // TENANT VERTICAL MANAGEMENT (Partner-level)
   // ─────────────────────────────────────────────────────────────────────────────
 
   async enableVerticalForTenant(dto: EnableVerticalDto) {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
 
     // Get vertical definition
@@ -232,22 +232,22 @@ export class VerticalService {
     }
 
     // Check if already enabled
-    const existing = await this.tenantVerticalRepo.findByTenantAndVertical(tenantId, vertical.id);
+    const existing = await this.PartnerVerticalRepo.findByTenantAndVertical(partnerId, vertical.id);
     if (existing) {
       if (existing.isEnabled) {
         throw new ConflictException(
-          `Vertical '${dto.verticalType}' is already enabled for this tenant`,
+          `Vertical '${dto.verticalType}' is already enabled for this partner`,
         );
       }
       // Re-enable existing record
-      const updated = await this.tenantVerticalRepo.enable(existing.id);
+      const updated = await this.PartnerVerticalRepo.enable(existing.id);
 
-      await this.tenantVerticalRepo.syncTenantEnabledVerticals(tenantId);
+      await this.PartnerVerticalRepo.syncTenantEnabledVerticals(partnerId);
 
-      this.logger.log(`Re-enabled vertical '${dto.verticalType}' for tenant ${tenantId}`);
+      this.logger.log(`Re-enabled vertical '${dto.verticalType}' for partner ${partnerId}`);
 
       this.eventEmitter.emit('vertical.enabled', {
-        tenantId,
+        partnerId,
         verticalType: dto.verticalType,
         verticalId: vertical.id,
         timestamp: new Date(),
@@ -256,9 +256,9 @@ export class VerticalService {
       return updated;
     }
 
-    // Create new tenant vertical
-    const tenantVertical = await this.tenantVerticalRepo.create({
-      tenantId,
+    // Create new partner vertical
+    const PartnerVertical = await this.PartnerVerticalRepo.create({
+      partnerId,
       verticalId: vertical.id,
       configOverrides: dto.configOverrides as Prisma.InputJsonValue | undefined,
       customFields: dto.customFields as Prisma.InputJsonValue | undefined,
@@ -266,60 +266,60 @@ export class VerticalService {
       isEnabled: true,
     });
 
-    await this.tenantVerticalRepo.syncTenantEnabledVerticals(tenantId);
+    await this.PartnerVerticalRepo.syncTenantEnabledVerticals(partnerId);
 
-    this.logger.log(`Enabled vertical '${dto.verticalType}' for tenant ${tenantId}`);
+    this.logger.log(`Enabled vertical '${dto.verticalType}' for partner ${partnerId}`);
 
     this.eventEmitter.emit('vertical.enabled', {
-      tenantId,
+      partnerId,
       verticalType: dto.verticalType,
       verticalId: vertical.id,
       timestamp: new Date(),
     });
 
-    return tenantVertical;
+    return PartnerVertical;
   }
 
-  async getTenantVerticals(query?: TenantVerticalQueryDto) {
-    const tenantId = this.tenantContext.tenantId;
+  async getPartnerVerticals(query?: PartnerVerticalQueryDto) {
+    const partnerId = this.PartnerContext.partnerId;
 
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
 
-    return this.tenantVerticalRepo.findByTenant(tenantId, {
+    return this.PartnerVerticalRepo.findByTenant(partnerId, {
       isEnabled: query?.isEnabled,
       verticalType: query?.verticalType,
     });
   }
 
   async getEnabledVerticalsForTenant() {
-    const tenantId = this.tenantContext.tenantId;
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    const partnerId = this.PartnerContext.partnerId;
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
-    return this.tenantVerticalRepo.findEnabledByTenant(tenantId);
+    return this.PartnerVerticalRepo.findEnabledByTenant(partnerId);
   }
 
-  async getTenantVerticalById(id: string) {
-    const tenantId = this.tenantContext.tenantId;
+  async getPartnerVerticalById(id: string) {
+    const partnerId = this.PartnerContext.partnerId;
 
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
 
-    const tenantVertical = await this.tenantVerticalRepo.findById(id);
-    if (!tenantVertical || tenantVertical.tenantId !== tenantId) {
-      throw new NotFoundException(`Tenant vertical with ID '${id}' not found`);
+    const PartnerVertical = await this.PartnerVerticalRepo.findById(id);
+    if (!PartnerVertical || PartnerVertical.partnerId !== partnerId) {
+      throw new NotFoundException(`Partner vertical with ID '${id}' not found`);
     }
 
-    return tenantVertical;
+    return PartnerVertical;
   }
 
-  async updateTenantVertical(id: string, dto: UpdateTenantVerticalDto) {
-    const tenantVertical = await this.getTenantVerticalById(id);
+  async updatePartnerVertical(id: string, dto: UpdatePartnerVerticalDto) {
+    const PartnerVertical = await this.getPartnerVerticalById(id);
 
-    const updated = await this.tenantVerticalRepo.update(id, {
+    const updated = await this.PartnerVerticalRepo.update(id, {
       configOverrides: dto.configOverrides as Prisma.InputJsonValue | undefined,
       customFields: dto.customFields as Prisma.InputJsonValue | undefined,
       listingLimit: dto.listingLimit,
@@ -328,14 +328,14 @@ export class VerticalService {
     });
 
     if (dto.isEnabled !== undefined) {
-      await this.tenantVerticalRepo.syncTenantEnabledVerticals(tenantVertical.tenantId);
+      await this.PartnerVerticalRepo.syncTenantEnabledVerticals(PartnerVertical.partnerId);
     }
 
-    this.logger.log(`Updated tenant vertical: ${tenantVertical.id}`);
+    this.logger.log(`Updated partner vertical: ${PartnerVertical.id}`);
 
-    this.eventEmitter.emit('vertical.tenant_updated', {
-      tenantId: tenantVertical.tenantId,
-      verticalType: tenantVertical.vertical.type,
+    this.eventEmitter.emit('vertical.partner_updated', {
+      partnerId: PartnerVertical.partnerId,
+      verticalType: PartnerVertical.vertical.type,
       timestamp: new Date(),
     });
 
@@ -343,33 +343,33 @@ export class VerticalService {
   }
 
   async disableVerticalForTenant(verticalType: string) {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
-    if (!tenantId) {
-      throw new BadRequestException('Tenant context required');
+    if (!partnerId) {
+      throw new BadRequestException('Partner context required');
     }
 
-    const tenantVertical = await this.tenantVerticalRepo.findByTenantAndVerticalType(
-      tenantId,
+    const PartnerVertical = await this.PartnerVerticalRepo.findByTenantAndVerticalType(
+      partnerId,
       verticalType,
     );
 
-    if (!tenantVertical) {
-      throw new NotFoundException(`Vertical '${verticalType}' not found for this tenant`);
+    if (!PartnerVertical) {
+      throw new NotFoundException(`Vertical '${verticalType}' not found for this partner`);
     }
 
-    if (!tenantVertical.isEnabled) {
+    if (!PartnerVertical.isEnabled) {
       throw new BadRequestException(`Vertical '${verticalType}' is already disabled`);
     }
 
-    const updated = await this.tenantVerticalRepo.disable(tenantVertical.id);
+    const updated = await this.PartnerVerticalRepo.disable(PartnerVertical.id);
 
-    await this.tenantVerticalRepo.syncTenantEnabledVerticals(tenantId);
+    await this.PartnerVerticalRepo.syncTenantEnabledVerticals(partnerId);
 
-    this.logger.log(`Disabled vertical '${verticalType}' for tenant ${tenantId}`);
+    this.logger.log(`Disabled vertical '${verticalType}' for partner ${partnerId}`);
 
     this.eventEmitter.emit('vertical.disabled', {
-      tenantId,
+      partnerId,
       verticalType,
       timestamp: new Date(),
     });
@@ -381,16 +381,16 @@ export class VerticalService {
   // VERTICAL CHECKS (Used by guards and services)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async isVerticalEnabledForTenant(tenantId: string, verticalType: string): Promise<boolean> {
-    return this.tenantVerticalRepo.isVerticalEnabledForTenant(tenantId, verticalType);
+  async isVerticalEnabledForTenant(partnerId: string, verticalType: string): Promise<boolean> {
+    return this.PartnerVerticalRepo.isVerticalEnabledForTenant(partnerId, verticalType);
   }
 
-  async getEnabledVerticalTypes(tenantId: string): Promise<string[]> {
-    return this.tenantVerticalRepo.getEnabledVerticalTypes(tenantId);
+  async getEnabledVerticalTypes(partnerId: string): Promise<string[]> {
+    return this.PartnerVerticalRepo.getEnabledVerticalTypes(partnerId);
   }
 
-  async getListingLimitForVertical(tenantId: string, verticalType: string): Promise<number | null> {
-    return this.tenantVerticalRepo.getListingLimit(tenantId, verticalType);
+  async getListingLimitForVertical(partnerId: string, verticalType: string): Promise<number | null> {
+    return this.PartnerVerticalRepo.getListingLimit(partnerId, verticalType);
   }
 
   async getAttributeSchemaForVertical(verticalType: string) {

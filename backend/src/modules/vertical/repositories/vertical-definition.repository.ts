@@ -81,7 +81,7 @@ export class VerticalDefinitionRepository {
   }
 
   async countTenantUsage(verticalId: string) {
-    return this.prisma.tenantVertical.count({
+    return this.prisma.partnerVertical.count({
       where: {
         verticalId,
         isEnabled: true,

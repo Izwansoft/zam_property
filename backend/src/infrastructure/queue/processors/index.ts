@@ -4,4 +4,6 @@ export * from './notification.processor';
 export * from './listing-expire.processor';
 export * from './analytics.processor';
 export * from './cleanup.processor';
+export * from './tenancy-expiry.processor';
+export * from './billing.processor';
 export * from './processors.module';

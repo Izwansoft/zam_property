@@ -1,7 +1,7 @@
 /*
   Admin APIs smoke test (local)
   - Requires backend running on BASE_URL (default http://localhost:3000)
-  - Uses seeded demo tenant/user from prisma/seed.ts unless overridden
+  - Uses seeded demo partner/user from prisma/seed.ts unless overridden
 
   Env overrides:
     BASE_URL=http://localhost:3000
@@ -61,10 +61,10 @@ async function main() {
   console.log(`BASE_URL=${BASE_URL}`);
   console.log(`TENANT=${TENANT}`);
 
-  const tenantHeader = { 'X-Tenant-ID': TENANT };
+  const partnerHeader = { 'X-Partner-ID': TENANT };
 
   // 1) Basic reachability
-  const health = await request('GET', '/api/v1/health', { headers: tenantHeader });
+  const health = await request('GET', '/api/v1/health', { headers: partnerHeader });
   printCheck('GET /api/v1/health', health.status, 200);
   if (health.status !== 200) {
     console.error('Backend is not reachable. Ensure it is running and BASE_URL is correct.');
@@ -73,7 +73,7 @@ async function main() {
 
   // 2) Login
   const login = await request('POST', '/api/v1/auth/login', {
-    headers: tenantHeader,
+    headers: partnerHeader,
     body: { email: EMAIL, password: PASSWORD },
   });
 
@@ -84,7 +84,7 @@ async function main() {
     process.exit(3);
   }
 
-  const authHeaders = { ...tenantHeader, Authorization: `Bearer ${accessToken}` };
+  const authHeaders = { ...partnerHeader, Authorization: `Bearer ${accessToken}` };
 
   // 3) Dashboard stats
   const stats = await request('GET', '/api/v1/admin/dashboard/stats', { headers: authHeaders });

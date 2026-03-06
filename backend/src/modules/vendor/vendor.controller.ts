@@ -38,7 +38,7 @@ import { VendorService } from './vendor.service';
 interface AuthenticatedRequest {
   user: {
     sub: string;
-    tenantId: string;
+    partnerId: string;
     role: Role;
     vendorId?: string;
   };
@@ -56,11 +56,11 @@ export class VendorController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @ApiOperation({
     summary: 'List vendors',
     description:
-      'Get a paginated list of vendors within the tenant. Requires SUPER_ADMIN, TENANT_ADMIN, or VENDOR_ADMIN role.',
+      'Get a paginated list of vendors within the partner. Requires SUPER_ADMIN, PARTNER_ADMIN, or VENDOR_ADMIN role.',
   })
   @ApiResponse({
     status: 200,
@@ -90,7 +90,7 @@ export class VendorController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF)
   @ApiOperation({
     summary: 'Get vendor by ID',
     description: 'Get detailed vendor information including profile and settings.',
@@ -110,7 +110,7 @@ export class VendorController {
   }
 
   @Get('by-slug/:slug')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.VENDOR_STAFF, Role.CUSTOMER)
   @ApiOperation({
     summary: 'Get vendor by slug',
     description: 'Get vendor information by URL-friendly slug.',
@@ -132,11 +132,11 @@ export class VendorController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'Create vendor',
     description:
-      'Create a new vendor. Requires SUPER_ADMIN or TENANT_ADMIN role. New vendors start in PENDING status.',
+      'Create a new vendor. Requires SUPER_ADMIN or PARTNER_ADMIN role. New vendors start in PENDING status.',
   })
   @ApiResponse({
     status: 201,
@@ -150,7 +150,7 @@ export class VendorController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @ApiOperation({
     summary: 'Update vendor',
     description: 'Update vendor basic information. VENDOR_ADMIN can only update their own vendor.',
@@ -178,10 +178,10 @@ export class VendorController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @ApiOperation({
     summary: 'Delete vendor',
-    description: 'Soft delete a vendor. Requires SUPER_ADMIN or TENANT_ADMIN role.',
+    description: 'Soft delete a vendor. Requires SUPER_ADMIN or PARTNER_ADMIN role.',
   })
   @ApiParam({ name: 'id', description: 'Vendor UUID', type: 'string' })
   @ApiResponse({ status: 204, description: 'Vendor deleted' })
@@ -195,7 +195,7 @@ export class VendorController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Post(':id/actions/approve')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Approve vendor',
@@ -219,7 +219,7 @@ export class VendorController {
   }
 
   @Post(':id/actions/reject')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Reject vendor',
@@ -243,7 +243,7 @@ export class VendorController {
   }
 
   @Post(':id/actions/suspend')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Suspend vendor',
@@ -267,7 +267,7 @@ export class VendorController {
   }
 
   @Post(':id/actions/reactivate')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Reactivate vendor',
@@ -296,7 +296,7 @@ export class VendorController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Patch(':id/profile')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @ApiOperation({
     summary: 'Update vendor profile',
     description: 'Update vendor profile information (business details, address, branding).',
@@ -323,7 +323,7 @@ export class VendorController {
   }
 
   @Patch(':id/settings')
-  @Roles(Role.SUPER_ADMIN, Role.TENANT_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
   @ApiOperation({
     summary: 'Update vendor settings',
     description: 'Update vendor settings (notifications, auto-response, privacy).',

@@ -4,7 +4,7 @@ import { IsDateString, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class
 export class PublishListingDto {
   @ApiPropertyOptional({
     description:
-      'Optional expiry date (ISO 8601). If not provided, defaults based on tenant settings.',
+      'Optional expiry date (ISO 8601). If not provided, defaults based on partner settings.',
     example: '2026-06-01T00:00:00.000Z',
   })
   @IsDateString()

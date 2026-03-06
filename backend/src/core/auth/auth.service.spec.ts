@@ -11,18 +11,18 @@ import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { Role, UserStatus } from '@prisma/client';
 
 import { AuthService } from './auth.service';
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { UserRepository } from '@core/user';
 
 describe('AuthService', () => {
   let service: AuthService;
   let jwtService: jest.Mocked<JwtService>;
-  let _tenantContextService: jest.Mocked<TenantContextService>;
+  let _PartnerContextService: jest.Mocked<PartnerContextService>;
   let userRepository: jest.Mocked<UserRepository>;
 
   const mockUser = {
     id: 'user-123',
-    tenantId: 'tenant-123',
+    partnerId: 'partner-123',
     email: 'test@example.com',
     passwordHash: '$2b$10$testhashedpassword',
     fullName: 'Test User',
@@ -56,9 +56,9 @@ describe('AuthService', () => {
           },
         },
         {
-          provide: TenantContextService,
+          provide: PartnerContextService,
           useValue: {
-            tenantId: 'tenant-123',
+            partnerId: 'partner-123',
           },
         },
         {
@@ -73,7 +73,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     jwtService = module.get(JwtService);
-    _tenantContextService = module.get(TenantContextService);
+    _PartnerContextService = module.get(PartnerContextService);
     userRepository = module.get(UserRepository);
   });
 
@@ -182,7 +182,7 @@ describe('AuthService', () => {
       expect(jwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           sub: mockUser.id,
-          tenantId: 'tenant-123',
+          partnerId: 'partner-123',
           role: mockUser.role,
           tokenType: 'access',
         }),
@@ -193,7 +193,7 @@ describe('AuthService', () => {
       expect(jwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           sub: mockUser.id,
-          tenantId: 'tenant-123',
+          partnerId: 'partner-123',
           role: mockUser.role,
           tokenType: 'refresh',
         }),
@@ -205,7 +205,7 @@ describe('AuthService', () => {
   describe('refresh', () => {
     const validPayload = {
       sub: 'user-123',
-      tenantId: 'tenant-123',
+      partnerId: 'partner-123',
       role: Role.CUSTOMER,
       tokenType: 'refresh',
     };
@@ -239,13 +239,13 @@ describe('AuthService', () => {
       );
     });
 
-    it('should throw ForbiddenException for cross-tenant token', async () => {
+    it('should throw ForbiddenException for cross-partner token', async () => {
       jwtService.verifyAsync.mockResolvedValue({
         ...validPayload,
-        tenantId: 'different-tenant', // Different tenant
+        partnerId: 'different-partner', // Different partner
       });
 
-      await expect(service.refresh({ refreshToken: 'cross-tenant-token' })).rejects.toThrow(
+      await expect(service.refresh({ refreshToken: 'cross-partner-token' })).rejects.toThrow(
         ForbiddenException,
       );
     });

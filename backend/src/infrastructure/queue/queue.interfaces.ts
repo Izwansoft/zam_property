@@ -3,8 +3,8 @@
  * All job payloads should extend this.
  */
 export interface BaseJobData {
-  /** Tenant ID for tenant-scoped jobs */
-  tenantId: string;
+  /** Partner ID for partner-scoped jobs */
+  partnerId: string;
 
   /** Correlation ID for tracing */
   correlationId?: string;
@@ -81,6 +81,22 @@ export interface BillingJobData extends BaseJobData {
   invoiceId?: string;
   amount?: number;
   currency?: string;
+}
+
+/**
+ * Rent billing job payload (property management billing)
+ */
+export interface RentBillingJobData extends BaseJobData {
+  type:
+    | 'rent-billing.generate-batch'
+    | 'rent-billing.generate-single'
+    | 'rent-billing.detect-overdue'
+    | 'rent-billing.apply-late-fees';
+  tenancyId?: string;
+  billingPeriod?: string;
+  billingDay?: number;
+  includeLateFee?: boolean;
+  batchSize?: number;
 }
 
 /**

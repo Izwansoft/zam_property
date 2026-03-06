@@ -111,6 +111,38 @@ Single-tenant assumptions are forbidden.
 
 ---
 
+## 0.6.1 TERMINOLOGY CLARIFICATION (CRITICAL)
+
+To avoid naming confusion, especially with "Tenant":
+
+| Term | Context | Meaning |
+|------|---------|---------|
+| **Tenant** | SaaS | System tenant - the organization using the platform (multi-tenancy) |
+| **Vendor** | Business | Property owner/agent who lists properties |
+| **Occupant** | Property | Renter/lessee who lives in the property |
+
+> ⚠️ **Important:** We use "Occupant" instead of "Tenant" for property renters to avoid confusion with SaaS "Tenant".
+
+### Two Business Models
+
+The platform supports two distinct modes per listing:
+
+| ManagementType | Who Controls | Description |
+|----------------|--------------|-------------|
+| `SELF_MANAGED` | Vendor | Default - marketplace only, vendor handles everything |
+| `PENDING_MANAGEMENT` | Pending | Vendor requested PM service, awaiting admin approval |
+| `TENANT_MANAGED` | System Tenant | System Tenant provides property management service |
+
+**Transitions:**
+- `SELF_MANAGED` → `PENDING_MANAGEMENT` (Vendor requests)
+- `PENDING_MANAGEMENT` → `TENANT_MANAGED` (Admin approves)
+- `PENDING_MANAGEMENT` → `SELF_MANAGED` (Admin rejects / Vendor cancels)
+- `TENANT_MANAGED` → `SELF_MANAGED` (Admin reverts, requires no active tenancies)
+
+When `managementType = TENANT_MANAGED`, Property Management features are unlocked (occupant management, contracts, rent collection, deposits, maintenance).
+
+---
+
 ## 0.7 VERTICAL-AGNOSTIC PRINCIPLE
 
 The platform core must:

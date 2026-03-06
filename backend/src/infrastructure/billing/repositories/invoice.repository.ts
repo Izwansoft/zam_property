@@ -3,7 +3,7 @@ import { PrismaService } from '@infrastructure/database/prisma.service';
 import { Invoice, InvoiceStatus, Prisma } from '@prisma/client';
 
 export interface CreateInvoiceParams {
-  tenantId: string;
+  partnerId: string;
   subscriptionId?: string;
   externalId: string;
   externalProvider: string;
@@ -24,7 +24,7 @@ export class InvoiceRepository {
   async create(params: CreateInvoiceParams): Promise<Invoice> {
     return this.prisma.invoice.create({
       data: {
-        tenantId: params.tenantId,
+        partnerId: params.partnerId,
         subscriptionId: params.subscriptionId,
         externalId: params.externalId,
         externalProvider: params.externalProvider,
@@ -40,9 +40,9 @@ export class InvoiceRepository {
     });
   }
 
-  async findByTenantId(tenantId: string): Promise<Invoice[]> {
+  async findBypartnerId(partnerId: string): Promise<Invoice[]> {
     return this.prisma.invoice.findMany({
-      where: { tenantId },
+      where: { partnerId },
       orderBy: { createdAt: 'desc' },
     });
   }

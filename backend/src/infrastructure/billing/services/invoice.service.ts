@@ -20,11 +20,11 @@ export class InvoiceService {
   async createFromProvider(params: CreateInvoiceParams): Promise<Invoice> {
     const invoice = await this.invoiceRepo.create(params);
 
-    this.logger.log(`Created invoice ${invoice.id} for tenant ${invoice.tenantId}`);
+    this.logger.log(`Created invoice ${invoice.id} for partner ${invoice.partnerId}`);
 
     this.eventEmitter.emit('invoice.created', {
       invoiceId: invoice.id,
-      tenantId: invoice.tenantId,
+      partnerId: invoice.partnerId,
       amount: invoice.amount,
       status: invoice.status,
     });
@@ -33,10 +33,10 @@ export class InvoiceService {
   }
 
   /**
-   * Get all invoices for a tenant
+   * Get all invoices for a partner
    */
-  async findByTenantId(tenantId: string): Promise<Invoice[]> {
-    return this.invoiceRepo.findByTenantId(tenantId);
+  async findBypartnerId(partnerId: string): Promise<Invoice[]> {
+    return this.invoiceRepo.findBypartnerId(partnerId);
   }
 
   /**
@@ -49,7 +49,7 @@ export class InvoiceService {
   /**
    * Sync invoice from billing provider
    */
-  async syncFromProvider(externalId: string, tenantId: string): Promise<Invoice> {
+  async syncFromProvider(externalId: string, partnerId: string): Promise<Invoice> {
     // Get invoice from provider
     const providerInvoice = await this.billingProvider.getInvoice(externalId);
 
@@ -66,7 +66,7 @@ export class InvoiceService {
     } else {
       // Create new
       invoice = await this.createFromProvider({
-        tenantId,
+        partnerId,
         externalId: providerInvoice.id,
         externalProvider: 'stripe',
         customerId: providerInvoice.customerId,

@@ -83,7 +83,7 @@ export class ValidationService {
       schemaVersion: schema.schemaVersion,
       currentStatus: partialContext.currentStatus ?? 'DRAFT',
       targetStatus: partialContext.targetStatus,
-      tenantId: partialContext.tenantId ?? '',
+      partnerId: partialContext.partnerId ?? '',
       vendorId: partialContext.vendorId,
       isNew: partialContext.isNew ?? true,
     };

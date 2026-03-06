@@ -2,13 +2,13 @@ import { BadRequestException, Injectable, Logger, NotFoundException, Scope } fro
 import { createHash } from 'crypto';
 import { FeatureFlagType, Role } from '@prisma/client';
 
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import { CacheService, CacheTTL, ConfigCacheKeys } from '@infrastructure/cache';
 import { PrismaService } from '@infrastructure/database';
 import { EventBusService, FeatureFlagUpdatedEvent } from '@infrastructure/events';
 
 export interface FeatureFlagEvaluationContext {
-  tenantId: string;
+  partnerId: string;
   userId?: string;
   role?: Role;
   verticalType?: string;
@@ -20,7 +20,7 @@ export interface FeatureFlagEvaluationResult {
   reason:
     | 'emergency_override'
     | 'user_target'
-    | 'tenant_override'
+    | 'partner_override'
     | 'vertical_override'
     | 'percentage'
     | 'default'
@@ -51,7 +51,7 @@ type CachedFeatureFlag = {
 type CachedFeatureFlagOverride = {
   id: string;
   featureFlagId: string;
-  tenantId: string | null;
+  partnerId: string | null;
   verticalType: string | null;
   role: Role | null;
   isEmergency: boolean;
@@ -67,13 +67,13 @@ export class FeatureFlagService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
     private readonly cache: CacheService,
     private readonly eventBus: EventBusService,
   ) {}
 
-  private get tenantId(): string {
-    return this.tenantContext.tenantId;
+  private get partnerId(): string {
+    return this.PartnerContext.partnerId;
   }
 
   private stableBucket(subject: string, flagKey: string): number {
@@ -91,7 +91,7 @@ export class FeatureFlagService {
     if (normalized <= 0) return { enabled: false, bucket: 0 };
     if (normalized >= 100) return { enabled: true, bucket: 0 };
 
-    const stableSubject = subject?.trim().length ? subject.trim() : this.tenantId;
+    const stableSubject = subject?.trim().length ? subject.trim() : this.partnerId;
     const bucket = this.stableBucket(stableSubject, flagKey);
     return { enabled: bucket < normalized, bucket };
   }
@@ -126,20 +126,20 @@ export class FeatureFlagService {
   }
 
   private async getOverridesForTenantCached(
-    tenantId: string,
+    partnerId: string,
   ): Promise<CachedFeatureFlagOverride[]> {
     return this.cache.getOrSet<CachedFeatureFlagOverride[]>(
-      ConfigCacheKeys.featureFlagsTenantOverrides(tenantId),
+      ConfigCacheKeys.featureFlagsTenantOverrides(partnerId),
       async () => {
         const overrides = await this.prisma.featureFlagOverride.findMany({
           where: {
-            OR: [{ tenantId }, { tenantId: null }],
+            OR: [{ partnerId }, { partnerId: null }],
           },
         });
         return overrides.map((o) => ({
           id: o.id,
           featureFlagId: o.featureFlagId,
-          tenantId: o.tenantId ?? null,
+          partnerId: o.partnerId ?? null,
           verticalType: o.verticalType ?? null,
           role: o.role ?? null,
           isEmergency: o.isEmergency,
@@ -156,14 +156,14 @@ export class FeatureFlagService {
   private pickBestOverride(
     overrides: CachedFeatureFlagOverride[],
     context: FeatureFlagEvaluationContext,
-    stage: 'emergency' | 'tenant' | 'vertical',
+    stage: 'emergency' | 'partner' | 'vertical',
   ): CachedFeatureFlagOverride | null {
     const matches = overrides.filter((o) => {
       if (stage === 'emergency' && !o.isEmergency) return false;
       if (stage !== 'emergency' && o.isEmergency) return false;
 
-      if (stage === 'tenant' && o.tenantId !== context.tenantId) return false;
-      if (stage === 'vertical' && o.tenantId !== null) return false;
+      if (stage === 'partner' && o.partnerId !== context.partnerId) return false;
+      if (stage === 'vertical' && o.partnerId !== null) return false;
 
       if (o.verticalType && o.verticalType !== context.verticalType) return false;
       if (o.role && o.role !== context.role) return false;
@@ -177,7 +177,7 @@ export class FeatureFlagService {
 
     const score = (o: CachedFeatureFlagOverride): number => {
       let s = 0;
-      if (o.tenantId) s += 100;
+      if (o.partnerId) s += 100;
       if (o.verticalType) s += 10;
       if (o.role) s += 1;
       return s;
@@ -188,10 +188,10 @@ export class FeatureFlagService {
 
   async evaluateFlag(
     flagKey: string,
-    partialContext?: Partial<Omit<FeatureFlagEvaluationContext, 'tenantId'>>,
+    partialContext?: Partial<Omit<FeatureFlagEvaluationContext, 'partnerId'>>,
   ): Promise<FeatureFlagEvaluationResult> {
     const context: FeatureFlagEvaluationContext = {
-      tenantId: this.tenantId,
+      partnerId: this.partnerId,
       userId: partialContext?.userId,
       role: partialContext?.role,
       verticalType: partialContext?.verticalType,
@@ -220,7 +220,7 @@ export class FeatureFlagService {
       }
     }
 
-    const overridesAll = await this.getOverridesForTenantCached(context.tenantId);
+    const overridesAll = await this.getOverridesForTenantCached(context.partnerId);
     const overrides = overridesAll.filter((o) => o.featureFlagId === flag.id);
 
     // 1) Emergency override
@@ -242,7 +242,7 @@ export class FeatureFlagService {
     if (context.userId) {
       const target = await this.prisma.featureFlagUserTarget.findFirst({
         where: {
-          tenantId: context.tenantId,
+          partnerId: context.partnerId,
           userId: context.userId,
           featureFlagId: flag.id,
         },
@@ -254,19 +254,19 @@ export class FeatureFlagService {
       }
     }
 
-    // 3) Tenant override
-    const tenantOverride = this.pickBestOverride(overrides, context, 'tenant');
-    if (tenantOverride) {
-      if (!tenantOverride.value) return { key: flagKey, enabled: false, reason: 'tenant_override' };
-      if (tenantOverride.rolloutPercentage !== null) {
+    // 3) Partner override
+    const partnerOverride = this.pickBestOverride(overrides, context, 'partner');
+    if (partnerOverride) {
+      if (!partnerOverride.value) return { key: flagKey, enabled: false, reason: 'partner_override' };
+      if (partnerOverride.rolloutPercentage !== null) {
         const { enabled, bucket } = this.computeRolloutEnabled(
           flagKey,
-          tenantOverride.rolloutPercentage,
+          partnerOverride.rolloutPercentage,
           context.userId,
         );
-        return { key: flagKey, enabled, reason: 'tenant_override', bucket };
+        return { key: flagKey, enabled, reason: 'partner_override', bucket };
       }
-      return { key: flagKey, enabled: true, reason: 'tenant_override' };
+      return { key: flagKey, enabled: true, reason: 'partner_override' };
     }
 
     // 4) Vertical override (global)
@@ -306,7 +306,7 @@ export class FeatureFlagService {
 
   async isEnabled(
     flagKey: string,
-    partialContext?: Partial<Omit<FeatureFlagEvaluationContext, 'tenantId'>>,
+    partialContext?: Partial<Omit<FeatureFlagEvaluationContext, 'partnerId'>>,
   ): Promise<boolean> {
     const result = await this.evaluateFlag(flagKey, partialContext);
     this.logger.debug({ message: 'Feature flag evaluated', ...result });
@@ -365,15 +365,15 @@ export class FeatureFlagService {
     await this.invalidateFlagCaches();
     await this.eventBus.publish(
       new FeatureFlagUpdatedEvent({
-        tenantId: null,
-        correlationId: this.tenantContext.correlationId,
+        partnerId: null,
+        correlationId: this.PartnerContext.correlationId,
         actorType: 'user',
-        actorId: this.tenantContext.userId,
+        actorId: this.PartnerContext.userId,
         payload: {
           flagKey: created.key,
           previousValue: {},
           newValue: input as unknown as Record<string, unknown>,
-          updatedBy: this.tenantContext.userId ?? 'system',
+          updatedBy: this.PartnerContext.userId ?? 'system',
         },
       }),
     );
@@ -425,10 +425,10 @@ export class FeatureFlagService {
     await this.invalidateFlagCaches();
     await this.eventBus.publish(
       new FeatureFlagUpdatedEvent({
-        tenantId: null,
-        correlationId: this.tenantContext.correlationId,
+        partnerId: null,
+        correlationId: this.PartnerContext.correlationId,
         actorType: 'user',
-        actorId: this.tenantContext.userId,
+        actorId: this.PartnerContext.userId,
         payload: {
           flagKey: key,
           previousValue: {
@@ -444,7 +444,7 @@ export class FeatureFlagService {
             isArchived: existing.isArchived,
           },
           newValue: patch as unknown as Record<string, unknown>,
-          updatedBy: this.tenantContext.userId ?? 'system',
+          updatedBy: this.PartnerContext.userId ?? 'system',
         },
       }),
     );
@@ -455,7 +455,7 @@ export class FeatureFlagService {
   async upsertOverride(
     flagKey: string,
     input: {
-      tenantId?: string | null;
+      partnerId?: string | null;
       verticalType?: string | null;
       role?: Role | null;
       isEmergency?: boolean;
@@ -473,14 +473,14 @@ export class FeatureFlagService {
     }
 
     const isEmergency = input.isEmergency ?? false;
-    const tenantId = input.tenantId ?? null;
+    const partnerId = input.partnerId ?? null;
     const verticalType = input.verticalType ?? null;
     const role = input.role ?? null;
 
     const existing = await this.prisma.featureFlagOverride.findFirst({
       where: {
         featureFlagId: flag.id,
-        tenantId,
+        partnerId,
         verticalType,
         role,
         isEmergency,
@@ -500,7 +500,7 @@ export class FeatureFlagService {
       : await this.prisma.featureFlagOverride.create({
           data: {
             featureFlagId: flag.id,
-            tenantId,
+            partnerId,
             verticalType,
             role,
             isEmergency,
@@ -510,22 +510,22 @@ export class FeatureFlagService {
           select: { id: true },
         });
 
-    await this.invalidateFlagCaches(tenantId ?? undefined);
+    await this.invalidateFlagCaches(partnerId ?? undefined);
     await this.eventBus.publish(
       new FeatureFlagUpdatedEvent({
-        tenantId: tenantId,
-        correlationId: this.tenantContext.correlationId,
+        partnerId: partnerId,
+        correlationId: this.PartnerContext.correlationId,
         actorType: 'user',
-        actorId: this.tenantContext.userId,
+        actorId: this.PartnerContext.userId,
         payload: {
           flagKey,
           previousValue: {},
           newValue: {
-            scope: { tenantId, verticalType, role, isEmergency },
+            scope: { partnerId, verticalType, role, isEmergency },
             value: input.value,
             rolloutPercentage: input.rolloutPercentage ?? null,
           },
-          updatedBy: this.tenantContext.userId ?? 'system',
+          updatedBy: this.PartnerContext.userId ?? 'system',
         },
       }),
     );
@@ -535,22 +535,22 @@ export class FeatureFlagService {
 
   async setUserTarget(
     flagKey: string,
-    input: { tenantId: string; userId: string; value: boolean },
+    input: { partnerId: string; userId: string; value: boolean },
   ): Promise<void> {
     const flag = await this.prisma.featureFlag.findUnique({ where: { key: flagKey } });
     if (!flag) throw new NotFoundException('Feature flag not found');
 
     await this.prisma.featureFlagUserTarget.upsert({
       where: {
-        featureFlagId_tenantId_userId: {
+        featureFlagId_partnerId_userId: {
           featureFlagId: flag.id,
-          tenantId: input.tenantId,
+          partnerId: input.partnerId,
           userId: input.userId,
         },
       },
       create: {
         featureFlagId: flag.id,
-        tenantId: input.tenantId,
+        partnerId: input.partnerId,
         userId: input.userId,
         value: input.value,
       },
@@ -559,17 +559,17 @@ export class FeatureFlagService {
       },
     });
 
-    await this.invalidateFlagCaches(input.tenantId);
+    await this.invalidateFlagCaches(input.partnerId);
   }
 
-  async invalidateFlagCaches(tenantId?: string): Promise<void> {
+  async invalidateFlagCaches(partnerId?: string): Promise<void> {
     await this.cache.del(ConfigCacheKeys.featureFlags());
-    if (tenantId) {
-      await this.cache.del(ConfigCacheKeys.featureFlagsTenantOverrides(tenantId));
+    if (partnerId) {
+      await this.cache.del(ConfigCacheKeys.featureFlagsTenantOverrides(partnerId));
       return;
     }
 
-    // Best-effort: tenant override caches are per-tenant; invalidating them all would require key scanning.
+    // Best-effort: partner override caches are per-partner; invalidating them all would require key scanning.
     // Rely on short TTL for propagation safety.
   }
 }

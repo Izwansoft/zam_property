@@ -21,7 +21,7 @@ export class SubscriptionController {
   ) {}
 
   @Get('current')
-  @ApiOperation({ summary: 'Get current tenant subscription' })
+  @ApiOperation({ summary: 'Get current partner subscription' })
   async getCurrent() {
     const subscription = await this.subscriptionService.getCurrent();
 
@@ -35,7 +35,7 @@ export class SubscriptionController {
 
   @Post('assign')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Assign subscription to current tenant' })
+  @ApiOperation({ summary: 'Assign subscription to current partner' })
   async assign(@Body() dto: AssignSubscriptionDto) {
     const currentPeriodStart = dto.currentPeriodStart
       ? new Date(dto.currentPeriodStart)
@@ -46,7 +46,7 @@ export class SubscriptionController {
       : new Date(new Date().setMonth(new Date().getMonth() + 1));
 
     const subscription = await this.subscriptionService.assign({
-      tenantId: '', // Will be set by TenantContextService
+      partnerId: '', // Will be set by PartnerContextService
       planId: dto.planId,
       currentPeriodStart,
       currentPeriodEnd,
@@ -106,7 +106,7 @@ export class SubscriptionController {
   }
 
   @Get('entitlements')
-  @ApiOperation({ summary: 'Get resolved entitlements for current tenant' })
+  @ApiOperation({ summary: 'Get resolved entitlements for current partner' })
   async getEntitlements() {
     const entitlements = await this.entitlementService.resolve();
 
@@ -119,7 +119,7 @@ export class SubscriptionController {
   }
 
   @Get('usage')
-  @ApiOperation({ summary: 'Get usage summary for current tenant' })
+  @ApiOperation({ summary: 'Get usage summary for current partner' })
   async getUsage() {
     const usage = await this.usageService.getAllCurrent();
 

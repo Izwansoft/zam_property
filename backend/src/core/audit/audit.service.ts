@@ -82,7 +82,7 @@ export class AuditService {
 
     const auditLog = await this.prisma.auditLog.create({
       data: {
-        tenantId: options.tenantId || null,
+        partnerId: options.partnerId || null,
         actorType: options.actorType,
         actorId: options.actorId || null,
         actorEmail: options.actorEmail || null,
@@ -107,7 +107,7 @@ export class AuditService {
    * Log an entity creation.
    */
   async logCreate(
-    tenantId: string | undefined,
+    partnerId: string | undefined,
     actorType: AuditActorType,
     actorId: string | undefined,
     targetType: AuditTargetType | string,
@@ -122,7 +122,7 @@ export class AuditService {
     },
   ): Promise<void> {
     await this.log({
-      tenantId,
+      partnerId,
       actorType,
       actorId,
       actorEmail: context?.actorEmail,
@@ -141,7 +141,7 @@ export class AuditService {
    * Log an entity update.
    */
   async logUpdate(
-    tenantId: string | undefined,
+    partnerId: string | undefined,
     actorType: AuditActorType,
     actorId: string | undefined,
     targetType: AuditTargetType | string,
@@ -165,7 +165,7 @@ export class AuditService {
     }
 
     await this.log({
-      tenantId,
+      partnerId,
       actorType,
       actorId,
       actorEmail: context?.actorEmail,
@@ -185,7 +185,7 @@ export class AuditService {
    * Log an entity deletion.
    */
   async logDelete(
-    tenantId: string | undefined,
+    partnerId: string | undefined,
     actorType: AuditActorType,
     actorId: string | undefined,
     targetType: AuditTargetType | string,
@@ -200,7 +200,7 @@ export class AuditService {
     },
   ): Promise<void> {
     await this.log({
-      tenantId,
+      partnerId,
       actorType,
       actorId,
       actorEmail: context?.actorEmail,
@@ -219,7 +219,7 @@ export class AuditService {
    * Log a status change.
    */
   async logStatusChange(
-    tenantId: string | undefined,
+    partnerId: string | undefined,
     actorType: AuditActorType,
     actorId: string | undefined,
     targetType: AuditTargetType | string,
@@ -235,7 +235,7 @@ export class AuditService {
     },
   ): Promise<void> {
     await this.log({
-      tenantId,
+      partnerId,
       actorType,
       actorId,
       actorEmail: context?.actorEmail,
@@ -256,7 +256,7 @@ export class AuditService {
    */
   async logAuth(
     actionType: AuditActionType,
-    tenantId: string | undefined,
+    partnerId: string | undefined,
     actorId: string | undefined,
     actorEmail: string | undefined,
     success: boolean,
@@ -268,7 +268,7 @@ export class AuditService {
     },
   ): Promise<void> {
     await this.log({
-      tenantId,
+      partnerId,
       actorType: actorId ? AuditActorType.USER : AuditActorType.ANONYMOUS,
       actorId,
       actorEmail,
@@ -294,7 +294,7 @@ export class AuditService {
     adminEmail: string | undefined,
     targetType: AuditTargetType | string,
     targetId: string | undefined,
-    tenantId: string | undefined,
+    partnerId: string | undefined,
     context?: {
       oldValue?: Record<string, unknown>;
       newValue?: Record<string, unknown>;
@@ -305,7 +305,7 @@ export class AuditService {
     },
   ): Promise<void> {
     await this.log({
-      tenantId,
+      partnerId,
       actorType: AuditActorType.ADMIN,
       actorId: adminId,
       actorEmail: adminEmail,
@@ -327,8 +327,8 @@ export class AuditService {
   async findAll(filters: AuditLogFilters, page = 1, pageSize = 20): Promise<PaginatedAuditLogs> {
     const where: Prisma.AuditLogWhereInput = {};
 
-    if (filters.tenantId) {
-      where.tenantId = filters.tenantId;
+    if (filters.partnerId) {
+      where.partnerId = filters.partnerId;
     }
     if (filters.actorId) {
       where.actorId = filters.actorId;
@@ -385,7 +385,7 @@ export class AuditService {
   async findByTarget(
     targetType: string,
     targetId: string,
-    tenantId?: string,
+    partnerId?: string,
     page = 1,
     pageSize = 20,
   ): Promise<PaginatedAuditLogs> {
@@ -393,7 +393,7 @@ export class AuditService {
       {
         targetType,
         targetId,
-        tenantId,
+        partnerId,
       },
       page,
       pageSize,
@@ -405,14 +405,14 @@ export class AuditService {
    */
   async findByActor(
     actorId: string,
-    tenantId?: string,
+    partnerId?: string,
     page = 1,
     pageSize = 20,
   ): Promise<PaginatedAuditLogs> {
     return this.findAll(
       {
         actorId,
-        tenantId,
+        partnerId,
       },
       page,
       pageSize,
@@ -422,10 +422,10 @@ export class AuditService {
   /**
    * Get a single audit log by ID.
    */
-  async findById(id: string, tenantId?: string): Promise<AuditLogEntry | null> {
+  async findById(id: string, partnerId?: string): Promise<AuditLogEntry | null> {
     const where: Prisma.AuditLogWhereInput = { id };
-    if (tenantId) {
-      where.tenantId = tenantId;
+    if (partnerId) {
+      where.partnerId = partnerId;
     }
 
     const log = await this.prisma.auditLog.findFirst({ where });
@@ -435,9 +435,9 @@ export class AuditService {
   /**
    * Get distinct action types (for filtering UI).
    */
-  async getActionTypes(tenantId?: string): Promise<string[]> {
+  async getActionTypes(partnerId?: string): Promise<string[]> {
     const result = await this.prisma.auditLog.findMany({
-      where: tenantId ? { tenantId } : {},
+      where: partnerId ? { partnerId } : {},
       select: { actionType: true },
       distinct: ['actionType'],
       orderBy: { actionType: 'asc' },
@@ -449,9 +449,9 @@ export class AuditService {
   /**
    * Get distinct target types (for filtering UI).
    */
-  async getTargetTypes(tenantId?: string): Promise<string[]> {
+  async getTargetTypes(partnerId?: string): Promise<string[]> {
     const result = await this.prisma.auditLog.findMany({
-      where: tenantId ? { tenantId } : {},
+      where: partnerId ? { partnerId } : {},
       select: { targetType: true },
       distinct: ['targetType'],
       orderBy: { targetType: 'asc' },
@@ -466,14 +466,14 @@ export class AuditService {
 
   @OnEvent('user.created')
   async handleUserCreated(payload: {
-    tenantId: string;
+    partnerId: string;
     userId: string;
     email: string;
     actorId?: string;
     data: Record<string, unknown>;
   }): Promise<void> {
     await this.log({
-      tenantId: payload.tenantId,
+      partnerId: payload.partnerId,
       actorType: payload.actorId ? AuditActorType.USER : AuditActorType.SYSTEM,
       actorId: payload.actorId,
       actionType: AuditActionType.USER_CREATED,
@@ -485,13 +485,13 @@ export class AuditService {
 
   @OnEvent('vendor.approved')
   async handleVendorApproved(payload: {
-    tenantId: string;
+    partnerId: string;
     vendorId: string;
     actorId: string;
     actorEmail?: string;
   }): Promise<void> {
     await this.log({
-      tenantId: payload.tenantId,
+      partnerId: payload.partnerId,
       actorType: AuditActorType.ADMIN,
       actorId: payload.actorId,
       actorEmail: payload.actorEmail,
@@ -503,14 +503,14 @@ export class AuditService {
 
   @OnEvent('vendor.rejected')
   async handleVendorRejected(payload: {
-    tenantId: string;
+    partnerId: string;
     vendorId: string;
     actorId: string;
     actorEmail?: string;
     reason?: string;
   }): Promise<void> {
     await this.log({
-      tenantId: payload.tenantId,
+      partnerId: payload.partnerId,
       actorType: AuditActorType.ADMIN,
       actorId: payload.actorId,
       actorEmail: payload.actorEmail,
@@ -523,13 +523,13 @@ export class AuditService {
 
   @OnEvent('listing.published')
   async handleListingPublished(payload: {
-    tenantId: string;
+    partnerId: string;
     listingId: string;
     vendorId: string;
     actorId?: string;
   }): Promise<void> {
     await this.log({
-      tenantId: payload.tenantId,
+      partnerId: payload.partnerId,
       actorType: payload.actorId ? AuditActorType.USER : AuditActorType.SYSTEM,
       actorId: payload.actorId,
       actionType: AuditActionType.LISTING_PUBLISHED,
@@ -541,13 +541,13 @@ export class AuditService {
 
   @OnEvent('subscription.created')
   async handleSubscriptionCreated(payload: {
-    tenantId: string;
+    partnerId: string;
     subscriptionId: string;
     planId: string;
     actorId?: string;
   }): Promise<void> {
     await this.log({
-      tenantId: payload.tenantId,
+      partnerId: payload.partnerId,
       actorType: payload.actorId ? AuditActorType.USER : AuditActorType.SYSTEM,
       actorId: payload.actorId,
       actionType: AuditActionType.SUBSCRIPTION_CREATED,
@@ -563,7 +563,7 @@ export class AuditService {
   private mapToEntry(log: Prisma.AuditLogGetPayload<Record<string, never>>): AuditLogEntry {
     return {
       id: log.id,
-      tenantId: log.tenantId || undefined,
+      partnerId: log.partnerId || undefined,
       actorType: log.actorType,
       actorId: log.actorId || undefined,
       actorEmail: log.actorEmail || undefined,

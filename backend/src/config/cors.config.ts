@@ -36,9 +36,13 @@ export const corsConfig = registerAs('cors', (): CorsConfig => {
     allowedHeaders: [
       'Content-Type',
       'Authorization',
-      'X-Tenant-ID',
+      'X-Partner-ID',
       'X-Request-ID',
       'X-Api-Version',
+      'X-Client',
+      'X-Access-Token',
+      'X-Portal',
+      'X-Correlation-ID',
     ],
     exposedHeaders: [
       'X-Request-ID',

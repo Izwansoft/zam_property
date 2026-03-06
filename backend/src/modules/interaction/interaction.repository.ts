@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InteractionStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/infrastructure/database/prisma.service';
-import { TenantContextService } from '@core/tenant-context/tenant-context.service';
+import { PartnerContextService } from '@core/partner-context/partner-context.service';
 import {
   InteractionRecord,
   CreateInteractionParams,
@@ -13,18 +13,18 @@ import {
 export class InteractionRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   /**
    * Create a new interaction
    */
   async create(params: CreateInteractionParams): Promise<InteractionRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.interaction.create({
       data: {
-        tenantId,
+        partnerId,
         vendorId: params.vendorId,
         listingId: params.listingId,
         verticalType: params.verticalType,
@@ -42,15 +42,15 @@ export class InteractionRepository {
   }
 
   /**
-   * Find interaction by ID (tenant-scoped)
+   * Find interaction by ID (partner-scoped)
    */
   async findById(id: string): Promise<InteractionRecord | null> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.interaction.findFirst({
       where: {
         id,
-        tenantId,
+        partnerId,
       },
       include: {
         vendor: {
@@ -78,13 +78,13 @@ export class InteractionRepository {
     data: InteractionRecord[];
     total: number;
   }> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
     const page = params.page || 1;
     const pageSize = params.pageSize || 20;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = {
-      tenantId,
+      partnerId,
     };
 
     if (params.vendorId) {
@@ -138,11 +138,11 @@ export class InteractionRepository {
    * Find interactions by vendor
    */
   async findByVendor(vendorId: string): Promise<InteractionRecord[]> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.interaction.findMany({
       where: {
-        tenantId,
+        partnerId,
         vendorId,
       },
       orderBy: {
@@ -155,11 +155,11 @@ export class InteractionRepository {
    * Find interactions by listing
    */
   async findByListing(listingId: string): Promise<InteractionRecord[]> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     return this.prisma.interaction.findMany({
       where: {
-        tenantId,
+        partnerId,
         listingId,
       },
       orderBy: {
@@ -175,7 +175,7 @@ export class InteractionRepository {
     id: string,
     params: UpdateInteractionStatusParams,
   ): Promise<InteractionRecord> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     const updateData: Record<string, unknown> = {
       status: params.status,
@@ -195,7 +195,7 @@ export class InteractionRepository {
     return this.prisma.interaction.update({
       where: {
         id,
-        tenantId,
+        partnerId,
       },
       data: updateData,
     });
@@ -205,10 +205,10 @@ export class InteractionRepository {
    * Count interactions by status
    */
   async countByStatus(vendorId?: string): Promise<Record<string, number>> {
-    const tenantId = this.tenantContext.tenantId;
+    const partnerId = this.PartnerContext.partnerId;
 
     const where: Record<string, unknown> = {
-      tenantId,
+      partnerId,
     };
 
     if (vendorId) {

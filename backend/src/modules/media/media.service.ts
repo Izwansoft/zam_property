@@ -4,7 +4,7 @@ import { extname } from 'path';
 import { Prisma } from '@prisma/client';
 import { S3Service } from '../../infrastructure/storage/s3.service';
 import { MediaRepository } from './media.repository';
-import { TenantContextService } from '@core/tenant-context';
+import { PartnerContextService } from '@core/partner-context';
 import {
   RequestPresignedUrlDto,
   ConfirmUploadDto,
@@ -39,7 +39,7 @@ export class MediaService {
   constructor(
     private readonly s3Service: S3Service,
     private readonly mediaRepository: MediaRepository,
-    private readonly tenantContext: TenantContextService,
+    private readonly PartnerContext: PartnerContextService,
   ) {}
 
   /**
@@ -47,7 +47,7 @@ export class MediaService {
    * Step 1 of upload flow: Client requests URL, backend generates presigned URL and creates pending media record
    */
   async requestPresignedUrl(dto: RequestPresignedUrlDto): Promise<PresignedUploadResponse> {
-    const tenant = this.tenantContext.getContext();
+    const partner = this.PartnerContext.getContext();
 
     // Validate MIME type and size
     const mediaType = this.detectMediaType(dto.mimeType);
@@ -56,7 +56,7 @@ export class MediaService {
 
     // Generate storage key
     const storageKey = this.generateStorageKey(
-      tenant.tenantId,
+      partner.partnerId,
       dto.ownerType,
       dto.ownerId,
       dto.filename,
@@ -217,17 +217,17 @@ export class MediaService {
 
   /**
    * Generate storage key for media
-   * Format: media/{tenantId}/{ownerType}/{ownerId}/{uuid}{ext}
+   * Format: media/{partnerId}/{ownerType}/{ownerId}/{uuid}{ext}
    */
   private generateStorageKey(
-    tenantId: string,
+    partnerId: string,
     ownerType: string,
     ownerId: string,
     filename: string,
   ): string {
     const uuid = randomUUID();
     const ext = extname(filename);
-    return `media/${tenantId}/${ownerType}/${ownerId}/${uuid}${ext}`;
+    return `media/${partnerId}/${ownerType}/${ownerId}/${uuid}${ext}`;
   }
 
   /**

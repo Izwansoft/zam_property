@@ -27,11 +27,11 @@ export enum AuditActionType {
   USER_ROLE_CHANGED = 'user.role_changed',
   USER_STATUS_CHANGED = 'user.status_changed',
 
-  // Tenant Management
-  TENANT_CREATED = 'tenant.created',
-  TENANT_UPDATED = 'tenant.updated',
-  TENANT_STATUS_CHANGED = 'tenant.status_changed',
-  TENANT_SETTINGS_UPDATED = 'tenant.settings_updated',
+  // Partner Management
+  TENANT_CREATED = 'partner.created',
+  TENANT_UPDATED = 'partner.updated',
+  TENANT_STATUS_CHANGED = 'partner.status_changed',
+  TENANT_SETTINGS_UPDATED = 'partner.settings_updated',
 
   // Vendor Management
   VENDOR_CREATED = 'vendor.created',
@@ -98,7 +98,7 @@ export enum AuditActionType {
  */
 export enum AuditTargetType {
   USER = 'user',
-  TENANT = 'tenant',
+  TENANT = 'partner',
   VENDOR = 'vendor',
   LISTING = 'listing',
   MEDIA = 'media',
@@ -143,7 +143,7 @@ export const SENSITIVE_FIELDS = [
  * Options for creating an audit log entry.
  */
 export interface CreateAuditLogOptions {
-  tenantId?: string;
+  partnerId?: string;
   actorType: AuditActorType;
   actorId?: string;
   actorEmail?: string;
@@ -163,7 +163,7 @@ export interface CreateAuditLogOptions {
  */
 export interface AuditLogEntry {
   id: string;
-  tenantId?: string;
+  partnerId?: string;
   actorType: AuditActorType;
   actorId?: string;
   actorEmail?: string;
@@ -183,7 +183,7 @@ export interface AuditLogEntry {
  * Query filters for audit logs.
  */
 export interface AuditLogFilters {
-  tenantId?: string;
+  partnerId?: string;
   actorId?: string;
   actorType?: AuditActorType;
   actionType?: string;

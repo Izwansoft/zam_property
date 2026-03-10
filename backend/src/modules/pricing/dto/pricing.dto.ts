@@ -292,6 +292,33 @@ export class ListPricingConfigsDto {
   pageSize?: number;
 }
 
+export class ListPricingRulesDto {
+  @ApiPropertyOptional()
+  @IsUUID()
+  @IsOptional()
+  pricingConfigId?: string;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  @IsOptional()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsNumber()
+  @Type(() => Number)
+  @Min(1)
+  @IsOptional()
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20 })
+  @IsNumber()
+  @Type(() => Number)
+  @Min(1)
+  @IsOptional()
+  pageSize?: number;
+}
+
 export class ListChargeEventsDto {
   @ApiPropertyOptional({ enum: ChargeType })
   @IsEnum(ChargeType)

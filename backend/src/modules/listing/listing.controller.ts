@@ -10,10 +10,12 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Prisma, Role } from '@prisma/client';
+import { Request } from 'express';
 
 import { JwtAuthGuard } from '@core/auth';
 import { Roles, RolesGuard } from '@core/rbac';
@@ -32,6 +34,14 @@ import {
   FeatureListingDto,
 } from './dto';
 import { ListingService } from './listing.service';
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    sub: string;
+    partnerId: string;
+    role: Role;
+  };
+}
 
 @ApiTags('Listings')
 @ApiBearerAuth()
@@ -164,11 +174,11 @@ export class ListingController {
   // ─────────────────────────────────────────────────────────────────────────
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN, Role.COMPANY_ADMIN, Role.AGENT)
   @ApiOperation({
     summary: 'Create listing',
     description:
-      'Create a new listing. Requires SUPER_ADMIN, PARTNER_ADMIN, or VENDOR_ADMIN role. New listings start in DRAFT status.',
+      'Create a new listing submission. SUPER_ADMIN/PARTNER_ADMIN can create directly. VENDOR_ADMIN, COMPANY_ADMIN, and AGENT can submit to vendors they are assigned to. New listings always start in DRAFT status.',
   })
   @ApiResponse({
     status: 201,
@@ -176,7 +186,10 @@ export class ListingController {
     type: ListingResponseDto,
   })
   @ApiResponse({ status: 409, description: 'Listing already exists' })
-  async createListing(@Body() dto: CreateListingDto): Promise<SuccessResponse<ListingResponseDto>> {
+  async createListing(
+    @Body() dto: CreateListingDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<SuccessResponse<ListingResponseDto>> {
     const listing = await this.listingService.createListing({
       vendorId: dto.vendorId,
       verticalType: dto.verticalType,
@@ -187,6 +200,10 @@ export class ListingController {
       priceType: dto.priceType,
       location: dto.location as Prisma.InputJsonValue | undefined,
       attributes: dto.attributes as Prisma.InputJsonValue | undefined,
+      actor: {
+        userId: req.user.sub,
+        role: req.user.role,
+      },
     });
     return { data: listing };
   }

@@ -1,5 +1,5 @@
 import { Injectable, Scope } from '@nestjs/common';
-import type { Prisma, VendorStatus, VendorType } from '@prisma/client';
+import type { Prisma, VendorStatus, VendorType, UserVendorRole } from '@prisma/client';
 
 import { PrismaService } from '@infrastructure/database';
 import { BasePartnerRepository, PartnerContextService } from '@core/partner-context';
@@ -11,6 +11,7 @@ export interface VendorView {
   slug: string;
   description: string | null;
   vendorType: VendorType;
+  verticalType: string | null;
   email: string | null;
   phone: string | null;
   website: string | null;
@@ -56,6 +57,7 @@ const vendorSelect = {
   slug: true,
   description: true,
   vendorType: true,
+  verticalType: true,
   email: true,
   phone: true,
   website: true,
@@ -132,6 +134,7 @@ export class VendorRepository extends BasePartnerRepository {
     status?: VendorStatus;
     vendorType?: VendorType;
     search?: string;
+    verticalType?: string;
   }): Promise<VendorView[]> {
     const where: Prisma.VendorWhereInput = this.scopeWhere({ deletedAt: null });
 
@@ -141,6 +144,10 @@ export class VendorRepository extends BasePartnerRepository {
 
     if (params.vendorType) {
       where.vendorType = params.vendorType;
+    }
+
+    if (params.verticalType) {
+      where.verticalType = params.verticalType;
     }
 
     if (params.search) {
@@ -163,6 +170,7 @@ export class VendorRepository extends BasePartnerRepository {
     status?: VendorStatus;
     vendorType?: VendorType;
     search?: string;
+    verticalType?: string;
   }): Promise<number> {
     const where: Prisma.VendorWhereInput = this.scopeWhere({ deletedAt: null });
 
@@ -172,6 +180,10 @@ export class VendorRepository extends BasePartnerRepository {
 
     if (params?.vendorType) {
       where.vendorType = params.vendorType;
+    }
+
+    if (params?.verticalType) {
+      where.verticalType = params.verticalType;
     }
 
     if (params?.search) {
@@ -189,6 +201,7 @@ export class VendorRepository extends BasePartnerRepository {
     slug: string;
     description?: string;
     vendorType?: VendorType;
+    verticalType?: string;
     email?: string;
     phone?: string;
     website?: string;
@@ -199,6 +212,7 @@ export class VendorRepository extends BasePartnerRepository {
         slug: data.slug,
         description: data.description,
         vendorType: data.vendorType,
+        verticalType: data.verticalType,
         email: data.email,
         phone: data.phone,
         website: data.website,
@@ -318,6 +332,85 @@ export class VendorRepository extends BasePartnerRepository {
       where: { vendorId },
       create: { vendorId, ...data },
       update: data,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // USER-VENDOR JUNCTION OPERATIONS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  async addUserToVendor(
+    userId: string,
+    vendorId: string,
+    role: UserVendorRole,
+    isPrimary: boolean = false,
+  ) {
+    return this.prisma.userVendor.create({
+      data: { userId, vendorId, role, isPrimary },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        vendor: { select: { id: true, name: true, verticalType: true } },
+      },
+    });
+  }
+
+  async removeUserFromVendor(userId: string, vendorId: string) {
+    return this.prisma.userVendor.delete({
+      where: { userId_vendorId: { userId, vendorId } },
+    });
+  }
+
+  async getUserVendors(userId: string) {
+    return this.prisma.userVendor.findMany({
+      where: { userId },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            verticalType: true,
+            vendorType: true,
+            status: true,
+            updatedAt: true,
+            rejectionReason: true,
+          },
+        },
+      },
+      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async getVendorUsers(vendorId: string) {
+    return this.prisma.userVendor.findMany({
+      where: { vendorId },
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true, phone: true, role: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async updateUserVendorRole(userId: string, vendorId: string, role: UserVendorRole) {
+    return this.prisma.userVendor.update({
+      where: { userId_vendorId: { userId, vendorId } },
+      data: { role },
+    });
+  }
+
+  async setUserPrimaryVendor(userId: string, vendorId: string) {
+    // First, unset all primary flags for this user
+    await this.prisma.userVendor.updateMany({
+      where: { userId, isPrimary: true },
+      data: { isPrimary: false },
+    });
+
+    // Set the specified vendor as primary
+    return this.prisma.userVendor.update({
+      where: { userId_vendorId: { userId, vendorId } },
+      data: { isPrimary: true },
     });
   }
 }

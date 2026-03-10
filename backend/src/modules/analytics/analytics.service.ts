@@ -8,7 +8,6 @@ export type AuthUser = {
   sub: string;
   partnerId: string;
   role: Role;
-  vendorId?: string;
 };
 
 function parseDateOnlyOrThrow(value: string): Date {
@@ -53,30 +52,28 @@ export class AnalyticsService {
       return requestedVendorId;
     }
 
-    // Vendor roles: restrict to their own vendor.
-    const vendorIdFromToken = user.vendorId;
-    if (vendorIdFromToken) {
-      if (requestedVendorId && requestedVendorId !== vendorIdFromToken) {
-        throw new ForbiddenException('Cannot access other vendor analytics');
-      }
-      return vendorIdFromToken;
-    }
-
-    // Fallback: resolve vendorId from DB using authenticated user.
-    const dbUser = await this.prisma.user.findFirst({
-      where: { id: user.sub, partnerId: this.PartnerContext.partnerId, deletedAt: null },
+    // Vendor roles: resolve primary vendor from UserVendor junction table
+    const primaryVendor = await this.prisma.userVendor.findFirst({
+      where: { userId: user.sub, isPrimary: true },
       select: { vendorId: true },
     });
 
-    if (!dbUser?.vendorId) {
+    if (!primaryVendor) {
       throw new ForbiddenException('Vendor context missing for this user');
     }
 
-    if (requestedVendorId && requestedVendorId !== dbUser.vendorId) {
-      throw new ForbiddenException('Cannot access other vendor analytics');
+    if (requestedVendorId && requestedVendorId !== primaryVendor.vendorId) {
+      // Check if user has membership in the requested vendor
+      const membership = await this.prisma.userVendor.findUnique({
+        where: { userId_vendorId: { userId: user.sub, vendorId: requestedVendorId } },
+      });
+      if (!membership) {
+        throw new ForbiddenException('Cannot access other vendor analytics');
+      }
+      return requestedVendorId;
     }
 
-    return dbUser.vendorId;
+    return primaryVendor.vendorId;
   }
 
   private parseRange(startDate?: string, endDate?: string): { start: Date; end: Date } {

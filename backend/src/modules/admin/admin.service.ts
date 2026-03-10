@@ -751,6 +751,58 @@ export class AdminService {
       lastActivityAt: lastActivityAt?.toISOString(),
       createdAt: partner.createdAt.toISOString(),
       updatedAt: partner.updatedAt.toISOString(),
+      ...this.extractBrandingDetails(partner.branding),
+    };
+  }
+
+  /**
+   * Extract branding details (logos, colors, company) from branding JSON
+   */
+  private extractBrandingDetails(branding: unknown): {
+    logos?: { light?: string; dark?: string; icon?: string };
+    colors?: { primary?: string; secondary?: string };
+    company?: {
+      legalName?: string;
+      registrationNumber?: string;
+      taxId?: string;
+      phone?: string;
+      email?: string;
+      website?: string;
+      address?: {
+        street?: string;
+        city?: string;
+        state?: string;
+        postalCode?: string;
+        country?: string;
+      };
+    };
+  } {
+    if (!branding || typeof branding !== 'object') {
+      return {};
+    }
+
+    const b = branding as Record<string, unknown>;
+
+    return {
+      logos: b.logos ? (b.logos as { light?: string; dark?: string; icon?: string }) : undefined,
+      colors: b.colors ? (b.colors as { primary?: string; secondary?: string }) : undefined,
+      company: b.company
+        ? (b.company as {
+            legalName?: string;
+            registrationNumber?: string;
+            taxId?: string;
+            phone?: string;
+            email?: string;
+            website?: string;
+            address?: {
+              street?: string;
+              city?: string;
+              state?: string;
+              postalCode?: string;
+              country?: string;
+            };
+          })
+        : undefined,
     };
   }
 
@@ -861,10 +913,17 @@ export class AdminService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // Check if any partner-level fields need updating
+      const hasBrandingUpdates =
+        dto.logo !== undefined ||
+        dto.logos !== undefined ||
+        dto.colors !== undefined ||
+        dto.company !== undefined;
+
       if (
         dto.name !== undefined ||
         dto.enabledVerticals !== undefined ||
-        dto.logo !== undefined
+        hasBrandingUpdates
       ) {
         const existingTenant = await tx.partner.findUnique({
           where: { id },
@@ -873,14 +932,54 @@ export class AdminService {
 
         const branding = (existingTenant?.branding as Record<string, unknown> | null) ?? {};
 
+        // Build updated branding object
+        let updatedBranding = { ...branding };
+
+        // Legacy logo field (backward compatibility)
+        if (dto.logo !== undefined) {
+          updatedBranding.logoUrl = dto.logo;
+        }
+
+        // New logos structure (light, dark, icon)
+        if (dto.logos !== undefined) {
+          updatedBranding.logos = {
+            ...(branding.logos as Record<string, unknown> | undefined),
+            ...dto.logos,
+          };
+        }
+
+        // Colors (primary, secondary)
+        if (dto.colors !== undefined) {
+          updatedBranding.colors = {
+            ...(branding.colors as Record<string, unknown> | undefined),
+            ...dto.colors,
+          };
+        }
+
+        // Company details
+        if (dto.company !== undefined) {
+          const existingCompany = (branding.company as Record<string, unknown> | undefined) ?? {};
+          updatedBranding.company = {
+            ...existingCompany,
+            ...dto.company,
+            // Merge address if provided
+            ...(dto.company.address
+              ? {
+                  address: {
+                    ...(existingCompany.address as Record<string, unknown> | undefined),
+                    ...dto.company.address,
+                  },
+                }
+              : {}),
+          };
+        }
+
         await tx.partner.update({
           where: { id },
           data: {
             ...(dto.name !== undefined ? { name: dto.name } : {}),
             ...(dto.enabledVerticals !== undefined ? { enabledVerticals: dto.enabledVerticals } : {}),
-            ...(dto.logo !== undefined
-              ? { branding: { ...branding, logoUrl: dto.logo } }
-              : {}),
+            ...(hasBrandingUpdates ? { branding: updatedBranding as Prisma.InputJsonValue } : {}),
           },
         });
       }
@@ -1051,6 +1150,8 @@ export class AdminService {
           price: true,
           currency: true,
           isFeatured: true,
+          managementType: true,
+          attributes: true,
           publishedAt: true,
           expiresAt: true,
           createdAt: true,
@@ -1061,6 +1162,24 @@ export class AdminService {
               name: true,
               slug: true,
             },
+          },
+          media: {
+            where: { isPrimary: true, deletedAt: null },
+            select: { cdnUrl: true, thumbnailUrl: true },
+            take: 1,
+          },
+          agentListings: {
+            where: { removedAt: null },
+            select: {
+              agent: {
+                select: {
+                  id: true,
+                  user: { select: { fullName: true } },
+                  company: { select: { id: true, name: true } },
+                },
+              },
+            },
+            take: 1,
           },
           _count: {
             select: {
@@ -1076,25 +1195,34 @@ export class AdminService {
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
     return {
-      items: items.map((l) => ({
-        id: l.id,
-        partnerId: l.partnerId,
-        vendorId: l.vendorId,
-        vendor: l.vendor,
-        verticalType: l.verticalType,
-        status: l.status as ListingStatus,
-        title: l.title,
-        slug: l.slug,
-        price: l.price,
-        currency: l.currency,
-        isFeatured: l.isFeatured,
-        publishedAt: l.publishedAt,
-        expiresAt: l.expiresAt,
-        interactionsCount: l._count.interactions,
-        reviewsCount: l._count.reviews,
-        createdAt: l.createdAt,
-        updatedAt: l.updatedAt,
-      })),
+      items: items.map((l) => {
+        const primaryMedia = l.media[0];
+        const agentAssignment = l.agentListings[0];
+        return {
+          id: l.id,
+          partnerId: l.partnerId,
+          vendorId: l.vendorId,
+          vendor: l.vendor,
+          verticalType: l.verticalType,
+          status: l.status as ListingStatus,
+          title: l.title,
+          slug: l.slug,
+          price: l.price,
+          currency: l.currency,
+          isFeatured: l.isFeatured,
+          managementType: l.managementType,
+          attributes: l.attributes as Record<string, unknown>,
+          primaryImage: primaryMedia?.cdnUrl ?? primaryMedia?.thumbnailUrl ?? null,
+          agentName: agentAssignment?.agent.user.fullName ?? null,
+          agentCompanyName: agentAssignment?.agent.company?.name ?? null,
+          publishedAt: l.publishedAt,
+          expiresAt: l.expiresAt,
+          interactionsCount: l._count.interactions,
+          reviewsCount: l._count.reviews,
+          createdAt: l.createdAt,
+          updatedAt: l.updatedAt,
+        };
+      }),
       pagination: { page, pageSize, totalItems, totalPages },
     };
   }

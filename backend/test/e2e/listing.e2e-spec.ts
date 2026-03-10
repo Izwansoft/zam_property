@@ -136,10 +136,19 @@ describe('Listing E2E Tests', () => {
         fullName: 'E2E Listing Test User',
         role: Role.VENDOR_ADMIN,
         status: UserStatus.ACTIVE,
-        vendorId: testVendorId,
       },
     });
     _testUserId = user.id;
+
+    // Create UserVendor junction record
+    await prisma.userVendor.create({
+      data: {
+        userId: user.id,
+        vendorId: testVendorId,
+        role: 'OWNER',
+        isPrimary: true,
+      },
+    });
 
     // Login to get access token
     const loginResponse = await request(app.getHttpServer())

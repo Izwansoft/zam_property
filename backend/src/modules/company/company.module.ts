@@ -16,11 +16,7 @@ import { CompanyService } from './company.service';
  * - Partner-scoped company management
  */
 @Module({
-  imports: [
-    DatabaseModule,
-    PartnerContextModule,
-    EventEmitterModule.forRoot(),
-  ],
+  imports: [DatabaseModule, PartnerContextModule, EventEmitterModule.forRoot()],
   controllers: [CompanyController],
   providers: [CompanyService],
   exports: [CompanyService],

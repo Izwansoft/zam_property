@@ -21,6 +21,24 @@ const PROPERTY_IMAGES = [
   'https://images.unsplash.com/photo-1575517111478-7f6afd0973db?w=800&h=600&fit=crop',
 ];
 
+const BRAND_ASSETS = {
+  sunrise: {
+    logo: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=100&fit=crop',
+    logoIcon: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=64&h=64&fit=crop',
+    logoDark: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=100&fit=crop',
+  },
+  elite: {
+    logo: 'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?w=400&h=100&fit=crop',
+    logoIcon: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=64&h=64&fit=crop',
+    logoDark: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=400&h=100&fit=crop',
+  },
+  premier: {
+    logo: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&h=100&fit=crop',
+    logoIcon: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=64&h=64&fit=crop',
+    logoDark: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?w=400&h=100&fit=crop',
+  },
+};
+
 const thumb = (url: string) => url.replace('w=800&h=600', 'w=200&h=150');
 const pickImg = (idx: number) => PROPERTY_IMAGES[idx % PROPERTY_IMAGES.length];
 
@@ -36,7 +54,9 @@ async function main(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════════════════
   const partner = await prisma.partner.upsert({
     where: { slug: 'lamaniaga' },
-    update: {},
+    update: {
+      enabledVerticals: ['real_estate'],
+    },
     create: {
       name: 'Laman Niaga',
       slug: 'lamaniaga',
@@ -106,6 +126,36 @@ async function main(): Promise<void> {
     select: { id: true, email: true, role: true },
   });
   console.log(`✅ Super Admin: ${superAdmin.email}`);
+
+  const platformTeamUsers = [
+    { email: 'ops.lead@lamaniaga.local', fullName: 'Nadia Platform Ops', phone: '+60101112221' },
+    { email: 'finance.admin@lamaniaga.local', fullName: 'Hakim Finance Admin', phone: '+60101112222' },
+    { email: 'security.admin@lamaniaga.local', fullName: 'Aisyah Security Admin', phone: '+60101112223' },
+  ];
+
+  for (const member of platformTeamUsers) {
+    await prisma.user.upsert({
+      where: { partnerId_email: { partnerId: partner.id, email: member.email } },
+      update: {
+        fullName: member.fullName,
+        phone: member.phone,
+        role: 'SUPER_ADMIN',
+        status: 'ACTIVE',
+        isSystem: true,
+      },
+      create: {
+        partnerId: partner.id,
+        email: member.email,
+        passwordHash,
+        fullName: member.fullName,
+        phone: member.phone,
+        role: 'SUPER_ADMIN',
+        status: 'ACTIVE',
+        isSystem: true,
+      },
+    });
+  }
+  console.log(`✅ Platform Team Users: ${platformTeamUsers.length}`);
 
   const customer = await prisma.user.upsert({
     where: { partnerId_email: { partnerId: partner.id, email: 'customer@lamaniaga.local' } },
@@ -215,7 +265,7 @@ async function main(): Promise<void> {
             city: vd.city,
             state: vd.state,
             country: 'MY',
-            logoUrl: `https://i.pravatar.cc/80?u=${vd.slug}`,
+            logoUrl: `https://images.unsplash.com/photo-1552664730-d307ca884978?w=80&h=80&fit=crop&sig=${vendorDefs.indexOf(vd) + 1}`,
             bannerUrl: pickImg(vendorDefs.indexOf(vd)),
             socialLinks: { website: vd.website, facebook: 'https://facebook.com', instagram: 'https://instagram.com' },
           },
@@ -230,10 +280,17 @@ async function main(): Promise<void> {
     vendorRecords[vd.slug] = vendor;
 
     // Vendor admin user
-    await prisma.user.upsert({
+    const vendorAdmin = await prisma.user.upsert({
       where: { partnerId_email: { partnerId: partner.id, email: `admin+${vd.slug}@lamaniaga.local` } },
-      update: { fullName: `${vd.name} Admin`, role: 'VENDOR_ADMIN', status: 'ACTIVE', vendorId: vendor.id, phone: vd.phone, deletedAt: null },
-      create: { partnerId: partner.id, email: `admin+${vd.slug}@lamaniaga.local`, passwordHash, fullName: `${vd.name} Admin`, phone: vd.phone, role: 'VENDOR_ADMIN', status: 'ACTIVE', vendorId: vendor.id },
+      update: { fullName: `${vd.name} Admin`, role: 'VENDOR_ADMIN', status: 'ACTIVE', phone: vd.phone, deletedAt: null },
+      create: { partnerId: partner.id, email: `admin+${vd.slug}@lamaniaga.local`, passwordHash, fullName: `${vd.name} Admin`, phone: vd.phone, role: 'VENDOR_ADMIN', status: 'ACTIVE' },
+    });
+
+    // Create UserVendor junction record
+    await prisma.userVendor.upsert({
+      where: { userId_vendorId: { userId: vendorAdmin.id, vendorId: vendor.id } },
+      update: { role: 'OWNER', isPrimary: true },
+      create: { userId: vendorAdmin.id, vendorId: vendor.id, role: 'OWNER', isPrimary: true },
     });
 
     console.log(`✅ Vendor: ${vendor.name} (${vendor.slug})`);
@@ -1138,25 +1195,40 @@ Partner: _____________________   Date: ___________
 
   const vendorStaff1 = await prisma.user.upsert({
     where: { partnerId_email: { partnerId: partner.id, email: 'siti.pm@lamaniaga.local' } },
-    update: { fullName: 'Siti Property Manager', role: 'VENDOR_STAFF', status: 'ACTIVE', vendorId: sunriseVendor.id },
-    create: { partnerId: partner.id, email: 'siti.pm@lamaniaga.local', passwordHash, fullName: 'Siti Property Manager', phone: '+60123450001', role: 'VENDOR_STAFF', status: 'ACTIVE', vendorId: sunriseVendor.id },
+    update: { fullName: 'Siti Property Manager', role: 'VENDOR_STAFF', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'siti.pm@lamaniaga.local', passwordHash, fullName: 'Siti Property Manager', phone: '+60123450001', role: 'VENDOR_STAFF', status: 'ACTIVE' },
     select: { id: true, email: true, role: true },
+  });
+  await prisma.userVendor.upsert({
+    where: { userId_vendorId: { userId: vendorStaff1.id, vendorId: sunriseVendor.id } },
+    update: { role: 'MEMBER', isPrimary: true },
+    create: { userId: vendorStaff1.id, vendorId: sunriseVendor.id, role: 'MEMBER', isPrimary: true },
   });
   console.log(`✅ Vendor Staff: ${vendorStaff1.email}`);
 
   const vendorStaff2 = await prisma.user.upsert({
     where: { partnerId_email: { partnerId: partner.id, email: 'ahmad.maint@lamaniaga.local' } },
-    update: { fullName: 'Ahmad Maintenance', role: 'VENDOR_STAFF', status: 'ACTIVE', vendorId: sunriseVendor.id },
-    create: { partnerId: partner.id, email: 'ahmad.maint@lamaniaga.local', passwordHash, fullName: 'Ahmad Maintenance', phone: '+60123450002', role: 'VENDOR_STAFF', status: 'ACTIVE', vendorId: sunriseVendor.id },
+    update: { fullName: 'Ahmad Maintenance', role: 'VENDOR_STAFF', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'ahmad.maint@lamaniaga.local', passwordHash, fullName: 'Ahmad Maintenance', phone: '+60123450002', role: 'VENDOR_STAFF', status: 'ACTIVE' },
     select: { id: true, email: true, role: true },
+  });
+  await prisma.userVendor.upsert({
+    where: { userId_vendorId: { userId: vendorStaff2.id, vendorId: sunriseVendor.id } },
+    update: { role: 'MEMBER', isPrimary: true },
+    create: { userId: vendorStaff2.id, vendorId: sunriseVendor.id, role: 'MEMBER', isPrimary: true },
   });
   console.log(`✅ Vendor Staff: ${vendorStaff2.email}`);
 
   const vendorStaff3 = await prisma.user.upsert({
     where: { partnerId_email: { partnerId: partner.id, email: 'lisa.leasing@lamaniaga.local' } },
-    update: { fullName: 'Lisa Leasing', role: 'VENDOR_STAFF', status: 'ACTIVE', vendorId: sunriseVendor.id },
-    create: { partnerId: partner.id, email: 'lisa.leasing@lamaniaga.local', passwordHash, fullName: 'Lisa Leasing', phone: '+60123450003', role: 'VENDOR_STAFF', status: 'ACTIVE', vendorId: sunriseVendor.id },
+    update: { fullName: 'Lisa Leasing', role: 'VENDOR_STAFF', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'lisa.leasing@lamaniaga.local', passwordHash, fullName: 'Lisa Leasing', phone: '+60123450003', role: 'VENDOR_STAFF', status: 'ACTIVE' },
     select: { id: true, email: true, role: true },
+  });
+  await prisma.userVendor.upsert({
+    where: { userId_vendorId: { userId: vendorStaff3.id, vendorId: sunriseVendor.id } },
+    update: { role: 'MEMBER', isPrimary: true },
+    create: { userId: vendorStaff3.id, vendorId: sunriseVendor.id, role: 'MEMBER', isPrimary: true },
   });
   console.log(`✅ Vendor Staff: ${vendorStaff3.email}`);
 
@@ -1233,19 +1305,1056 @@ Partner: _____________________   Date: ___________
   console.log(`✅ Independent Agent: ${independentAgentUser.email} (no company)`);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANIES (AGENCY) - Property management companies with RBAC
+  // ═══════════════════════════════════════════════════════════════════════════
+  const companyDefs = [
+    {
+      name: 'Sunrise Realty Agency',
+      registrationNo: 'SSM-2020-001234',
+      type: 'AGENCY' as const,
+      email: 'contact@sunriserealty.local',
+      phone: '+60312345001',
+      address: '12 Jalan Sunrise, Bangsar, 59100 Kuala Lumpur',
+      status: 'ACTIVE' as const,
+    },
+    {
+      name: 'Elite Property Group',
+      registrationNo: 'SSM-2019-005678',
+      type: 'AGENCY' as const,
+      email: 'info@eliteproperty.local',
+      phone: '+60312345002',
+      address: '88 Persiaran KLCC, 50450 Kuala Lumpur',
+      status: 'ACTIVE' as const,
+    },
+    {
+      name: 'Premier Real Estate',
+      registrationNo: 'SSM-2021-009012',
+      type: 'AGENCY' as const,
+      email: 'hello@premierrealestate.local',
+      phone: '+60312345003',
+      address: '5 Jalan Ampang, 50450 Kuala Lumpur',
+      status: 'PENDING' as const,
+    },
+  ];
+
+  const companyRecords: Record<string, { id: string }> = {};
+  for (const cd of companyDefs) {
+    const company = await prisma.company.upsert({
+      where: { partnerId_registrationNo: { partnerId: partner.id, registrationNo: cd.registrationNo } },
+      update: { name: cd.name, status: cd.status },
+      create: {
+        partnerId: partner.id,
+        name: cd.name,
+        registrationNo: cd.registrationNo,
+        type: cd.type,
+        email: cd.email,
+        phone: cd.phone,
+        address: cd.address,
+        status: cd.status,
+        verifiedAt: cd.status === 'ACTIVE' ? new Date() : null,
+      },
+      select: { id: true },
+    });
+    companyRecords[cd.name] = company;
+  }
+  console.log(`✅ ${companyDefs.length} Companies (Agencies) seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANY ADMINS & USERS
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Company Admin for Sunrise Realty (OWNER)
+  const companyAdmin1User = await prisma.user.upsert({
+    where: { partnerId_email: { partnerId: partner.id, email: 'owner@sunriserealty.local' } },
+    update: { fullName: 'David Tan', role: 'COMPANY_ADMIN', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'owner@sunriserealty.local', passwordHash, fullName: 'David Tan', phone: '+60123456101', role: 'COMPANY_ADMIN', status: 'ACTIVE' },
+    select: { id: true, email: true },
+  });
+
+  const companyAdmin1 = await prisma.companyAdmin.upsert({
+    where: { companyId_userId: { companyId: companyRecords['Sunrise Realty Agency'].id, userId: companyAdmin1User.id } },
+    update: { role: 'ADMIN', isOwner: true },
+    create: { companyId: companyRecords['Sunrise Realty Agency'].id, userId: companyAdmin1User.id, role: 'ADMIN', isOwner: true },
+    select: { id: true },
+  });
+
+  // PIC (Person in Charge) for Sunrise Realty
+  const companyPic1User = await prisma.user.upsert({
+    where: { partnerId_email: { partnerId: partner.id, email: 'pic@sunriserealty.local' } },
+    update: { fullName: 'Sarah Lee', role: 'COMPANY_ADMIN', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'pic@sunriserealty.local', passwordHash, fullName: 'Sarah Lee', phone: '+60123456102', role: 'COMPANY_ADMIN', status: 'ACTIVE' },
+    select: { id: true, email: true },
+  });
+
+  await prisma.companyAdmin.upsert({
+    where: { companyId_userId: { companyId: companyRecords['Sunrise Realty Agency'].id, userId: companyPic1User.id } },
+    update: { role: 'PIC', isOwner: false },
+    create: { companyId: companyRecords['Sunrise Realty Agency'].id, userId: companyPic1User.id, role: 'PIC', isOwner: false },
+    select: { id: true },
+  });
+
+  // Company Admin for Elite Property Group (OWNER)
+  const companyAdmin2User = await prisma.user.upsert({
+    where: { partnerId_email: { partnerId: partner.id, email: 'owner@eliteproperty.local' } },
+    update: { fullName: 'Michael Wong', role: 'COMPANY_ADMIN', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'owner@eliteproperty.local', passwordHash, fullName: 'Michael Wong', phone: '+60123456201', role: 'COMPANY_ADMIN', status: 'ACTIVE' },
+    select: { id: true, email: true },
+  });
+
+  const companyAdmin2 = await prisma.companyAdmin.upsert({
+    where: { companyId_userId: { companyId: companyRecords['Elite Property Group'].id, userId: companyAdmin2User.id } },
+    update: { role: 'ADMIN', isOwner: true },
+    create: { companyId: companyRecords['Elite Property Group'].id, userId: companyAdmin2User.id, role: 'ADMIN', isOwner: true },
+    select: { id: true },
+  });
+
+  console.log(`✅ 3 Company Admins seeded (2 owners, 1 PIC)`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANY PROFILES
+  // ═══════════════════════════════════════════════════════════════════════════
+  await prisma.companyProfile.upsert({
+    where: { companyId: companyRecords['Sunrise Realty Agency'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Sunrise Realty Agency'].id,
+      bio: 'Sunrise Realty Agency has been serving the Kuala Lumpur property market since 2010. We specialize in residential sales and rentals, offering personalized service to both buyers and sellers.',
+      website: 'https://sunriserealty.local',
+      established: 2010,
+      teamSize: 25,
+      specialties: ['Residential', 'Condominiums', 'Landed Properties'],
+      serviceAreas: ['Kuala Lumpur', 'Petaling Jaya', 'Bangsar', 'Mont Kiara'],
+      facebookUrl: 'https://facebook.com/sunriserealty',
+      instagramUrl: 'https://instagram.com/sunriserealty',
+      linkedinUrl: 'https://linkedin.com/company/sunriserealty',
+    },
+  });
+
+  await prisma.companyProfile.upsert({
+    where: { companyId: companyRecords['Elite Property Group'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Elite Property Group'].id,
+      bio: 'Elite Property Group is a premium real estate agency focused on high-end properties and luxury condominiums in the heart of Kuala Lumpur.',
+      website: 'https://eliteproperty.local',
+      established: 2015,
+      teamSize: 40,
+      specialties: ['Luxury Condos', 'Commercial', 'Investment Properties'],
+      serviceAreas: ['KLCC', 'Bukit Bintang', 'Damansara Heights', 'Kuala Lumpur'],
+      facebookUrl: 'https://facebook.com/elitepropertygroup',
+      instagramUrl: 'https://instagram.com/elitepropertygroup',
+      youtubeUrl: 'https://youtube.com/@elitepropertygroup',
+    },
+  });
+
+  await prisma.companyProfile.upsert({
+    where: { companyId: companyRecords['Premier Real Estate'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Premier Real Estate'].id,
+      bio: 'Premier Real Estate is a newly established agency with ambitious plans to serve the Greater KL area.',
+      website: 'https://premierrealestate.local',
+      established: 2024,
+      teamSize: 8,
+      specialties: ['Residential', 'New Developments'],
+      serviceAreas: ['Ampang', 'Cheras', 'Kuala Lumpur'],
+    },
+  });
+  console.log(`✅ 3 Company Profiles seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANY BRANDING
+  // ═══════════════════════════════════════════════════════════════════════════
+  await prisma.companyBranding.upsert({
+    where: { companyId: companyRecords['Sunrise Realty Agency'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Sunrise Realty Agency'].id,
+      logo: BRAND_ASSETS.sunrise.logo,
+      logoIcon: BRAND_ASSETS.sunrise.logoIcon,
+      logoDark: BRAND_ASSETS.sunrise.logoDark,
+      primaryColor: '#FF6B35',
+    },
+  });
+
+  await prisma.companyBranding.upsert({
+    where: { companyId: companyRecords['Elite Property Group'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Elite Property Group'].id,
+      logo: BRAND_ASSETS.elite.logo,
+      logoIcon: BRAND_ASSETS.elite.logoIcon,
+      logoDark: BRAND_ASSETS.elite.logoDark,
+      primaryColor: '#1E3A5F',
+    },
+  });
+
+  await prisma.companyBranding.upsert({
+    where: { companyId: companyRecords['Premier Real Estate'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Premier Real Estate'].id,
+      logo: BRAND_ASSETS.premier.logo,
+      logoIcon: BRAND_ASSETS.premier.logoIcon,
+      logoDark: BRAND_ASSETS.premier.logoDark,
+      primaryColor: '#2ECC71',
+    },
+  });
+  console.log(`✅ 3 Company Brandings seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANY SETTINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+  await prisma.companySettings.upsert({
+    where: { companyId: companyRecords['Sunrise Realty Agency'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Sunrise Realty Agency'].id,
+      defaultCommissionRate: new Prisma.Decimal(3.0),
+      commissionSplit: new Prisma.Decimal(70.0),
+      notificationEmail: 'billing@sunriserealty.local',
+      enableEmailAlerts: true,
+      enableSmsAlerts: true,
+      bankName: 'Maybank',
+      bankAccount: '5123456789012',
+      bankAccountName: 'Sunrise Realty Agency Sdn Bhd',
+      bankSwiftCode: 'MABORNY2XXX',
+    },
+  });
+
+  await prisma.companySettings.upsert({
+    where: { companyId: companyRecords['Elite Property Group'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Elite Property Group'].id,
+      defaultCommissionRate: new Prisma.Decimal(2.5),
+      commissionSplit: new Prisma.Decimal(65.0),
+      notificationEmail: 'finance@eliteproperty.local',
+      enableEmailAlerts: true,
+      enableSmsAlerts: false,
+      bankName: 'CIMB Bank',
+      bankAccount: '8012345678901',
+      bankAccountName: 'Elite Property Group Sdn Bhd',
+      bankSwiftCode: 'CIABORNY2XXX',
+    },
+  });
+
+  await prisma.companySettings.upsert({
+    where: { companyId: companyRecords['Premier Real Estate'].id },
+    update: {},
+    create: {
+      companyId: companyRecords['Premier Real Estate'].id,
+      defaultCommissionRate: new Prisma.Decimal(3.0),
+      commissionSplit: new Prisma.Decimal(75.0),
+      notificationEmail: 'admin@premierrealestate.local',
+      enableEmailAlerts: true,
+      enableSmsAlerts: false,
+    },
+  });
+  console.log(`✅ 3 Company Settings seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANY DOCUMENTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const oneYearFromNow = new Date();
+  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+  const companyDocDefs = [
+    // Sunrise Realty - fully verified
+    { companyName: 'Sunrise Realty Agency', type: 'SSM_CERTIFICATE' as const, fileName: 'ssm-certificate-sunrise.pdf', verified: true, expiresAt: null },
+    { companyName: 'Sunrise Realty Agency', type: 'BOVAEA_LICENSE' as const, fileName: 'bovaea-license-sunrise.pdf', verified: true, expiresAt: oneYearFromNow },
+    { companyName: 'Sunrise Realty Agency', type: 'INSURANCE_CERTIFICATE' as const, fileName: 'insurance-sunrise.pdf', verified: true, expiresAt: oneYearFromNow },
+    // Elite Property - partially verified
+    { companyName: 'Elite Property Group', type: 'SSM_CERTIFICATE' as const, fileName: 'ssm-certificate-elite.pdf', verified: true, expiresAt: null },
+    { companyName: 'Elite Property Group', type: 'BOVAEA_LICENSE' as const, fileName: 'bovaea-license-elite.pdf', verified: false, expiresAt: oneYearFromNow },
+    // Premier Real Estate - pending verification
+    { companyName: 'Premier Real Estate', type: 'SSM_CERTIFICATE' as const, fileName: 'ssm-certificate-premier.pdf', verified: false, expiresAt: null },
+  ];
+
+  for (const doc of companyDocDefs) {
+    // Check if document already exists for this company & type
+    const existing = await prisma.companyDocument.findFirst({
+      where: { companyId: companyRecords[doc.companyName].id, type: doc.type },
+    });
+    if (!existing) {
+      await prisma.companyDocument.create({
+        data: {
+          companyId: companyRecords[doc.companyName].id,
+          type: doc.type,
+          fileName: doc.fileName,
+          fileUrl: `https://storage.local/documents/${doc.fileName}`,
+          fileSize: 1024 * (100 + Math.floor(Math.random() * 400)), // 100-500KB
+          mimeType: 'application/pdf',
+          verified: doc.verified,
+          verifiedAt: doc.verified ? new Date() : null,
+          verifiedBy: doc.verified ? superAdmin.id : null,
+          expiresAt: doc.expiresAt,
+        },
+      });
+    }
+  }
+  console.log(`✅ ${companyDocDefs.length} Company Documents seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPANY CUSTOM ROLES (RBAC)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const customRoleDefs = [
+    {
+      companyName: 'Sunrise Realty Agency',
+      roles: [
+        { name: 'Senior Agent', description: 'Experienced agent with listing management', permissions: ['agents.view', 'listings.view', 'listings.create', 'listings.edit', 'leads.view', 'leads.assign'], isDefault: true },
+        { name: 'Junior Agent', description: 'New agent with limited access', permissions: ['listings.view', 'leads.view'], isDefault: true },
+        { name: 'Team Leader', description: 'Team lead with agent management', permissions: ['agents.view', 'agents.create', 'agents.edit', 'listings.view', 'listings.create', 'listings.edit', 'listings.delete', 'leads.view', 'leads.assign', 'reports.view'], isDefault: false },
+      ],
+    },
+    {
+      companyName: 'Elite Property Group',
+      roles: [
+        { name: 'Agent', description: 'Standard agent role', permissions: ['listings.view', 'listings.create', 'leads.view'], isDefault: true },
+        { name: 'Manager', description: 'Branch manager with full access', permissions: ['agents.view', 'agents.create', 'agents.edit', 'agents.delete', 'listings.view', 'listings.create', 'listings.edit', 'listings.delete', 'leads.view', 'leads.assign', 'leads.delete', 'reports.view', 'settings.view'], isDefault: false },
+      ],
+    },
+  ];
+
+  const customRoleRecords: Record<string, { id: string }> = {};
+  for (const cr of customRoleDefs) {
+    for (const role of cr.roles) {
+      const customRole = await prisma.companyCustomRole.upsert({
+        where: { companyId_name: { companyId: companyRecords[cr.companyName].id, name: role.name } },
+        update: { permissions: role.permissions },
+        create: {
+          companyId: companyRecords[cr.companyName].id,
+          name: role.name,
+          description: role.description,
+          permissions: role.permissions,
+          isDefault: role.isDefault,
+        },
+        select: { id: true },
+      });
+      customRoleRecords[`${cr.companyName}:${role.name}`] = customRole;
+    }
+  }
+  console.log(`✅ 5 Company Custom Roles seeded (3 for Sunrise, 2 for Elite)`);
+
+  // Assign custom roles to company admins
+  await prisma.companyAdminCustomRole.upsert({
+    where: { companyAdminId_customRoleId: { companyAdminId: companyAdmin1.id, customRoleId: customRoleRecords['Sunrise Realty Agency:Team Leader'].id } },
+    update: {},
+    create: { companyAdminId: companyAdmin1.id, customRoleId: customRoleRecords['Sunrise Realty Agency:Team Leader'].id },
+  });
+
+  await prisma.companyAdminCustomRole.upsert({
+    where: { companyAdminId_customRoleId: { companyAdminId: companyAdmin2.id, customRoleId: customRoleRecords['Elite Property Group:Manager'].id } },
+    update: {},
+    create: { companyAdminId: companyAdmin2.id, customRoleId: customRoleRecords['Elite Property Group:Manager'].id },
+  });
+  console.log(`✅ 2 Company Admin Custom Role assignments`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AGENTS LINKED TO COMPANIES
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Agent 1 - Sunrise Realty (Senior)
+  const agent1User = await prisma.user.upsert({
+    where: { partnerId_email: { partnerId: partner.id, email: 'alan.agent@sunriserealty.local' } },
+    update: { fullName: 'Alan Chong', role: 'AGENT', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'alan.agent@sunriserealty.local', passwordHash, fullName: 'Alan Chong', phone: '+60123456111', role: 'AGENT', status: 'ACTIVE' },
+    select: { id: true },
+  });
+
+  await prisma.agent.upsert({
+    where: { referralCode: 'ALAN-SR01' },
+    update: { status: 'ACTIVE' },
+    create: {
+      companyId: companyRecords['Sunrise Realty Agency'].id,
+      userId: agent1User.id,
+      renNumber: 'REN 12345',
+      renExpiry: new Date('2027-06-30'),
+      referralCode: 'ALAN-SR01',
+      totalListings: 45,
+      totalDeals: 18,
+      totalRevenue: new Prisma.Decimal(125000),
+      status: 'ACTIVE',
+    },
+  });
+
+  // Agent 2 - Sunrise Realty (Junior)
+  const agent2User = await prisma.user.upsert({
+    where: { partnerId_email: { partnerId: partner.id, email: 'bella.agent@sunriserealty.local' } },
+    update: { fullName: 'Bella Lim', role: 'AGENT', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'bella.agent@sunriserealty.local', passwordHash, fullName: 'Bella Lim', phone: '+60123456112', role: 'AGENT', status: 'ACTIVE' },
+    select: { id: true },
+  });
+
+  await prisma.agent.upsert({
+    where: { referralCode: 'BELLA-SR02' },
+    update: { status: 'ACTIVE' },
+    create: {
+      companyId: companyRecords['Sunrise Realty Agency'].id,
+      userId: agent2User.id,
+      renNumber: 'REN 23456',
+      renExpiry: new Date('2026-12-31'),
+      referralCode: 'BELLA-SR02',
+      totalListings: 12,
+      totalDeals: 3,
+      totalRevenue: new Prisma.Decimal(28000),
+      status: 'ACTIVE',
+    },
+  });
+
+  // Agent 3 - Elite Property Group
+  const agent3User = await prisma.user.upsert({
+    where: { partnerId_email: { partnerId: partner.id, email: 'charlie.agent@eliteproperty.local' } },
+    update: { fullName: 'Charlie Ng', role: 'AGENT', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'charlie.agent@eliteproperty.local', passwordHash, fullName: 'Charlie Ng', phone: '+60123456211', role: 'AGENT', status: 'ACTIVE' },
+    select: { id: true },
+  });
+
+  await prisma.agent.upsert({
+    where: { referralCode: 'CHARLIE-EP01' },
+    update: { status: 'ACTIVE' },
+    create: {
+      companyId: companyRecords['Elite Property Group'].id,
+      userId: agent3User.id,
+      renNumber: 'REN 34567',
+      renExpiry: new Date('2028-03-31'),
+      referralCode: 'CHARLIE-EP01',
+      totalListings: 78,
+      totalDeals: 32,
+      totalRevenue: new Prisma.Decimal(450000),
+      status: 'ACTIVE',
+    },
+  });
+
+  // Agent 4 - Elite Property Group (inactive)
+  const agent4User = await prisma.user.upsert({
+    where: { partnerId_email: { partnerId: partner.id, email: 'diana.agent@eliteproperty.local' } },
+    update: { fullName: 'Diana Yap', role: 'AGENT', status: 'ACTIVE' },
+    create: { partnerId: partner.id, email: 'diana.agent@eliteproperty.local', passwordHash, fullName: 'Diana Yap', phone: '+60123456212', role: 'AGENT', status: 'ACTIVE' },
+    select: { id: true },
+  });
+
+  await prisma.agent.upsert({
+    where: { referralCode: 'DIANA-EP02' },
+    update: { status: 'INACTIVE' },
+    create: {
+      companyId: companyRecords['Elite Property Group'].id,
+      userId: agent4User.id,
+      renNumber: 'REN 45678',
+      renExpiry: new Date('2025-09-30'),
+      referralCode: 'DIANA-EP02',
+      totalListings: 22,
+      totalDeals: 8,
+      totalRevenue: new Prisma.Decimal(95000),
+      status: 'INACTIVE',
+    },
+  });
+
+  console.log(`✅ 4 Agents seeded (2 at Sunrise Realty, 2 at Elite Property)`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 10. PLANS & SUBSCRIPTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const planDefs = [
+    {
+      slug: 'starter',
+      name: 'Starter',
+      description: 'For small agencies getting started',
+      priceMonthly: new Prisma.Decimal(99),
+      priceYearly: new Prisma.Decimal(990),
+      entitlements: { maxListings: 50, maxVendors: 5, maxInteractions: 200, features: ['basic_analytics', 'email_support'] },
+      isActive: true,
+      isPublic: true,
+    },
+    {
+      slug: 'professional',
+      name: 'Professional',
+      description: 'For growing agencies with moderate volume',
+      priceMonthly: new Prisma.Decimal(299),
+      priceYearly: new Prisma.Decimal(2990),
+      entitlements: { maxListings: 500, maxVendors: 25, maxInteractions: 2000, features: ['basic_analytics', 'advanced_analytics', 'priority_support', 'featured_listings', 'bulk_upload'] },
+      isActive: true,
+      isPublic: true,
+    },
+    {
+      slug: 'enterprise',
+      name: 'Enterprise',
+      description: 'For large agencies and property groups — unlimited everything',
+      priceMonthly: new Prisma.Decimal(799),
+      priceYearly: new Prisma.Decimal(7990),
+      entitlements: { maxListings: -1, maxVendors: -1, maxInteractions: -1, features: ['basic_analytics', 'advanced_analytics', 'priority_support', 'featured_listings', 'bulk_upload', 'api_access', 'white_label', 'dedicated_account_manager'] },
+      isActive: true,
+      isPublic: true,
+    },
+    {
+      slug: 'free-trial',
+      name: 'Free Trial',
+      description: '14-day free trial with limited features',
+      priceMonthly: new Prisma.Decimal(0),
+      priceYearly: null,
+      entitlements: { maxListings: 10, maxVendors: 2, maxInteractions: 50, features: ['basic_analytics'], trialDays: 14 },
+      isActive: true,
+      isPublic: false,
+    },
+  ];
+
+  const planRecords: Record<string, { id: string }> = {};
+  for (const pd of planDefs) {
+    const plan = await prisma.plan.upsert({
+      where: { slug: pd.slug },
+      update: { name: pd.name, priceMonthly: pd.priceMonthly, priceYearly: pd.priceYearly, entitlements: pd.entitlements, isActive: pd.isActive, isPublic: pd.isPublic },
+      create: pd,
+      select: { id: true },
+    });
+    planRecords[pd.slug] = plan;
+  }
+  console.log(`✅ ${planDefs.length} plans seeded`);
+
+  // Subscription for the main partner (Professional plan)
+  const subStart = new Date();
+  subStart.setMonth(subStart.getMonth() - 3);
+  const subEnd = new Date(subStart);
+  subEnd.setFullYear(subEnd.getFullYear() + 1);
+
+  await prisma.subscription.upsert({
+    where: { partnerId: partner.id },
+    update: { planId: planRecords['professional'].id, status: 'ACTIVE', currentPeriodStart: subStart, currentPeriodEnd: subEnd },
+    create: {
+      partnerId: partner.id,
+      planId: planRecords['professional'].id,
+      status: 'ACTIVE',
+      currentPeriodStart: subStart,
+      currentPeriodEnd: subEnd,
+    },
+  });
+  console.log(`✅ Subscription: Laman Niaga → Professional plan`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 11. PRICING CONFIG, RULES & CHARGE EVENTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const pricingConfig = await prisma.pricingConfig.upsert({
+    where: { id: 'e0e00002-0000-4000-8000-000000000001' },
+    update: {},
+    create: {
+      id: 'e0e00002-0000-4000-8000-000000000001',
+      partnerId: partner.id,
+      model: 'SAAS',
+      name: 'Standard SaaS Pricing',
+      description: 'Monthly subscription with per-lead add-ons',
+      isActive: true,
+      config: {
+        basePrice: 299,
+        currency: 'MYR',
+        billingCycle: 'monthly',
+        includedLeads: 100,
+        overagePerLead: 2.50,
+      },
+    },
+    select: { id: true },
+  });
+
+  const pricingRuleDefs = [
+    {
+      id: 'e0e00003-0000-4000-8000-000000000001',
+      name: 'Subscription Monthly Fee',
+      description: 'Base monthly subscription charge',
+      eventType: 'subscription.renewal',
+      chargeType: 'SUBSCRIPTION' as const,
+      amount: new Prisma.Decimal(299),
+    },
+    {
+      id: 'e0e00003-0000-4000-8000-000000000002',
+      name: 'Lead Overage Charge',
+      description: 'Per-lead charge beyond included quota',
+      eventType: 'lead.created',
+      chargeType: 'LEAD' as const,
+      amount: new Prisma.Decimal(2.50),
+      conditions: { minLeads: 100 },
+    },
+    {
+      id: 'e0e00003-0000-4000-8000-000000000003',
+      name: 'Featured Listing Fee',
+      description: 'Fee to feature a listing on homepage',
+      eventType: 'listing.featured',
+      chargeType: 'LISTING' as const,
+      amount: new Prisma.Decimal(50),
+    },
+  ];
+
+  for (const pr of pricingRuleDefs) {
+    await prisma.pricingRule.upsert({
+      where: { id: pr.id },
+      update: {},
+      create: {
+        id: pr.id,
+        pricingConfigId: pricingConfig.id,
+        name: pr.name,
+        description: pr.description,
+        eventType: pr.eventType,
+        chargeType: pr.chargeType,
+        amount: pr.amount,
+        conditions: pr.conditions ?? Prisma.JsonNull,
+        isActive: true,
+      },
+    });
+  }
+  console.log(`✅ Pricing: 1 config + ${pricingRuleDefs.length} rules`);
+
+  // Charge events — simulate recent charges
+  const chargeEventDefs = [
+    { eventType: 'subscription.renewal', chargeType: 'SUBSCRIPTION' as const, amount: new Prisma.Decimal(299), resourceType: 'subscription', processed: true, daysAgo: 30 },
+    { eventType: 'subscription.renewal', chargeType: 'SUBSCRIPTION' as const, amount: new Prisma.Decimal(299), resourceType: 'subscription', processed: true, daysAgo: 60 },
+    { eventType: 'lead.created', chargeType: 'LEAD' as const, amount: new Prisma.Decimal(2.50), resourceType: 'interaction', processed: true, daysAgo: 5 },
+    { eventType: 'lead.created', chargeType: 'LEAD' as const, amount: new Prisma.Decimal(2.50), resourceType: 'interaction', processed: true, daysAgo: 3 },
+    { eventType: 'listing.featured', chargeType: 'LISTING' as const, amount: new Prisma.Decimal(50), resourceType: 'listing', processed: true, daysAgo: 7 },
+    { eventType: 'listing.featured', chargeType: 'LISTING' as const, amount: new Prisma.Decimal(50), resourceType: 'listing', processed: false, daysAgo: 1 },
+  ];
+
+  // Get a listing + interaction for resource IDs
+  const sampleListing = await prisma.listing.findFirst({ where: { partnerId: partner.id }, select: { id: true } });
+  const sampleInteraction = await prisma.interaction.findFirst({ where: { partnerId: partner.id }, select: { id: true } });
+  const sampleSubscription = await prisma.subscription.findFirst({ where: { partnerId: partner.id }, select: { id: true } });
+
+  for (let i = 0; i < chargeEventDefs.length; i++) {
+    const ce = chargeEventDefs[i];
+    const ceId = `e0e00004-0000-4000-8000-00000000000${i + 1}`;
+    const createdAt = new Date();
+    createdAt.setDate(createdAt.getDate() - ce.daysAgo);
+
+    let resourceId = sampleListing?.id ?? partner.id;
+    if (ce.resourceType === 'interaction') resourceId = sampleInteraction?.id ?? partner.id;
+    if (ce.resourceType === 'subscription') resourceId = sampleSubscription?.id ?? partner.id;
+
+    await prisma.chargeEvent.upsert({
+      where: { id: ceId },
+      update: {},
+      create: {
+        id: ceId,
+        partnerId: partner.id,
+        chargeType: ce.chargeType,
+        amount: ce.amount,
+        eventType: ce.eventType,
+        resourceType: ce.resourceType,
+        resourceId,
+        processed: ce.processed,
+        processedAt: ce.processed ? createdAt : null,
+        createdAt,
+      },
+    });
+  }
+  console.log(`✅ ${chargeEventDefs.length} charge events seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 12. RENT BILLINGS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const tenancyId = 'e0e00001-0000-4000-8000-000000000001';
+  const tenancyRecord = await prisma.tenancy.findUnique({ where: { id: tenancyId }, select: { id: true, monthlyRent: true } });
+
+  if (tenancyRecord) {
+    const rent = Number(tenancyRecord.monthlyRent);
+    const billingDefs = [
+      { billNumber: 'BILL-2025-001', month: -3, status: 'PAID' as const, paidAmount: rent },
+      { billNumber: 'BILL-2025-002', month: -2, status: 'PAID' as const, paidAmount: rent },
+      { billNumber: 'BILL-2025-003', month: -1, status: 'OVERDUE' as const, paidAmount: 0, lateFee: rent * 0.05 },
+      { billNumber: 'BILL-2025-004', month: 0, status: 'SENT' as const, paidAmount: 0 },
+      { billNumber: 'BILL-2025-005', month: 1, status: 'DRAFT' as const, paidAmount: 0 },
+    ];
+
+    for (let i = 0; i < billingDefs.length; i++) {
+      const bd = billingDefs[i];
+      const billingPeriod = new Date();
+      billingPeriod.setMonth(billingPeriod.getMonth() + bd.month);
+      billingPeriod.setDate(1);
+      const issueDate = new Date(billingPeriod);
+      issueDate.setDate(1);
+      const dueDate = new Date(billingPeriod);
+      dueDate.setDate(7);
+      const lateFee = bd.lateFee ?? 0;
+      const totalAmount = rent + lateFee;
+      const balanceDue = totalAmount - bd.paidAmount;
+
+      await prisma.rentBilling.upsert({
+        where: { billNumber: bd.billNumber },
+        update: { status: bd.status, paidAmount: bd.paidAmount },
+        create: {
+          tenancyId,
+          billNumber: bd.billNumber,
+          billingPeriod,
+          status: bd.status,
+          rentAmount: rent,
+          lateFee,
+          adjustments: 0,
+          totalAmount,
+          paidAmount: bd.paidAmount,
+          balanceDue,
+          issueDate,
+          dueDate,
+          paidDate: bd.status === 'PAID' ? dueDate : null,
+        },
+      });
+    }
+    console.log(`✅ ${billingDefs.length} rent billings seeded`);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 12b. RENT PAYMENTS (for PAID billings)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Fetch the PAID billings we just created
+    const paidBillings = await prisma.rentBilling.findMany({
+      where: { billNumber: { in: ['BILL-2025-001', 'BILL-2025-002'] } },
+      select: { id: true, billNumber: true, totalAmount: true, dueDate: true },
+    });
+
+    for (let i = 0; i < paidBillings.length; i++) {
+      const bill = paidBillings[i];
+      const paymentNumber = `PAY-RENT-2025-00${i + 1}`;
+      const paymentDate = bill.dueDate ? new Date(bill.dueDate) : new Date();
+      paymentDate.setDate(paymentDate.getDate() - 2); // Paid 2 days before due
+
+      await prisma.rentPayment.upsert({
+        where: { paymentNumber },
+        update: {},
+        create: {
+          partnerId: partner.id,
+          billingId: bill.id,
+          paymentNumber,
+          amount: bill.totalAmount,
+          status: 'COMPLETED',
+          method: i === 0 ? 'FPX' : 'BANK_TRANSFER',
+          currency: 'MYR',
+          reference: `FPX-REF-${Date.now()}-${i}`,
+          receiptNumber: `RCP-2025-00${i + 1}`,
+          paymentDate,
+          processedAt: paymentDate,
+          payerName: 'Jane Tenant',
+          payerEmail: 'tenant@lamaniaga.local',
+        },
+      });
+    }
+    console.log(`✅ ${paidBillings.length} rent payments seeded`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 13. OWNER PAYOUTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const payoutDefs = [
+    { num: 'PAY-2025-001', monthsAgo: 3, status: 'COMPLETED' as const, grossRental: 2500, platformFee: 250, maintenanceCost: 100 },
+    { num: 'PAY-2025-002', monthsAgo: 2, status: 'COMPLETED' as const, grossRental: 2500, platformFee: 250, maintenanceCost: 0 },
+    { num: 'PAY-2025-003', monthsAgo: 1, status: 'APPROVED' as const, grossRental: 2500, platformFee: 250, maintenanceCost: 50 },
+    { num: 'PAY-2025-004', monthsAgo: 0, status: 'PENDING' as const, grossRental: 2500, platformFee: 250, maintenanceCost: 0 },
+  ];
+
+  for (let i = 0; i < payoutDefs.length; i++) {
+    const pd = payoutDefs[i];
+    const periodStart = new Date();
+    periodStart.setMonth(periodStart.getMonth() - pd.monthsAgo);
+    periodStart.setDate(1);
+    const periodEnd = new Date(periodStart);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    periodEnd.setDate(0);
+    const netPayout = pd.grossRental - pd.platformFee - pd.maintenanceCost;
+    const payoutId = `e0e00005-0000-4000-8000-00000000000${i + 1}`;
+
+    await prisma.ownerPayout.upsert({
+      where: { payoutNumber: pd.num },
+      update: { status: pd.status },
+      create: {
+        id: payoutId,
+        partnerId: partner.id,
+        ownerId: firstVendor.id,
+        payoutNumber: pd.num,
+        periodStart,
+        periodEnd,
+        status: pd.status,
+        grossRental: pd.grossRental,
+        platformFee: pd.platformFee,
+        maintenanceCost: pd.maintenanceCost,
+        otherDeductions: 0,
+        netPayout,
+        bankName: 'Maybank',
+        bankAccount: '5141 2345 6789',
+        bankAccountName: 'Sunrise Properties Sdn Bhd',
+        approvedBy: pd.status === 'COMPLETED' || pd.status === 'APPROVED' ? superAdmin.id : null,
+        approvedAt: pd.status === 'COMPLETED' || pd.status === 'APPROVED' ? new Date() : null,
+        processedAt: pd.status === 'COMPLETED' ? new Date() : null,
+        bankReference: pd.status === 'COMPLETED' ? `FPX-${pd.num}` : null,
+      },
+    });
+
+    // Add payout line items
+    await prisma.payoutLineItem.upsert({
+      where: { id: `e0e00006-0000-4000-8000-0000000000${(i * 3 + 1).toString().padStart(2, '0')}` },
+      update: {},
+      create: {
+        id: `e0e00006-0000-4000-8000-0000000000${(i * 3 + 1).toString().padStart(2, '0')}`,
+        payoutId,
+        tenancyId: 'e0e00001-0000-4000-8000-000000000001',
+        type: 'RENTAL',
+        description: `Monthly rental ${periodStart.toLocaleDateString('en-MY', { month: 'short', year: 'numeric' })}`,
+        amount: pd.grossRental,
+      },
+    });
+    await prisma.payoutLineItem.upsert({
+      where: { id: `e0e00006-0000-4000-8000-0000000000${(i * 3 + 2).toString().padStart(2, '0')}` },
+      update: {},
+      create: {
+        id: `e0e00006-0000-4000-8000-0000000000${(i * 3 + 2).toString().padStart(2, '0')}`,
+        payoutId,
+        tenancyId: 'e0e00001-0000-4000-8000-000000000001',
+        type: 'PLATFORM_FEE',
+        description: `Platform fee (10%)`,
+        amount: -pd.platformFee,
+      },
+    });
+    if (pd.maintenanceCost > 0) {
+      await prisma.payoutLineItem.upsert({
+        where: { id: `e0e00006-0000-4000-8000-0000000000${(i * 3 + 3).toString().padStart(2, '0')}` },
+        update: {},
+        create: {
+          id: `e0e00006-0000-4000-8000-0000000000${(i * 3 + 3).toString().padStart(2, '0')}`,
+          payoutId,
+          tenancyId: 'e0e00001-0000-4000-8000-000000000001',
+          type: 'MAINTENANCE',
+          description: `Maintenance deduction`,
+          amount: -pd.maintenanceCost,
+        },
+      });
+    }
+  }
+  console.log(`✅ ${payoutDefs.length} owner payouts seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 14. FEATURE FLAGS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const featureFlagDefs = [
+    {
+      key: 'enable_whatsapp_notifications',
+      type: 'BOOLEAN' as const,
+      description: 'Enable WhatsApp as a notification channel for leads and reminders',
+      owner: 'product',
+      defaultValue: false,
+      rolloutPercentage: 25,
+      allowedVerticals: ['REAL_ESTATE'],
+      allowedRoles: [],
+    },
+    {
+      key: 'show_advanced_analytics',
+      type: 'BOOLEAN' as const,
+      description: 'Show the advanced analytics dashboard with heatmaps and funnel analysis',
+      owner: 'engineering',
+      defaultValue: true,
+      rolloutPercentage: null,
+      allowedVerticals: [],
+      allowedRoles: ['PARTNER_ADMIN' as const, 'VENDOR_ADMIN' as const],
+    },
+    {
+      key: 'enable_bulk_listing_upload',
+      type: 'BOOLEAN' as const,
+      description: 'Allow vendors to upload listings in bulk via CSV/Excel',
+      owner: 'product',
+      defaultValue: false,
+      rolloutPercentage: 50,
+      allowedVerticals: [],
+      allowedRoles: [],
+    },
+    {
+      key: 'enable_ai_description_generator',
+      type: 'BOOLEAN' as const,
+      description: 'AI-powered listing description generation from property photos',
+      owner: 'ai-team',
+      defaultValue: false,
+      rolloutPercentage: 10,
+      allowedVerticals: ['REAL_ESTATE', 'AUTOMOTIVE'],
+      allowedRoles: [],
+      reviewAt: new Date('2026-06-01'),
+    },
+    {
+      key: 'enable_property_management',
+      type: 'BOOLEAN' as const,
+      description: 'Enable the property management module (tenancies, billing, payouts)',
+      owner: 'product',
+      defaultValue: true,
+      rolloutPercentage: null,
+      allowedVerticals: ['REAL_ESTATE'],
+      allowedRoles: [],
+    },
+  ];
+
+  const flagRecords: Record<string, { id: string }> = {};
+  for (const ff of featureFlagDefs) {
+    const flag = await prisma.featureFlag.upsert({
+      where: { key: ff.key },
+      update: { description: ff.description, defaultValue: ff.defaultValue, rolloutPercentage: ff.rolloutPercentage },
+      create: {
+        key: ff.key,
+        type: ff.type,
+        description: ff.description,
+        owner: ff.owner,
+        defaultValue: ff.defaultValue,
+        rolloutPercentage: ff.rolloutPercentage,
+        allowedVerticals: ff.allowedVerticals,
+        allowedRoles: ff.allowedRoles as any[],
+        reviewAt: (ff as any).reviewAt ?? null,
+        isArchived: false,
+      },
+      select: { id: true },
+    });
+    flagRecords[ff.key] = flag;
+  }
+
+  // Add partner overrides for some flags
+  const existingOverride = await prisma.featureFlagOverride.findFirst({
+    where: { featureFlagId: flagRecords['enable_whatsapp_notifications'].id, partnerId: partner.id },
+  });
+  if (!existingOverride) {
+    await prisma.featureFlagOverride.create({
+      data: {
+        featureFlagId: flagRecords['enable_whatsapp_notifications'].id,
+        partnerId: partner.id,
+        value: true,
+        isEmergency: false,
+      },
+    });
+  }
+  console.log(`✅ ${featureFlagDefs.length} feature flags seeded (with 1 override)`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 15. EXPERIMENTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const experimentDefs = [
+    {
+      key: 'listing_card_layout_test',
+      description: 'A/B test for listing card layouts — standard grid vs. compact list view',
+      owner: 'design',
+      successMetrics: 'Click-through rate on listing cards',
+      variants: [
+        { key: 'control', label: 'Standard Grid', weight: 50, isControl: true },
+        { key: 'compact', label: 'Compact List', weight: 50, isControl: false },
+      ],
+      startsAt: new Date('2026-02-01'),
+      endsAt: new Date('2026-05-01'),
+      isActive: true,
+    },
+    {
+      key: 'lead_form_simplification',
+      description: 'Test simplified lead form (3 fields) vs detailed form (7 fields)',
+      owner: 'product',
+      successMetrics: 'Lead conversion rate, form completion rate',
+      variants: [
+        { key: 'control', label: 'Standard Form (7 fields)', weight: 50, isControl: true },
+        { key: 'simple', label: 'Simplified Form (3 fields)', weight: 50, isControl: false },
+      ],
+      startsAt: new Date('2026-03-01'),
+      endsAt: new Date('2026-06-01'),
+      isActive: true,
+      featureFlagKey: 'enable_ai_description_generator',
+    },
+    {
+      key: 'search_ranking_v2',
+      description: 'New search ranking algorithm emphasising freshness and engagement',
+      owner: 'engineering',
+      successMetrics: 'Search-to-lead conversion, average session duration',
+      variants: [
+        { key: 'control', label: 'Current Algorithm', weight: 70, isControl: true },
+        { key: 'v2', label: 'New Algorithm v2', weight: 30, isControl: false },
+      ],
+      startsAt: new Date('2026-01-15'),
+      endsAt: new Date('2026-04-15'),
+      isActive: false,
+    },
+  ];
+
+  for (const exp of experimentDefs) {
+    const featureFlagId = (exp as any).featureFlagKey ? flagRecords[(exp as any).featureFlagKey]?.id : null;
+    await prisma.experiment.upsert({
+      where: { key: exp.key },
+      update: { isActive: exp.isActive },
+      create: {
+        key: exp.key,
+        description: exp.description,
+        owner: exp.owner,
+        successMetrics: exp.successMetrics,
+        variants: exp.variants,
+        startsAt: exp.startsAt,
+        endsAt: exp.endsAt,
+        isActive: exp.isActive,
+        featureFlagId,
+      },
+    });
+  }
+
+  // Opt-in the partner to the active experiments
+  const activeExperiments = await prisma.experiment.findMany({ where: { isActive: true }, select: { id: true } });
+  for (const exp of activeExperiments) {
+    await prisma.experimentPartnerOptIn.upsert({
+      where: { experimentId_partnerId: { experimentId: exp.id, partnerId: partner.id } },
+      update: {},
+      create: { experimentId: exp.id, partnerId: partner.id },
+    });
+  }
+  console.log(`✅ ${experimentDefs.length} experiments seeded (${activeExperiments.length} with partner opt-in)`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 16. AUDIT LOGS (sample entries)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const auditLogDefs = [
+    { actorType: 'ADMIN' as const, actorId: superAdmin.id, actorEmail: 'superadmin@lamaniaga.local', actionType: 'partner.created', targetType: 'partner', targetId: partner.id, daysAgo: 90, metadata: { partnerName: 'Laman Niaga' } },
+    { actorType: 'ADMIN' as const, actorId: superAdmin.id, actorEmail: 'superadmin@lamaniaga.local', actionType: 'vertical.activated', targetType: 'vertical_definition', targetId: vertDef.id, daysAgo: 89, metadata: { verticalType: 'real_estate' } },
+    { actorType: 'USER' as const, actorId: user.id, actorEmail: 'admin@lamaniaga.local', actionType: 'vendor.approved', targetType: 'vendor', targetId: firstVendor.id, daysAgo: 60, metadata: { vendorName: 'Sunrise Properties' } },
+    { actorType: 'USER' as const, actorId: user.id, actorEmail: 'admin@lamaniaga.local', actionType: 'listing.published', targetType: 'listing', targetId: sampleListing?.id ?? partner.id, daysAgo: 30 },
+    { actorType: 'ADMIN' as const, actorId: superAdmin.id, actorEmail: 'superadmin@lamaniaga.local', actionType: 'feature_flag.created', targetType: 'feature_flag', targetId: flagRecords['enable_whatsapp_notifications'].id, daysAgo: 20, metadata: { flagKey: 'enable_whatsapp_notifications' } },
+    { actorType: 'ADMIN' as const, actorId: superAdmin.id, actorEmail: 'superadmin@lamaniaga.local', actionType: 'experiment.created', targetType: 'experiment', daysAgo: 15, metadata: { experimentKey: 'listing_card_layout_test' } },
+    { actorType: 'SYSTEM' as const, actorId: null, actorEmail: null, actionType: 'subscription.renewed', targetType: 'subscription', daysAgo: 3, metadata: { planSlug: 'professional', amount: 299 } },
+    { actorType: 'USER' as const, actorId: user.id, actorEmail: 'admin@lamaniaga.local', actionType: 'payout.approved', targetType: 'owner_payout', daysAgo: 1, metadata: { payoutNumber: 'PAY-2025-003' } },
+    { actorType: 'ADMIN' as const, actorId: superAdmin.id, actorEmail: 'superadmin@lamaniaga.local', actionType: 'feature_flag.updated', targetType: 'feature_flag', targetId: flagRecords['enable_bulk_listing_upload'].id, daysAgo: 0, metadata: { flagKey: 'enable_bulk_listing_upload', change: 'rolloutPercentage 0→50' } },
+    { actorType: 'ADMIN' as const, actorId: superAdmin.id, actorEmail: 'superadmin@lamaniaga.local', actionType: 'plan.updated', targetType: 'plan', targetId: planRecords['professional'].id, daysAgo: 0, metadata: { change: 'priceMonthly 249→299' } },
+  ];
+
+  for (let i = 0; i < auditLogDefs.length; i++) {
+    const al = auditLogDefs[i];
+    const timestamp = new Date();
+    timestamp.setDate(timestamp.getDate() - al.daysAgo);
+    timestamp.setHours(9 + i, i * 7 % 60, 0, 0);
+
+    await prisma.auditLog.create({
+      data: {
+        partnerId: partner.id,
+        actorType: al.actorType,
+        actorId: al.actorId,
+        actorEmail: al.actorEmail,
+        actionType: al.actionType,
+        targetType: al.targetType,
+        targetId: al.targetId ?? null,
+        metadata: al.metadata ?? Prisma.JsonNull,
+        ipAddress: '127.0.0.1',
+        userAgent: 'ZamProperty/Seed',
+        timestamp,
+      },
+    });
+  }
+  console.log(`✅ ${auditLogDefs.length} audit logs seeded`);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DONE
   // ═══════════════════════════════════════════════════════════════════════════
   console.log('\n🌱 Seed completed successfully!');
   console.log('─────────────────────────────────────');
   console.log('📊 Summary:');
-  console.log(`   Partner:     ${partner.name} (slug: ${partner.slug})`);
-  console.log(`   Vendors:    ${Object.keys(vendorRecords).length}`);
-  console.log(`   Listings:   ${listingTemplates.length} (${listingTemplates.filter(l => !l.status || l.status === 'PUBLISHED').length} published)`);
-  console.log(`   Reviews:    ${reviewSeeds.length}`);
-  console.log(`   Leads:      ${interactionSeeds.length}`);
-  console.log(`   Users:      admin, superadmin, customer, tenant + ${Object.keys(vendorRecords).length} vendor admins + 3 vendor staff + 1 independent agent`);
+  console.log(`   Partner:       ${partner.name} (slug: ${partner.slug})`);
+  console.log(`   Companies:     ${Object.keys(companyRecords).length} (Agencies)`);
+  console.log(`   Company Admins: 3 (2 owners, 1 PIC)`);
+  console.log(`   Company Roles: 5 (RBAC custom roles)`);
+  console.log(`   Vendors:       ${Object.keys(vendorRecords).length}`);
+  console.log(`   Listings:      ${listingTemplates.length} (${listingTemplates.filter(l => !l.status || l.status === 'PUBLISHED').length} published)`);
+  console.log(`   Reviews:       ${reviewSeeds.length}`);
+  console.log(`   Leads:         ${interactionSeeds.length}`);
+  console.log(`   Plans:         ${planDefs.length} (Starter, Professional, Enterprise, Free Trial)`);
+  console.log(`   Pricing:       1 config + ${pricingRuleDefs.length} rules + ${chargeEventDefs.length} charge events`);
+  console.log(`   Rent Billings: 5 (PAID×2, OVERDUE×1, SENT×1, DRAFT×1)`);
+  console.log(`   Payouts:       ${payoutDefs.length} (COMPLETED×2, APPROVED×1, PENDING×1)`);
+  console.log(`   Feature Flags: ${featureFlagDefs.length}`);
+  console.log(`   Experiments:   ${experimentDefs.length}`);
+  console.log(`   Audit Logs:    ${auditLogDefs.length}`);
+  console.log(`   Users:         admin, superadmin, customer, tenant + ${Object.keys(vendorRecords).length} vendor admins + 3 vendor staff + 3 company admins + 5 agents`);
   console.log(`   PropertyMembers: 4 assignments`);
-  console.log(`   Password:   ${demoPassword} (all users)`);
+  console.log(`   Password:      ${demoPassword} (all users)`);
   console.log('─────────────────────────────────────');
 }
 

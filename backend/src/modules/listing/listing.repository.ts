@@ -49,8 +49,18 @@ export interface ListingVendorView {
   slug: string;
 }
 
+export interface ListingAgentView {
+  id: string;
+  agent: {
+    id: string;
+    user: { id: string; fullName: string };
+    company: { id: string; name: string } | null;
+  };
+}
+
 export interface ListingDetailView extends ListingView {
   vendor: ListingVendorView;
+  agentListings: ListingAgentView[];
   media: ListingMediaView[];
 }
 
@@ -85,6 +95,19 @@ const listingDetailSelect = {
       id: true,
       name: true,
       slug: true,
+    },
+  },
+  agentListings: {
+    where: { removedAt: null },
+    select: {
+      id: true,
+      agent: {
+        select: {
+          id: true,
+          user: { select: { id: true, fullName: true } },
+          company: { select: { id: true, name: true } },
+        },
+      },
     },
   },
   media: {

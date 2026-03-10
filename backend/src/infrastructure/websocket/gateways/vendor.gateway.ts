@@ -259,13 +259,12 @@ export class VendorGateway implements OnGatewayInit, OnGatewayConnection, OnGate
   }
 
   private async verifyVendorAccess(userId: string, vendorId: string): Promise<boolean> {
-    const user = await this.prisma.user.findFirst({
+    const membership = await this.prisma.userVendor.findUnique({
       where: {
-        id: userId,
-        vendorId: vendorId,
+        userId_vendorId: { userId, vendorId },
       },
     });
-    return !!user;
+    return !!membership;
   }
 
   private async getVendorStats(vendorId: string): Promise<{

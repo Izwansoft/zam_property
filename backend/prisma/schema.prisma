@@ -11,7 +11,7 @@ datasource db {
 
 model ChargeEvent {
   id              String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId        String     @map("tenant_id") @db.Uuid
+  partnerId       String     @map("tenant_id") @db.Uuid
   chargeType      ChargeType @map("charge_type")
   amount          Decimal    @db.Decimal(10, 2)
   currency        String     @default("MYR")
@@ -40,7 +40,7 @@ model ChargeEvent {
 
 model EntitlementSnapshot {
   id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId     String   @unique @map("tenant_id") @db.Uuid
+  partnerId    String   @unique @map("tenant_id") @db.Uuid
   entitlements Json
   planId       String?  @map("plan_id") @db.Uuid
   overrides    Json?
@@ -48,7 +48,7 @@ model EntitlementSnapshot {
   expiresAt    DateTime @map("expires_at")
 
   partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  plan   Plan?  @relation(fields: [planId], references: [id])
+  plan    Plan?   @relation(fields: [planId], references: [id])
 
   @@index([expiresAt])
   @@index([partnerId])
@@ -59,7 +59,7 @@ model EventLog {
   id            String   @id @db.Uuid
   eventType     String   @map("event_type")
   eventVersion  String   @default("1.0") @map("event_version")
-  partnerId      String?  @map("tenant_id") @db.Uuid
+  partnerId     String?  @map("tenant_id") @db.Uuid
   correlationId String   @map("correlation_id")
   causationId   String?  @map("causation_id") @db.Uuid
   actorType     String   @map("actor_type")
@@ -95,7 +95,7 @@ model InteractionMessage {
 
 model Interaction {
   id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId        String            @map("tenant_id") @db.Uuid
+  partnerId       String            @map("tenant_id") @db.Uuid
   vendorId        String            @map("vendor_id") @db.Uuid
   listingId       String            @map("listing_id") @db.Uuid
   verticalType    String            @map("vertical_type")
@@ -115,7 +115,7 @@ model Interaction {
 
   messages InteractionMessage[]
   listing  Listing              @relation(fields: [listingId], references: [id])
-  partner   Partner               @relation(fields: [partnerId], references: [id])
+  partner  Partner              @relation(fields: [partnerId], references: [id])
   vendor   Vendor               @relation(fields: [vendorId], references: [id])
 
   @@index([createdAt])
@@ -128,7 +128,7 @@ model Interaction {
 
 model Invoice {
   id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  partnerId         String        @map("tenant_id") @db.Uuid
+  partnerId        String        @map("tenant_id") @db.Uuid
   externalId       String        @map("external_id")
   externalProvider String        @map("external_provider")
   subscriptionId   String?       @map("subscription_id") @db.Uuid
@@ -145,7 +145,7 @@ model Invoice {
   updatedAt        DateTime      @updatedAt @map("updated_at")
 
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
-  partner       Partner        @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner      Partner       @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@index([externalId])
   @@index([status])
@@ -156,7 +156,7 @@ model Invoice {
 
 model ListingMedia {
   id               String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId         String          @map("tenant_id") @db.Uuid
+  partnerId        String          @map("tenant_id") @db.Uuid
   listingId        String          @map("listing_id") @db.Uuid
   filename         String
   mimeType         String          @map("mime_type")
@@ -185,39 +185,39 @@ model ListingMedia {
 }
 
 model Listing {
-  id            String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId      String        @map("tenant_id") @db.Uuid
-  vendorId      String        @map("vendor_id") @db.Uuid
-  verticalType  String        @map("vertical_type")
-  schemaVersion String        @default("1.0") @map("schema_version")
-  title         String
-  description   String?
-  slug          String
-  price         Decimal?      @db.Decimal(15, 2)
-  currency      String        @default("MYR")
-  priceType     String?       @map("price_type")
-  location      Json?
-  attributes    Json          @default("{}")
-  status        ListingStatus @default(DRAFT)
-  publishedAt   DateTime?     @map("published_at")
-  expiresAt     DateTime?     @map("expires_at")
-  isFeatured      Boolean        @default(false) @map("is_featured")
-  featuredUntil   DateTime?      @map("featured_until")
-  viewCount       Int            @default(0) @map("view_count")
-  managementType  ManagementType @default(SELF_MANAGED) @map("management_type")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  deletedAt       DateTime?      @map("deleted_at")
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  partnerId      String         @map("tenant_id") @db.Uuid
+  vendorId       String         @map("vendor_id") @db.Uuid
+  verticalType   String         @map("vertical_type")
+  schemaVersion  String         @default("1.0") @map("schema_version")
+  title          String
+  description    String?
+  slug           String
+  price          Decimal?       @db.Decimal(15, 2)
+  currency       String         @default("MYR")
+  priceType      String?        @map("price_type")
+  location       Json?
+  attributes     Json           @default("{}")
+  status         ListingStatus  @default(DRAFT)
+  publishedAt    DateTime?      @map("published_at")
+  expiresAt      DateTime?      @map("expires_at")
+  isFeatured     Boolean        @default(false) @map("is_featured")
+  featuredUntil  DateTime?      @map("featured_until")
+  viewCount      Int            @default(0) @map("view_count")
+  managementType ManagementType @default(SELF_MANAGED) @map("management_type")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  deletedAt      DateTime?      @map("deleted_at")
 
   interactions Interaction[]
   media        ListingMedia[]
   stats        ListingStats[]
-  partner       Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner      Partner        @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   vendor       Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   reviews      Review[]
 
   // Property Management relations
-  tenancies Tenancy[]
+  tenancies       Tenancy[]
   propertyMembers PropertyMember[]
 
   // Agent assignment
@@ -244,7 +244,7 @@ model Listing {
 
 model ListingStats {
   id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId       String   @map("tenant_id") @db.Uuid
+  partnerId      String   @map("tenant_id") @db.Uuid
   listingId      String   @map("listing_id") @db.Uuid
   vendorId       String   @map("vendor_id") @db.Uuid
   verticalType   String   @map("vertical_type")
@@ -257,7 +257,7 @@ model ListingStats {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  partner  Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
   vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
@@ -271,7 +271,7 @@ model ListingStats {
 
 model VendorStats {
   id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId       String   @map("tenant_id") @db.Uuid
+  partnerId      String   @map("tenant_id") @db.Uuid
   vendorId       String   @map("vendor_id") @db.Uuid
   date           DateTime @db.Date
   viewsCount     Int      @default(0) @map("views_count")
@@ -283,7 +283,7 @@ model VendorStats {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@unique([partnerId, vendorId, date])
   @@index([partnerId, date])
@@ -293,7 +293,7 @@ model VendorStats {
 
 model Media {
   id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId         String           @map("tenant_id") @db.Uuid
+  partnerId        String           @map("tenant_id") @db.Uuid
   ownerType        String           @map("owner_type")
   ownerId          String           @map("owner_id") @db.Uuid
   filename         String
@@ -338,7 +338,7 @@ model NotificationPreference {
 
 model NotificationTemplate {
   id           String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId     String              @map("tenant_id") @db.Uuid
+  partnerId    String              @map("tenant_id") @db.Uuid
   type         NotificationType
   channel      NotificationChannel
   name         String
@@ -352,7 +352,7 @@ model NotificationTemplate {
   createdAt    DateTime            @default(now()) @map("created_at")
   updatedAt    DateTime            @updatedAt @map("updated_at")
 
-  partner        Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner       Partner        @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   notifications Notification[]
 
   @@unique([partnerId, type, channel, locale])
@@ -365,7 +365,7 @@ model NotificationTemplate {
 
 model Notification {
   id           String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId     String              @map("tenant_id") @db.Uuid
+  partnerId    String              @map("tenant_id") @db.Uuid
   userId       String              @map("user_id") @db.Uuid
   type         NotificationType
   channel      NotificationChannel
@@ -386,7 +386,7 @@ model Notification {
   updatedAt    DateTime            @updatedAt @map("updated_at")
 
   template NotificationTemplate? @relation(fields: [templateId], references: [id])
-  partner   Partner                @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner  Partner               @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([channel])
@@ -400,7 +400,7 @@ model Notification {
 
 model PaymentEvent {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  partnerId         String    @map("tenant_id") @db.Uuid
+  partnerId        String    @map("tenant_id") @db.Uuid
   externalId       String    @unique @map("external_id")
   externalProvider String    @map("external_provider")
   eventType        String    @map("event_type")
@@ -425,7 +425,7 @@ model PaymentEvent {
 
 model PaymentMethod {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  partnerId         String   @map("tenant_id") @db.Uuid
+  partnerId        String   @map("tenant_id") @db.Uuid
   externalId       String   @map("external_id")
   externalProvider String   @map("external_provider")
   type             String
@@ -470,7 +470,7 @@ model Plan {
 
 model PricingConfig {
   id          String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId    String       @map("tenant_id") @db.Uuid
+  partnerId   String       @map("tenant_id") @db.Uuid
   model       PricingModel
   name        String
   description String?
@@ -480,8 +480,8 @@ model PricingConfig {
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
-  partner Partner        @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  rules  PricingRule[]
+  partner Partner       @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  rules   PricingRule[]
 
   @@index([isActive])
   @@index([model])
@@ -514,7 +514,7 @@ model PricingRule {
 
 model Review {
   id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId       String       @map("tenant_id") @db.Uuid
+  partnerId      String       @map("tenant_id") @db.Uuid
   targetType     String       @map("target_type")
   targetId       String       @map("target_id") @db.Uuid
   verticalType   String       @map("vertical_type")
@@ -534,7 +534,7 @@ model Review {
   listingId      String?      @map("listing_id") @db.Uuid
 
   listing Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  partner  Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   vendor  Vendor?  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
@@ -547,7 +547,7 @@ model Review {
 
 model Subscription {
   id                 String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId           String             @unique @map("tenant_id") @db.Uuid
+  partnerId          String             @unique @map("tenant_id") @db.Uuid
   planId             String             @map("plan_id") @db.Uuid
   status             SubscriptionStatus @default(ACTIVE)
   currentPeriodStart DateTime           @map("current_period_start")
@@ -561,7 +561,7 @@ model Subscription {
 
   invoices Invoice[]
   plan     Plan      @relation(fields: [planId], references: [id])
-  partner   Partner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner  Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@index([planId])
   @@index([status])
@@ -571,7 +571,7 @@ model Subscription {
 
 model PartnerDomain {
   id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId  String   @map("tenant_id") @db.Uuid
+  partnerId String   @map("tenant_id") @db.Uuid
   domain    String   @unique
   isPrimary Boolean  @default(false) @map("is_primary")
   verified  Boolean  @default(false)
@@ -586,7 +586,7 @@ model PartnerDomain {
 
 model PartnerSettings {
   id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId  String   @unique @map("tenant_id") @db.Uuid
+  partnerId String   @unique @map("tenant_id") @db.Uuid
   features  Json     @default("{}")
   locale    String   @default("en")
   currency  String   @default("MYR")
@@ -601,7 +601,7 @@ model PartnerSettings {
 
 model PartnerVertical {
   id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId        String    @map("tenant_id") @db.Uuid
+  partnerId       String    @map("tenant_id") @db.Uuid
   verticalId      String    @map("vertical_id") @db.Uuid
   configOverrides Json?     @map("config_overrides")
   customFields    Json?     @map("custom_fields")
@@ -612,7 +612,7 @@ model PartnerVertical {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  partner   Partner             @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner  Partner            @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   vertical VerticalDefinition @relation(fields: [verticalId], references: [id], onDelete: Cascade)
 
   @@unique([partnerId, verticalId])
@@ -623,15 +623,15 @@ model PartnerVertical {
 }
 
 model Partner {
-  id               String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id               String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name             String
-  slug             String       @unique
+  slug             String        @unique
   status           PartnerStatus @default(ACTIVE)
-  enabledVerticals String[]     @default([])
+  enabledVerticals String[]      @default([])
   branding         Json?
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
-  deletedAt        DateTime?    @map("deleted_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  deletedAt        DateTime?     @map("deleted_at")
 
   chargeEvents          ChargeEvent[]
   interactions          Interaction[]
@@ -646,7 +646,7 @@ model Partner {
   subscription          Subscription?
   domains               PartnerDomain[]
   settings              PartnerSettings?
-  PartnerVerticals       PartnerVertical[]
+  PartnerVerticals      PartnerVertical[]
   users                 User[]
   vendors               Vendor[]
   listingStats          ListingStats[]
@@ -679,7 +679,7 @@ model Partner {
 
 model UsageCounter {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId    String   @map("tenant_id") @db.Uuid
+  partnerId   String   @map("tenant_id") @db.Uuid
   metricKey   String   @map("metric_key")
   periodStart DateTime @map("period_start")
   periodEnd   DateTime @map("period_end")
@@ -696,7 +696,7 @@ model UsageCounter {
 
 model User {
   id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId     String     @map("tenant_id") @db.Uuid
+  partnerId    String     @map("tenant_id") @db.Uuid
   email        String
   passwordHash String     @map("password_hash")
   fullName     String     @map("full_name")
@@ -707,12 +707,10 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
   deletedAt    DateTime?  @map("deleted_at")
-  vendorId     String?    @map("vendor_id") @db.Uuid
 
   notificationPreferences NotificationPreference[]
   notifications           Notification[]
-  partner                  Partner                   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  vendor                  Vendor?                  @relation(fields: [vendorId], references: [id])
+  partner                 Partner                  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   featureFlagTargets FeatureFlagUserTarget[]
   tenants            Tenant[]
@@ -722,12 +720,12 @@ model User {
   savedListings      SavedListing[]
   settings           UserSettings?
   propertyMembers    PropertyMember[]
+  userVendors        UserVendor[]
 
   @@unique([partnerId, email])
   @@index([email])
   @@index([status])
   @@index([partnerId])
-  @@index([vendorId])
   @@map("users")
 }
 
@@ -737,12 +735,12 @@ model User {
 
 model SavedListing {
   id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId  String   @map("tenant_id") @db.Uuid
+  partnerId String   @map("tenant_id") @db.Uuid
   userId    String   @map("user_id") @db.Uuid
   listingId String   @map("listing_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
 
-  partner  Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
@@ -758,19 +756,19 @@ model SavedListing {
 // ---------------------------------------------------------------------------
 
 model UserSettings {
-  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId     String   @map("tenant_id") @db.Uuid
-  userId       String   @unique @map("user_id") @db.Uuid
-  language     String   @default("en")
-  timezone     String   @default("Asia/Kuala_Lumpur")
-  showProfile  Boolean  @default(true) @map("show_profile")
-  showEmail    Boolean  @default(false) @map("show_email")
-  showPhone    Boolean  @default(false) @map("show_phone")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  partnerId   String   @map("tenant_id") @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  language    String   @default("en")
+  timezone    String   @default("Asia/Kuala_Lumpur")
+  showProfile Boolean  @default(true) @map("show_profile")
+  showEmail   Boolean  @default(false) @map("show_email")
+  showPhone   Boolean  @default(false) @map("show_phone")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([partnerId])
   @@map("user_settings")
@@ -832,13 +830,13 @@ model Tenant {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Partner context (SaaS multi-tenancy)
-  partnerId String @map("tenant_id") @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Profile
   status         TenantStatus @default(PENDING)
-  employmentType String?        @map("employment_type") // EMPLOYED, SELF_EMPLOYED, STUDENT, RETIRED
-  monthlyIncome  Decimal?       @map("monthly_income") @db.Decimal(12, 2)
+  employmentType String?      @map("employment_type") // EMPLOYED, SELF_EMPLOYED, STUDENT, RETIRED
+  monthlyIncome  Decimal?     @map("monthly_income") @db.Decimal(12, 2)
   employer       String?
 
   // Verification
@@ -918,7 +916,7 @@ model Tenancy {
   id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
 
   // Context
-  partnerId String @map("tenant_id") @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Property & Parties
@@ -928,7 +926,7 @@ model Tenancy {
   ownerId String @map("owner_id") @db.Uuid // Vendor who owns the property
   owner   Vendor @relation("TenancyOwner", fields: [ownerId], references: [id])
 
-  tenantId String   @map("occupant_id") @db.Uuid
+  tenantId String @map("occupant_id") @db.Uuid
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   // Status
@@ -961,15 +959,15 @@ model Tenancy {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  contract      Contract?
-  deposits      Deposit[]
-  billings      RentBilling[]
-  statusHistory TenancyStatusHistory[]
-  maintenance   Maintenance[]
-  inspections   Inspection[]
-  claims        Claim[]
+  contract         Contract?
+  deposits         Deposit[]
+  billings         RentBilling[]
+  statusHistory    TenancyStatusHistory[]
+  maintenance      Maintenance[]
+  inspections      Inspection[]
+  claims           Claim[]
   agentCommissions AgentCommission[]
-  legalCases    LegalCase[]
+  legalCases       LegalCase[]
 
   @@index([partnerId, status])
   @@index([ownerId])
@@ -1042,8 +1040,8 @@ model Contract {
 }
 
 model ContractTemplate {
-  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId String @map("tenant_id") @db.Uuid
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   name        String
@@ -1146,7 +1144,7 @@ model RentPayment {
   id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
 
   // Context
-  partnerId String @map("tenant_id") @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Billing reference
@@ -1154,21 +1152,21 @@ model RentPayment {
   billing   RentBilling @relation(fields: [billingId], references: [id], onDelete: Cascade)
 
   // Payment details
-  paymentNumber String           @unique @map("payment_number")
-  amount        Decimal          @db.Decimal(12, 2)
+  paymentNumber String            @unique @map("payment_number")
+  amount        Decimal           @db.Decimal(12, 2)
   status        RentPaymentStatus @default(PENDING)
-  method        String           // CARD, FPX, BANK_TRANSFER, CASH, OTHER
-  currency      String           @default("MYR") @db.VarChar(3)
+  method        String // CARD, FPX, BANK_TRANSFER, CASH, OTHER
+  currency      String            @default("MYR") @db.VarChar(3)
 
   // Gateway references
-  gatewayId     String?  @map("gateway_id") // Stripe PaymentIntent ID
-  gatewayData   Json?    @map("gateway_data") // Full gateway response
-  clientSecret  String?  @map("client_secret") // Stripe client secret for frontend
+  gatewayId    String? @map("gateway_id") // Stripe PaymentIntent ID
+  gatewayData  Json?   @map("gateway_data") // Full gateway response
+  clientSecret String? @map("client_secret") // Stripe client secret for frontend
 
   // Reference & Receipt
-  reference     String?  // Bank ref / Transaction ID
-  receiptNumber String?  @unique @map("receipt_number")
-  receiptUrl    String?  @map("receipt_url")
+  reference     String? // Bank ref / Transaction ID
+  receiptNumber String? @unique @map("receipt_number")
+  receiptUrl    String? @map("receipt_url")
 
   // Dates
   paymentDate DateTime? @map("payment_date")
@@ -1213,7 +1211,7 @@ model RentBillingReminder {
   id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
 
   // Context
-  partnerId String @map("tenant_id") @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   billingId String      @map("billing_id") @db.Uuid
@@ -1222,7 +1220,7 @@ model RentBillingReminder {
   // Reminder details
   sequence Int // 1 = 3 days before due, 2 = on due date, 3 = 7 days overdue, 4 = legal notice (14 days overdue)
   type     String // EMAIL, SMS, LETTER, LEGAL_NOTICE
-  status   String @default("SENT") // SENT, DELIVERED, FAILED, ACKNOWLEDGED
+  status   String   @default("SENT") // SENT, DELIVERED, FAILED, ACKNOWLEDGED
   sentAt   DateTime @map("sent_at")
   sentTo   String   @map("sent_to")
 
@@ -1252,7 +1250,7 @@ model OwnerPayout {
   id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
 
   // Context
-  partnerId String @map("tenant_id") @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Owner (Vendor)
@@ -1319,11 +1317,12 @@ model PayoutLineItem {
 
 model Vendor {
   id              String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId        String       @map("tenant_id") @db.Uuid
+  partnerId       String       @map("tenant_id") @db.Uuid
   name            String
   slug            String
   description     String?
   vendorType      VendorType   @default(INDIVIDUAL) @map("vendor_type")
+  verticalType    String?      @map("vertical_type")
   email           String?
   phone           String?
   website         String?
@@ -1341,12 +1340,12 @@ model Vendor {
   interactions Interaction[]
   listings     Listing[]
   reviews      Review[]
-  users        User[]
+  userVendors  UserVendor[]
   profile      VendorProfile?
   settings     VendorSettings?
   listingStats ListingStats[]
   vendorStats  VendorStats[]
-  partner       Partner          @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner      Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Property Management relations
   documents      VendorDocument[]
@@ -1356,6 +1355,7 @@ model Vendor {
   @@unique([partnerId, slug])
   @@index([status])
   @@index([partnerId])
+  @@index([verticalType])
   @@map("vendors")
 }
 
@@ -1374,13 +1374,22 @@ model VerticalDefinition {
   schemaVersion     String   @default("1.0") @map("schema_version")
   isActive          Boolean  @default(true) @map("is_active")
   isCore            Boolean  @default(false) @map("is_core")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Maintenance mode fields
+  maintenanceMode        Boolean   @default(false) @map("maintenance_mode")
+  maintenanceStartAt     DateTime? @map("maintenance_start_at")
+  maintenanceEndAt       DateTime? @map("maintenance_end_at")
+  maintenanceMessage     String?   @map("maintenance_message")
+  maintenanceScheduledBy String?   @map("maintenance_scheduled_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   PartnerVerticals PartnerVertical[]
 
   @@index([isActive])
   @@index([type])
+  @@index([maintenanceMode])
   @@map("vertical_definitions")
 }
 
@@ -1417,7 +1426,7 @@ model FeatureFlag {
 model FeatureFlagOverride {
   id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   featureFlagId     String   @map("feature_flag_id") @db.Uuid
-  partnerId          String?  @map("tenant_id") @db.Uuid
+  partnerId         String?  @map("tenant_id") @db.Uuid
   verticalType      String?  @map("vertical_type")
   role              Role?
   isEmergency       Boolean  @default(false) @map("is_emergency")
@@ -1427,7 +1436,7 @@ model FeatureFlagOverride {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
-  partner      Partner?     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner     Partner?    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@unique([featureFlagId, partnerId, verticalType, role, isEmergency])
   @@index([featureFlagId])
@@ -1441,14 +1450,14 @@ model FeatureFlagOverride {
 model FeatureFlagUserTarget {
   id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   featureFlagId String   @map("feature_flag_id") @db.Uuid
-  partnerId      String   @map("tenant_id") @db.Uuid
+  partnerId     String   @map("tenant_id") @db.Uuid
   userId        String   @map("user_id") @db.Uuid
   value         Boolean  @default(true)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   featureFlag FeatureFlag @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
-  partner      Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner     Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([featureFlagId, partnerId, userId])
@@ -1471,7 +1480,7 @@ model Experiment {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  featureFlag  FeatureFlag?            @relation(fields: [featureFlagId], references: [id], onDelete: SetNull)
+  featureFlag   FeatureFlag?             @relation(fields: [featureFlagId], references: [id], onDelete: SetNull)
   partnerOptIns ExperimentPartnerOptIn[]
 
   @@index([isActive])
@@ -1483,12 +1492,12 @@ model Experiment {
 model ExperimentPartnerOptIn {
   id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   experimentId String   @map("experiment_id") @db.Uuid
-  partnerId     String   @map("tenant_id") @db.Uuid
+  partnerId    String   @map("tenant_id") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
-  partner     Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner    Partner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   @@unique([experimentId, partnerId])
   @@index([partnerId])
@@ -1502,7 +1511,7 @@ model ExperimentPartnerOptIn {
 
 model AuditLog {
   id         String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId   String?        @map("tenant_id") @db.Uuid
+  partnerId  String?        @map("tenant_id") @db.Uuid
   actorType  AuditActorType @map("actor_type")
   actorId    String?        @map("actor_id") @db.Uuid
   actorEmail String?        @map("actor_email")
@@ -1579,9 +1588,9 @@ enum ListingStatus {
 }
 
 enum ManagementType {
-  SELF_MANAGED          // Vendor manages their own property (default)
-  PENDING_MANAGEMENT    // Vendor requested PM service, awaiting approval
-  PARTNER_MANAGED  @map("TENANT_MANAGED")     // System Partner provides property management service
+  SELF_MANAGED // Vendor manages their own property (default)
+  PENDING_MANAGEMENT // Vendor requested PM service, awaiting approval
+  PARTNER_MANAGED    @map("TENANT_MANAGED") // System Partner provides property management service
 }
 
 enum MediaType {
@@ -1662,12 +1671,12 @@ enum ReviewStatus {
 
 enum Role {
   SUPER_ADMIN
-  PARTNER_ADMIN  @map("TENANT_ADMIN")
+  PARTNER_ADMIN @map("TENANT_ADMIN")
   VENDOR_ADMIN
   VENDOR_STAFF
   CUSTOMER
   GUEST
-  TENANT       @map("OCCUPANT")
+  TENANT        @map("OCCUPANT")
   COMPANY_ADMIN
   AGENT
 }
@@ -1703,6 +1712,34 @@ enum VendorStatus {
 enum VendorType {
   INDIVIDUAL
   COMPANY
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER-VENDOR JUNCTION (multi-vertical support)
+// A user can own/belong to multiple vendor profiles across verticals
+// ─────────────────────────────────────────────────────────────────────────────
+
+model UserVendor {
+  id        String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  vendorId  String         @map("vendor_id") @db.Uuid
+  role      UserVendorRole @default(MEMBER)
+  isPrimary Boolean        @default(false) @map("is_primary")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vendorId])
+  @@index([userId])
+  @@index([vendorId])
+  @@map("user_vendors")
+}
+
+enum UserVendorRole {
+  OWNER
+  ADMIN
+  MEMBER
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1874,9 +1911,9 @@ model Maintenance {
   tenancy   Tenancy @relation(fields: [tenancyId], references: [id])
 
   // Request Details
-  ticketNumber String @unique @map("ticket_number")
+  ticketNumber String  @unique @map("ticket_number")
   title        String
-  description  String @db.Text
+  description  String  @db.Text
   category     String // PLUMBING, ELECTRICAL, APPLIANCE, STRUCTURAL, OTHER
   location     String? // Room/area in property
 
@@ -1893,14 +1930,14 @@ model Maintenance {
   verificationNotes String?   @map("verification_notes")
 
   // Assignment
-  assignedTo     String?   @map("assigned_to") // Could be vendor staff or external contractor
-  assignedAt     DateTime? @map("assigned_at")
-  contractorName String?   @map("contractor_name") // External contractor name
-  contractorPhone String?  @map("contractor_phone") // External contractor phone
+  assignedTo      String?   @map("assigned_to") // Could be vendor staff or external contractor
+  assignedAt      DateTime? @map("assigned_at")
+  contractorName  String?   @map("contractor_name") // External contractor name
+  contractorPhone String?   @map("contractor_phone") // External contractor phone
 
   // Workflow timestamps
   startedAt DateTime? @map("started_at") // When work started (IN_PROGRESS)
-  closedAt  DateTime? @map("closed_at")  // When ticket was closed
+  closedAt  DateTime? @map("closed_at") // When ticket was closed
 
   // Resolution
   resolvedAt DateTime? @map("resolved_at")
@@ -1971,10 +2008,10 @@ model Inspection {
   tenancy   Tenancy @relation(fields: [tenancyId], references: [id])
 
   // Inspection Details
-  type           InspectionType
-  status         InspectionStatus @default(SCHEDULED)
-  scheduledDate  DateTime?        @map("scheduled_date")
-  scheduledTime  String?          @map("scheduled_time") // e.g. "10:00-12:00"
+  type          InspectionType
+  status        InspectionStatus @default(SCHEDULED)
+  scheduledDate DateTime?        @map("scheduled_date")
+  scheduledTime String?          @map("scheduled_time") // e.g. "10:00-12:00"
 
   // Video Inspection
   videoRequested   Boolean   @default(false) @map("video_requested")
@@ -1983,9 +2020,9 @@ model Inspection {
   videoSubmittedAt DateTime? @map("video_submitted_at")
 
   // Onsite Inspection
-  onsiteRequired  Boolean  @default(false) @map("onsite_required")
+  onsiteRequired  Boolean   @default(false) @map("onsite_required")
   onsiteDate      DateTime? @map("onsite_date")
-  onsiteInspector String?  @map("onsite_inspector")
+  onsiteInspector String?   @map("onsite_inspector")
 
   // Report
   reportUrl     String? @map("report_url")
@@ -2014,8 +2051,8 @@ model InspectionItem {
   inspectionId String     @map("inspection_id") @db.Uuid
   inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
-  category  String  // BEDROOM, BATHROOM, KITCHEN, LIVING, EXTERIOR, OTHER
-  item      String  // Wall condition, Floor condition, etc.
+  category  String // BEDROOM, BATHROOM, KITCHEN, LIVING, EXTERIOR, OTHER
+  item      String // Wall condition, Floor condition, etc.
   condition String? // EXCELLENT, GOOD, FAIR, POOR, DAMAGED
   notes     String?
   photoUrls Json?   @map("photo_urls") // Array of image URL strings
@@ -2090,7 +2127,7 @@ model ClaimEvidence {
   claimId String @map("claim_id") @db.Uuid
   claim   Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade)
 
-  type        String  // PHOTO, VIDEO, RECEIPT, QUOTE
+  type        String // PHOTO, VIDEO, RECEIPT, QUOTE
   fileName    String  @map("file_name")
   fileUrl     String  @map("file_url")
   fileSize    Int?    @map("file_size")
@@ -2131,6 +2168,15 @@ enum AgentStatus {
   SUSPENDED
 }
 
+enum CompanyDocumentType {
+  SSM_CERTIFICATE // Business registration
+  BOVAEA_LICENSE // Board of Valuers, Appraisers, Estate Agents license
+  INSURANCE_CERTIFICATE // Professional indemnity
+  TAX_CERTIFICATE // Tax compliance
+  BANK_STATEMENT // Financial proof
+  OTHER
+}
+
 enum CommissionType {
   BOOKING
   RENEWAL
@@ -2147,14 +2193,15 @@ model Company {
   id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
 
   // Partner context
-  partnerId String @map("tenant_id") @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Company Details
   name           String
-  registrationNo String  @map("registration_no")
+  registrationNo String      @map("registration_no")
   type           CompanyType
-  
+  verticalTypes  String[]    @default([]) @map("vertical_types")
+
   // Contact
   email   String
   phone   String
@@ -2175,11 +2222,17 @@ model Company {
   deletedAt DateTime? @map("deleted_at")
 
   // Relations
-  admins CompanyAdmin[]
-  agents Agent[]
+  admins      CompanyAdmin[]
+  agents      Agent[]
+  profile     CompanyProfile?
+  branding    CompanyBranding?
+  settings    CompanySettings?
+  documents   CompanyDocument[]
+  customRoles CompanyCustomRole[]
 
-  @@index([partnerId, status])
   @@unique([partnerId, registrationNo])
+  @@index([partnerId, status])
+  @@index([verticalTypes])
   @@map("companies")
 }
 
@@ -2197,9 +2250,141 @@ model CompanyAdmin {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  // Custom roles
+  customRoles CompanyAdminCustomRole[]
+
   @@unique([companyId, userId])
   @@index([userId])
   @@map("company_admins")
+}
+
+model CompanyProfile {
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId String  @unique @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  bio          String?  @db.Text
+  website      String?
+  established  Int? // Year established
+  teamSize     Int?     @map("team_size")
+  specialties  String[] @default([]) // ["Residential", "Commercial", "Industrial"]
+  serviceAreas String[] @default([]) @map("service_areas") // ["Kuala Lumpur", "Selangor"]
+
+  // Social links
+  facebookUrl  String? @map("facebook_url")
+  instagramUrl String? @map("instagram_url")
+  linkedinUrl  String? @map("linkedin_url")
+  youtubeUrl   String? @map("youtube_url")
+  tiktokUrl    String? @map("tiktok_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("company_profiles")
+}
+
+model CompanyBranding {
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId String  @unique @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  logo         String? // Main logo URL
+  logoIcon     String? @map("logo_icon") // Square icon
+  logoDark     String? @map("logo_dark") // Dark mode logo
+  favicon      String?
+  primaryColor String? @map("primary_color") // Hex color
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("company_brandings")
+}
+
+model CompanySettings {
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId String  @unique @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Commission defaults
+  defaultCommissionRate Decimal? @map("default_commission_rate") @db.Decimal(5, 2) // e.g., 3.00%
+  commissionSplit       Decimal? @map("commission_split") @db.Decimal(5, 2) // Agent's share e.g., 70%
+
+  // Notifications
+  notificationEmail String? @map("notification_email")
+  enableEmailAlerts Boolean @default(true) @map("enable_email_alerts")
+  enableSmsAlerts   Boolean @default(false) @map("enable_sms_alerts")
+
+  // Bank details for company payouts
+  bankName        String? @map("bank_name")
+  bankAccount     String? @map("bank_account")
+  bankAccountName String? @map("bank_account_name")
+  bankSwiftCode   String? @map("bank_swift_code")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("company_settings")
+}
+
+model CompanyDocument {
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  type     CompanyDocumentType
+  fileName String              @map("file_name")
+  fileUrl  String              @map("file_url")
+  fileSize Int                 @map("file_size")
+  mimeType String              @map("mime_type")
+
+  // Verification
+  verified   Boolean   @default(false)
+  verifiedAt DateTime? @map("verified_at")
+  verifiedBy String?   @map("verified_by") @db.Uuid
+  expiresAt  DateTime? @map("expires_at") // For licenses
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId, type])
+  @@map("company_documents")
+}
+
+model CompanyCustomRole {
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  permissions Json // ["agents.view", "agents.create", "listings.view", ...]
+  isDefault   Boolean @default(false) @map("is_default") // System roles
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relation to company admins using this role
+  companyAdmins CompanyAdminCustomRole[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("company_custom_roles")
+}
+
+model CompanyAdminCustomRole {
+  id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+
+  companyAdminId String       @map("company_admin_id") @db.Uuid
+  companyAdmin   CompanyAdmin @relation(fields: [companyAdminId], references: [id], onDelete: Cascade)
+
+  customRoleId String            @map("custom_role_id") @db.Uuid
+  customRole   CompanyCustomRole @relation(fields: [customRoleId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  @@unique([companyAdminId, customRoleId])
+  @@index([customRoleId])
+  @@map("company_admin_custom_roles")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2217,6 +2402,9 @@ model Agent {
   userId String @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Vertical context
+  verticalType String? @map("vertical_type")
+
   // REN Number (Malaysia Real Estate Negotiator)
   renNumber String?   @map("ren_number")
   renExpiry DateTime? @map("ren_expiry")
@@ -2224,7 +2412,7 @@ model Agent {
   // Performance stats
   totalListings Int     @default(0) @map("total_listings")
   totalDeals    Int     @default(0) @map("total_deals")
-  totalRevenue  Decimal @default(0) @db.Decimal(12, 2) @map("total_revenue")
+  totalRevenue  Decimal @default(0) @map("total_revenue") @db.Decimal(12, 2)
 
   // Referral
   referralCode String? @unique @map("referral_code")
@@ -2245,19 +2433,20 @@ model Agent {
   @@unique([companyId, userId])
   @@index([companyId, status])
   @@index([referralCode])
+  @@index([verticalType])
   @@map("agents")
 }
 
 model AgentListing {
   id String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
 
-  agentId   String  @map("agent_id") @db.Uuid
-  agent     Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String @map("agent_id") @db.Uuid
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   listingId String  @map("listing_id") @db.Uuid
   listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
-  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedAt DateTime  @default(now()) @map("assigned_at")
   removedAt  DateTime? @map("removed_at")
 
   @@unique([agentId, listingId])
@@ -2281,8 +2470,8 @@ model AgentCommission {
 
   // Financial
   dealValue Decimal @map("deal_value") @db.Decimal(12, 2) // e.g. monthly rent
-  rate      Decimal @db.Decimal(5, 2)                     // e.g. 100.00 = 1 month
-  amount    Decimal @db.Decimal(12, 2)                     // calculated commission
+  rate      Decimal @db.Decimal(5, 2) // e.g. 100.00 = 1 month
+  amount    Decimal @db.Decimal(12, 2) // calculated commission
 
   // Status
   status     CommissionStatus @default(PENDING)
@@ -2339,8 +2528,8 @@ enum AffiliatePayoutStatus {
 }
 
 model Affiliate {
-  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId String @map("tenant_id") @db.Uuid
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   userId String @map("user_id") @db.Uuid
@@ -2415,12 +2604,12 @@ model AffiliatePayout {
   affiliateId String    @map("affiliate_id") @db.Uuid
   affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
 
-  amount Decimal              @db.Decimal(12, 2)
+  amount Decimal               @db.Decimal(12, 2)
   status AffiliatePayoutStatus @default(PENDING)
 
   // Processing details
   processedAt DateTime? @map("processed_at")
-  reference   String?   // Bank transfer ref / receipt number
+  reference   String? // Bank transfer ref / receipt number
 
   // Notes
   notes String?
@@ -2450,7 +2639,7 @@ model LegalCase {
   // Case details
   caseNumber  String          @unique @map("case_number")
   status      LegalCaseStatus @default(NOTICE_SENT)
-  reason      String          // NON_PAYMENT, BREACH, DAMAGE, OTHER
+  reason      String // NON_PAYMENT, BREACH, DAMAGE, OTHER
   description String          @db.Text
   amountOwed  Decimal         @map("amount_owed") @db.Decimal(12, 2)
 
@@ -2486,8 +2675,8 @@ model LegalCase {
 }
 
 model PanelLawyer {
-  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  partnerId String @map("tenant_id") @db.Uuid
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  partnerId String  @map("tenant_id") @db.Uuid
   partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   // Profile
@@ -2521,8 +2710,8 @@ model LegalDocument {
   // Document details
   type     String // NOTICE, RESPONSE, COURT_FILING, JUDGMENT, FIRST_REMINDER, SECOND_REMINDER, LEGAL_NOTICE, TERMINATION_NOTICE
   title    String
-  fileName String  @map("file_name")
-  fileUrl  String  @map("file_url")
+  fileName String @map("file_name")
+  fileUrl  String @map("file_url")
 
   // Metadata
   generatedBy String? @map("generated_by") // system | manual

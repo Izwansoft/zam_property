@@ -19,6 +19,7 @@ import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '@core/auth';
 import { Roles, RolesGuard } from '@core/rbac';
 import { ApiResponse as SuccessResponse } from '@shared/responses';
+import { UserVendorRole } from '@prisma/client';
 
 import {
   CreateVendorDto,
@@ -32,6 +33,7 @@ import {
   ReactivateVendorDto,
   UpdateVendorProfileDto,
   UpdateVendorSettingsDto,
+  VendorMyApplicationDto,
 } from './dto';
 import { VendorService } from './vendor.service';
 
@@ -40,7 +42,6 @@ interface AuthenticatedRequest {
     sub: string;
     partnerId: string;
     role: Role;
-    vendorId?: string;
   };
 }
 
@@ -54,6 +55,34 @@ export class VendorController {
   // ─────────────────────────────────────────────────────────────────────────
   // LIST & GET
   // ─────────────────────────────────────────────────────────────────────────
+
+  @Get('me/applications')
+  @Roles(
+    Role.SUPER_ADMIN,
+    Role.PARTNER_ADMIN,
+    Role.VENDOR_ADMIN,
+    Role.VENDOR_STAFF,
+    Role.CUSTOMER,
+    Role.TENANT,
+    Role.AGENT,
+    Role.COMPANY_ADMIN,
+  )
+  @ApiOperation({
+    summary: 'Get my vendor applications',
+    description:
+      'Returns vendor records linked to the authenticated user, including status and vertical.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of vendor applications for current user',
+    type: [VendorMyApplicationDto],
+  })
+  async getMyVendorApplications(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<SuccessResponse<VendorMyApplicationDto[]>> {
+    const items = await this.vendorService.getMyVendorApplications(req.user.sub);
+    return { data: items };
+  }
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
@@ -79,6 +108,7 @@ export class VendorController {
       status: query.status,
       vendorType: query.vendorType,
       search: query.search,
+      verticalType: query.verticalType,
     });
 
     return {
@@ -169,7 +199,7 @@ export class VendorController {
   ): Promise<SuccessResponse<VendorResponseDto>> {
     // VENDOR_ADMIN can only update their own vendor
     if (req.user.role === Role.VENDOR_ADMIN) {
-      await this.vendorService.assertUserCanManageVendor(id, req.user.vendorId);
+      await this.vendorService.assertUserCanManageVendor(id, req.user.sub);
     }
 
     const vendor = await this.vendorService.updateVendor(id, dto);
@@ -315,7 +345,7 @@ export class VendorController {
   ): Promise<SuccessResponse<VendorDetailResponseDto>> {
     // VENDOR_ADMIN can only update their own vendor
     if (req.user.role === Role.VENDOR_ADMIN) {
-      await this.vendorService.assertUserCanManageVendor(id, req.user.vendorId);
+      await this.vendorService.assertUserCanManageVendor(id, req.user.sub);
     }
 
     const vendor = await this.vendorService.updateVendorProfile(id, dto);
@@ -342,10 +372,67 @@ export class VendorController {
   ): Promise<SuccessResponse<VendorDetailResponseDto>> {
     // VENDOR_ADMIN can only update their own vendor
     if (req.user.role === Role.VENDOR_ADMIN) {
-      await this.vendorService.assertUserCanManageVendor(id, req.user.vendorId);
+      await this.vendorService.assertUserCanManageVendor(id, req.user.sub);
     }
 
     const vendor = await this.vendorService.updateVendorSettings(id, dto);
     return { data: vendor };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // USER-VENDOR MANAGEMENT (multi-vertical support)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get(':id/users')
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.VENDOR_ADMIN)
+  @ApiOperation({
+    summary: 'Get vendor users',
+    description: 'List all users assigned to a vendor.',
+  })
+  @ApiParam({ name: 'id', description: 'Vendor UUID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'List of vendor users' })
+  async getVendorUsers(@Param('id', ParseUUIDPipe) id: string): Promise<SuccessResponse<unknown>> {
+    const users = await this.vendorService.getVendorUsers(id);
+    return { data: users };
+  }
+
+  @Post(':id/users')
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
+  @ApiOperation({
+    summary: 'Add user to vendor',
+    description:
+      'Assign a user to a vendor with a specific role. Supports multi-vertical vendor access.',
+  })
+  @ApiParam({ name: 'id', description: 'Vendor UUID', type: 'string' })
+  @ApiResponse({ status: 201, description: 'User added to vendor' })
+  @ApiResponse({ status: 409, description: 'User already assigned to this vendor' })
+  async addUserToVendor(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { userId: string; role?: UserVendorRole; isPrimary?: boolean },
+  ): Promise<SuccessResponse<unknown>> {
+    const result = await this.vendorService.addUserToVendor(
+      body.userId,
+      id,
+      body.role ?? UserVendorRole.MEMBER,
+      body.isPrimary ?? false,
+    );
+    return { data: result };
+  }
+
+  @Delete(':id/users/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN)
+  @ApiOperation({
+    summary: 'Remove user from vendor',
+    description: "Remove a user's assignment from a vendor.",
+  })
+  @ApiParam({ name: 'id', description: 'Vendor UUID', type: 'string' })
+  @ApiParam({ name: 'userId', description: 'User UUID', type: 'string' })
+  @ApiResponse({ status: 204, description: 'User removed from vendor' })
+  async removeUserFromVendor(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ): Promise<void> {
+    await this.vendorService.removeUserFromVendor(userId, id);
   }
 }

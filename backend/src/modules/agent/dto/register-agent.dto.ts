@@ -1,15 +1,10 @@
-import {
-  IsString,
-  IsUUID,
-  IsOptional,
-  IsDateString,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsDateString, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterAgentDto {
-  @ApiPropertyOptional({ description: 'Company ID the agent belongs to (omit for independent agent)' })
+  @ApiPropertyOptional({
+    description: 'Company ID the agent belongs to (omit for independent agent)',
+  })
   @IsOptional()
   @IsUUID()
   companyId?: string;

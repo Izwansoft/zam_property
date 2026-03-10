@@ -12,7 +12,7 @@ import { DatabaseModule } from '@infrastructure/database';
 import { SearchModule } from '@infrastructure/search';
 import { PartnerContextModule } from '@core/partner-context';
 import { ValidationModule } from '@core/validation';
-import { VerticalModule, VerticalService } from '@modules/vertical';
+import { VerticalModule, VerticalService, VerticalRegistryService } from '@modules/vertical';
 
 import { RealEstateListingService, RealEstateSearchService } from './services';
 import { RealEstateSearchController } from './controllers';
@@ -127,9 +127,27 @@ export const REAL_ESTATE_VERTICAL_DEFINITION = {
 export class RealEstateVerticalModule implements OnModuleInit {
   private readonly logger = new Logger(RealEstateVerticalModule.name);
 
-  constructor(private readonly verticalService: VerticalService) {}
+  constructor(
+    private readonly verticalService: VerticalService,
+    private readonly verticalRegistry: VerticalRegistryService,
+  ) {}
 
   async onModuleInit(): Promise<void> {
+    // Register with the vertical registry (runtime detection)
+    this.verticalRegistry.register({
+      type: REAL_ESTATE_VERTICAL_DEFINITION.type,
+      name: REAL_ESTATE_VERTICAL_DEFINITION.name,
+      version: REAL_ESTATE_VERTICAL_DEFINITION.schemaVersion,
+      status: 'READY',
+      features: [
+        'search',
+        'filters',
+        'validation',
+        'attribute-schema',
+      ],
+    });
+
+    // Also register/update in database
     await this.registerVertical();
   }
 

@@ -17,12 +17,7 @@ import { AgentStatus, Prisma } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { PartnerContextService } from '@core/partner-context/partner-context.service';
-import {
-  RegisterAgentDto,
-  UpdateAgentDto,
-  AssignListingDto,
-  AgentQueryDto,
-} from './dto';
+import { RegisterAgentDto, UpdateAgentDto, AssignListingDto, AgentQueryDto } from './dto';
 import { randomBytes } from 'crypto';
 
 // ============================================
@@ -33,6 +28,7 @@ export interface AgentView {
   id: string;
   companyId: string | null;
   userId: string;
+  verticalType: string | null;
   renNumber: string | null;
   renExpiry: Date | null;
   totalListings: number;
@@ -267,6 +263,10 @@ export class AgentService {
       where.status = query.status;
     }
 
+    if (query.verticalType) {
+      where.verticalType = query.verticalType;
+    }
+
     if (query.search) {
       where.OR = [
         { user: { fullName: { contains: query.search, mode: 'insensitive' } } },
@@ -316,7 +316,8 @@ export class AgentService {
     const updateData: Prisma.AgentUpdateInput = {};
 
     if (dto.renNumber !== undefined) updateData.renNumber = dto.renNumber;
-    if (dto.renExpiry !== undefined) updateData.renExpiry = dto.renExpiry ? new Date(dto.renExpiry) : null;
+    if (dto.renExpiry !== undefined)
+      updateData.renExpiry = dto.renExpiry ? new Date(dto.renExpiry) : null;
 
     const agent = await this.prisma.agent.update({
       where: { id: agentId },
@@ -387,9 +388,7 @@ export class AgentService {
       data: { totalListings: { increment: 1 } },
     });
 
-    this.logger.log(
-      `Agent ${agentId} assigned to listing ${dto.listingId}`,
-    );
+    this.logger.log(`Agent ${agentId} assigned to listing ${dto.listingId}`);
 
     this.eventEmitter.emit(
       'agent.listing.assigned',
@@ -425,9 +424,7 @@ export class AgentService {
     });
 
     if (!assignment) {
-      throw new NotFoundException(
-        `Agent ${agentId} is not assigned to listing ${listingId}`,
-      );
+      throw new NotFoundException(`Agent ${agentId} is not assigned to listing ${listingId}`);
     }
 
     // Soft-remove: set removedAt instead of deleting

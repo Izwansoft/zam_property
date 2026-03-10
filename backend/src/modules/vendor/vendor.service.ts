@@ -7,12 +7,14 @@ import {
   Scope,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Prisma, VendorStatus, VendorType } from '@prisma/client';
+import { Prisma, VendorStatus, VendorType, UserVendorRole } from '@prisma/client';
 
 import { PartnerContextService } from '@core/partner-context';
 import { VendorStateMachine } from '@core/workflows';
+import { PrismaService } from '@infrastructure/database';
 
 import { VendorRepository, VendorView, VendorDetailView } from './vendor.repository';
+import { VendorMyApplicationDto } from './dto';
 
 export interface VendorListResult {
   items: VendorView[];
@@ -28,6 +30,7 @@ export interface VendorListResult {
 export class VendorService {
   constructor(
     private readonly vendorRepository: VendorRepository,
+    private readonly prisma: PrismaService,
     private readonly PartnerContext: PartnerContextService,
     private readonly eventEmitter: EventEmitter2,
     private readonly vendorStateMachine: VendorStateMachine,
@@ -39,6 +42,7 @@ export class VendorService {
     status?: VendorStatus;
     vendorType?: VendorType;
     search?: string;
+    verticalType?: string;
   }): Promise<VendorListResult> {
     const page = params.page ?? 1;
     const pageSize = params.pageSize ?? 20;
@@ -50,11 +54,13 @@ export class VendorService {
         status: params.status,
         vendorType: params.vendorType,
         search: params.search,
+        verticalType: params.verticalType,
       }),
       this.vendorRepository.count({
         status: params.status,
         vendorType: params.vendorType,
         search: params.search,
+        verticalType: params.verticalType,
       }),
     ]);
 
@@ -94,6 +100,7 @@ export class VendorService {
     name: string;
     description?: string;
     vendorType?: VendorType;
+    verticalType?: string;
     email?: string;
     phone?: string;
     website?: string;
@@ -112,6 +119,7 @@ export class VendorService {
         slug,
         description: data.description,
         vendorType: data.vendorType ?? VendorType.INDIVIDUAL,
+        verticalType: data.verticalType,
         email: data.email,
         phone: data.phone,
         website: data.website,
@@ -421,14 +429,129 @@ export class VendorService {
   // VENDOR CONTEXT HELPERS (for user authorization)
   // ─────────────────────────────────────────────────────────────────────────
 
-  async assertUserCanManageVendor(vendorId: string, userVendorId?: string | null): Promise<void> {
-    if (!userVendorId || userVendorId !== vendorId) {
-      throw new ForbiddenException('You do not have permission to manage this vendor');
-    }
-
+  async assertUserCanManageVendor(vendorId: string, userId: string): Promise<void> {
     const vendor = await this.vendorRepository.findById(vendorId);
     if (!vendor) {
       throw new NotFoundException('Vendor not found');
+    }
+
+    // Check if user has a UserVendor membership for this vendor
+    const membership = await this.prisma.userVendor.findUnique({
+      where: { userId_vendorId: { userId, vendorId } },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('You do not have permission to manage this vendor');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // USER-VENDOR MANAGEMENT (multi-vertical support)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  async addUserToVendor(
+    userId: string,
+    vendorId: string,
+    role: UserVendorRole = UserVendorRole.MEMBER,
+    isPrimary: boolean = false,
+  ) {
+    // Verify vendor exists
+    const vendor = await this.vendorRepository.findById(vendorId);
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    try {
+      const userVendor = await this.vendorRepository.addUserToVendor(
+        userId,
+        vendorId,
+        role,
+        isPrimary,
+      );
+
+      this.eventEmitter.emit('vendor.user.added', {
+        partnerId: this.PartnerContext.partnerId,
+        vendorId,
+        userId,
+        role,
+      });
+
+      return userVendor;
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('User is already assigned to this vendor');
+      }
+      throw err;
+    }
+  }
+
+  async removeUserFromVendor(userId: string, vendorId: string) {
+    try {
+      await this.vendorRepository.removeUserFromVendor(userId, vendorId);
+
+      this.eventEmitter.emit('vendor.user.removed', {
+        partnerId: this.PartnerContext.partnerId,
+        vendorId,
+        userId,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new NotFoundException('User-vendor assignment not found');
+      }
+      throw err;
+    }
+  }
+
+  async getUserVendors(userId: string) {
+    return this.vendorRepository.getUserVendors(userId);
+  }
+
+  async getMyVendorApplications(userId: string): Promise<VendorMyApplicationDto[]> {
+    const rows = await this.vendorRepository.getUserVendors(userId);
+
+    return rows.map((row) => ({
+      vendorId: row.vendor.id,
+      vendorName: row.vendor.name,
+      vendorSlug: row.vendor.slug,
+      verticalType: row.vendor.verticalType,
+      vendorType: row.vendor.vendorType,
+      status: row.vendor.status,
+      userVendorRole: row.role,
+      isPrimary: row.isPrimary,
+      linkedAt: row.createdAt,
+      updatedAt: row.vendor.updatedAt,
+      rejectionReason: row.vendor.rejectionReason ?? null,
+    }));
+  }
+
+  async getVendorUsers(vendorId: string) {
+    const vendor = await this.vendorRepository.findById(vendorId);
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    return this.vendorRepository.getVendorUsers(vendorId);
+  }
+
+  async updateUserVendorRole(userId: string, vendorId: string, role: UserVendorRole) {
+    try {
+      return await this.vendorRepository.updateUserVendorRole(userId, vendorId, role);
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new NotFoundException('User-vendor assignment not found');
+      }
+      throw err;
+    }
+  }
+
+  async setUserPrimaryVendor(userId: string, vendorId: string) {
+    try {
+      return await this.vendorRepository.setUserPrimaryVendor(userId, vendorId);
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        throw new NotFoundException('User-vendor assignment not found');
+      }
+      throw err;
     }
   }
 

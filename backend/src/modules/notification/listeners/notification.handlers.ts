@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { NotificationChannel, NotificationStatus, NotificationType } from '@prisma/client';
+import { PrismaService } from '@infrastructure/database';
 import { NotificationService } from '../services/notification.service';
 
 /**
@@ -15,32 +17,276 @@ type DomainEvent = any;
 export class ListingNotificationHandler {
   private readonly logger = new Logger(ListingNotificationHandler.name);
 
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly prisma: PrismaService,
+  ) {}
 
-  @OnEvent('listing.published')
-  async handleListingPublished(event: DomainEvent) {
-    this.logger.log(`Handling listing.published event: ${event.listingId}`);
+  private normalizeListingEvent(event: DomainEvent): {
+    partnerId: string;
+    eventId?: string;
+    listingId: string;
+    vendorId: string;
+    reason?: string;
+    actorId?: string;
+  } | null {
+    const payload = event?.payload ?? event;
+    const partnerId = event?.partnerId ?? payload?.partnerId;
+    const listingId = payload?.listingId;
+    const vendorId = payload?.vendorId;
 
-    // TODO: Get vendor user IDs and send notifications
-    // await this.notificationService.sendNotification({
-    //   partnerId: event.partnerId,
-    //   userId: event.vendorUserId,
-    //   userEmail: event.vendorEmail,
-    //   type: NotificationType.LISTING_PUBLISHED,
-    //   channel: NotificationChannel.EMAIL,
-    //   variables: {
-    //     ...event,
-    //   },
-    //   eventId: event.eventId,
-    //   resourceType: 'Listing',
-    //   resourceId: event.listingId,
-    // });
+    if (!partnerId || !listingId || !vendorId) {
+      return null;
+    }
+
+    return {
+      partnerId,
+      eventId: event?.eventId,
+      listingId,
+      vendorId,
+      reason: payload?.reason,
+      actorId: event?.actorId,
+    };
   }
 
+  private async resolveRecipients(partnerId: string, listingId: string, vendorId: string) {
+    const [vendorUsers, assignedAgents] = await Promise.all([
+      this.prisma.userVendor.findMany({
+        where: {
+          vendorId,
+          user: {
+            partnerId,
+            deletedAt: null,
+          },
+        },
+        select: {
+          userId: true,
+          user: {
+            select: {
+              email: true,
+              fullName: true,
+            },
+          },
+        },
+      }),
+      this.prisma.agentListing.findMany({
+        where: {
+          listingId,
+          removedAt: null,
+          agent: {
+            deletedAt: null,
+          },
+        },
+        select: {
+          agent: {
+            select: {
+              userId: true,
+              user: {
+                select: {
+                  email: true,
+                  fullName: true,
+                },
+              },
+              company: {
+                select: {
+                  admins: {
+                    select: {
+                      userId: true,
+                      user: {
+                        select: {
+                          email: true,
+                          fullName: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const recipientMap = new Map<string, { userId: string; email: string; fullName: string }>();
+
+    for (const vendorUser of vendorUsers) {
+      recipientMap.set(vendorUser.userId, {
+        userId: vendorUser.userId,
+        email: vendorUser.user.email,
+        fullName: vendorUser.user.fullName,
+      });
+    }
+
+    for (const assignment of assignedAgents) {
+      recipientMap.set(assignment.agent.userId, {
+        userId: assignment.agent.userId,
+        email: assignment.agent.user.email,
+        fullName: assignment.agent.user.fullName,
+      });
+
+      for (const admin of assignment.agent.company?.admins ?? []) {
+        recipientMap.set(admin.userId, {
+          userId: admin.userId,
+          email: admin.user.email,
+          fullName: admin.user.fullName,
+        });
+      }
+    }
+
+    return Array.from(recipientMap.values());
+  }
+
+  private async notifyListingModeration(params: {
+    event: DomainEvent;
+    type: NotificationType;
+    listingStatus: string;
+  }): Promise<void> {
+    const normalized = this.normalizeListingEvent(params.event);
+    if (!normalized) {
+      this.logger.warn('Skipping listing moderation notification: invalid event payload');
+      return;
+    }
+
+    const listing = await this.prisma.listing.findFirst({
+      where: {
+        id: normalized.listingId,
+        partnerId: normalized.partnerId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        partner: { select: { name: true } },
+        vendor: { select: { name: true } },
+      },
+    });
+
+    if (!listing) {
+      this.logger.warn(`Skipping listing moderation notification: listing not found ${normalized.listingId}`);
+      return;
+    }
+
+    const recipients = await this.resolveRecipients(
+      normalized.partnerId,
+      normalized.listingId,
+      normalized.vendorId,
+    );
+
+    if (recipients.length === 0) {
+      this.logger.debug(`No recipients found for listing moderation notification ${normalized.listingId}`);
+      return;
+    }
+
+    const appUrl = process.env.APP_URL || '';
+    const listingUrl = `${appUrl}/dashboard/listings/${listing.id}`;
+    const timestamp = new Date().toISOString();
+    const fallbackTitle = `Listing ${params.listingStatus.toLowerCase()}`;
+    const fallbackBody = `"${listing.title}" is now ${params.listingStatus.toLowerCase()}.`;
+
+    await Promise.all(
+      recipients
+        .filter((recipient) => recipient.userId !== normalized.actorId)
+        .map(async (recipient) => {
+          try {
+            await this.notificationService.sendNotification({
+              partnerId: normalized.partnerId,
+              userId: recipient.userId,
+              userEmail: recipient.email,
+              type: params.type,
+              channel: NotificationChannel.IN_APP,
+              variables: {
+                partnerName: listing.partner.name,
+                userName: recipient.fullName,
+                userEmail: recipient.email,
+                timestamp,
+                appUrl,
+                listingId: listing.id,
+                listingTitle: listing.title,
+                listingUrl,
+                listingStatus: params.listingStatus,
+                vendorName: listing.vendor.name,
+                reason: normalized.reason,
+              },
+              eventId: normalized.eventId,
+              resourceType: 'Listing',
+              resourceId: listing.id,
+            });
+          } catch (error) {
+            this.logger.error(
+              `Failed listing moderation notification for user ${recipient.userId}: ${(error as Error).message}`,
+            );
+
+            // Fallback to direct in-app notification when template is missing.
+            await this.prisma.notification.create({
+              data: {
+                partnerId: normalized.partnerId,
+                userId: recipient.userId,
+                type: params.type,
+                channel: NotificationChannel.IN_APP,
+                title: fallbackTitle,
+                body: fallbackBody,
+                data: {
+                  listingId: listing.id,
+                  listingTitle: listing.title,
+                  listingUrl,
+                  listingStatus: params.listingStatus,
+                },
+                eventId: normalized.eventId,
+                resourceType: 'Listing',
+                resourceId: listing.id,
+                status: NotificationStatus.SENT,
+                sentAt: new Date(),
+              },
+            });
+          }
+        }),
+    );
+  }
+
+  @OnEvent('listing.listing.published')
+  @OnEvent('listing.published')
+  async handleListingPublished(event: DomainEvent) {
+    this.logger.log('Handling listing published notification');
+    await this.notifyListingModeration({
+      event,
+      type: NotificationType.LISTING_PUBLISHED,
+      listingStatus: 'PUBLISHED',
+    });
+  }
+
+  @OnEvent('listing.listing.unpublished')
+  @OnEvent('listing.unpublished')
+  async handleListingUnpublished(event: DomainEvent) {
+    this.logger.log('Handling listing unpublished notification');
+    await this.notifyListingModeration({
+      event,
+      type: NotificationType.SYSTEM_ALERT,
+      listingStatus: 'DRAFT',
+    });
+  }
+
+  @OnEvent('listing.listing.archived')
+  @OnEvent('listing.archived')
+  async handleListingArchived(event: DomainEvent) {
+    this.logger.log('Handling listing archived notification');
+    await this.notifyListingModeration({
+      event,
+      type: NotificationType.SYSTEM_ALERT,
+      listingStatus: 'ARCHIVED',
+    });
+  }
+
+  @OnEvent('listing.listing.expired')
   @OnEvent('listing.expired')
   async handleListingExpired(event: DomainEvent) {
-    this.logger.log(`Handling listing.expired event: ${event.listingId}`);
-    // TODO: Implement notification
+    this.logger.log('Handling listing expired notification');
+    await this.notifyListingModeration({
+      event,
+      type: NotificationType.LISTING_EXPIRED,
+      listingStatus: 'EXPIRED',
+    });
   }
 }
 

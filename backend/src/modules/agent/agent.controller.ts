@@ -20,29 +20,13 @@ import {
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-} from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/rbac/guards/roles.guard';
 import { Roles } from '@core/rbac/decorators/roles.decorator';
-import {
-  AgentService,
-  AgentView,
-  AgentListingView,
-  AgentListResult,
-} from './agent.service';
-import {
-  RegisterAgentDto,
-  UpdateAgentDto,
-  AssignListingDto,
-  AgentQueryDto,
-} from './dto';
+import { AgentService, AgentView, AgentListingView, AgentListResult } from './agent.service';
+import { RegisterAgentDto, UpdateAgentDto, AssignListingDto, AgentQueryDto } from './dto';
 
 interface SuccessResponse<T> {
   data: T;
@@ -66,9 +50,7 @@ export class AgentController {
   @ApiResponse({ status: 201, description: 'Agent registered successfully' })
   @ApiResponse({ status: 404, description: 'Company or user not found' })
   @ApiResponse({ status: 409, description: 'Agent already registered' })
-  async registerAgent(
-    @Body() dto: RegisterAgentDto,
-  ): Promise<SuccessResponse<AgentView>> {
+  async registerAgent(@Body() dto: RegisterAgentDto): Promise<SuccessResponse<AgentView>> {
     const data = await this.agentService.registerAgent(dto);
     return { data };
   }
@@ -81,9 +63,7 @@ export class AgentController {
   @Roles(Role.SUPER_ADMIN, Role.PARTNER_ADMIN, Role.COMPANY_ADMIN, Role.AGENT)
   @ApiOperation({ summary: 'List agents with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Agents listed successfully' })
-  async listAgents(
-    @Query() query: AgentQueryDto,
-  ): Promise<SuccessResponse<AgentListResult>> {
+  async listAgents(@Query() query: AgentQueryDto): Promise<SuccessResponse<AgentListResult>> {
     const data = await this.agentService.listAgents(query);
     return { data };
   }
@@ -98,9 +78,7 @@ export class AgentController {
   @ApiParam({ name: 'id', description: 'Agent ID' })
   @ApiResponse({ status: 200, description: 'Agent details retrieved' })
   @ApiResponse({ status: 404, description: 'Agent not found' })
-  async getAgent(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<SuccessResponse<AgentView>> {
+  async getAgent(@Param('id', ParseUUIDPipe) id: string): Promise<SuccessResponse<AgentView>> {
     const data = await this.agentService.getAgent(id);
     return { data };
   }
@@ -191,9 +169,7 @@ export class AgentController {
   @ApiResponse({ status: 200, description: 'Agent suspended' })
   @ApiResponse({ status: 400, description: 'Agent already suspended' })
   @ApiResponse({ status: 404, description: 'Agent not found' })
-  async suspendAgent(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<SuccessResponse<AgentView>> {
+  async suspendAgent(@Param('id', ParseUUIDPipe) id: string): Promise<SuccessResponse<AgentView>> {
     const data = await this.agentService.suspendAgent(id);
     return { data };
   }

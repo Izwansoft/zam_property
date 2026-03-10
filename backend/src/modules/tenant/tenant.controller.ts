@@ -25,6 +25,7 @@ import { Role, TenantStatus } from '@prisma/client';
 import { JwtAuthGuard } from '@core/auth';
 import { Roles, RolesGuard } from '@core/rbac';
 import { ApiResponse as SuccessResponse } from '@shared/responses';
+import { PrismaService } from '@infrastructure/database';
 
 import {
   CreateTenantDto,
@@ -45,7 +46,6 @@ interface AuthenticatedRequest {
     sub: string;
     partnerId: string;
     role: Role;
-    vendorId?: string;
   };
 }
 
@@ -54,7 +54,10 @@ interface AuthenticatedRequest {
 @UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('tenants')
 export class TenantController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(
+    private readonly tenantService: TenantService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
   // LIST & GET
@@ -89,16 +92,21 @@ export class TenantController {
 
     // If user is vendor, filter by vendor's properties
     if (
-      (req.user.role === Role.VENDOR_ADMIN || req.user.role === Role.VENDOR_STAFF) &&
-      req.user.vendorId
+      (req.user.role === Role.VENDOR_ADMIN || req.user.role === Role.VENDOR_STAFF)
     ) {
-      const tenants = await this.tenantService.getTenantsByVendorId(req.user.vendorId);
-      return {
-        data: {
-          items: tenants,
-          pagination: { page: 1, pageSize: tenants.length, totalItems: tenants.length, totalPages: 1 },
-        },
-      };
+      const primaryVendor = await this.prisma.userVendor.findFirst({
+        where: { userId: req.user.sub, isPrimary: true },
+        select: { vendorId: true },
+      });
+      if (primaryVendor) {
+        const tenants = await this.tenantService.getTenantsByVendorId(primaryVendor.vendorId);
+        return {
+          data: {
+            items: tenants,
+            pagination: { page: 1, pageSize: tenants.length, totalItems: tenants.length, totalPages: 1 },
+          },
+        };
+      }
     }
 
     // Admins get full list with pagination

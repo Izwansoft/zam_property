@@ -82,14 +82,14 @@ export class PropertyMemberGuard implements CanActivate {
 
     // 2. VENDOR_ADMIN bypass for own vendor's listings
     if (role === Role.VENDOR_ADMIN) {
-      const userRecord = await this.prisma.user.findFirst({
-        where: { id: userId },
+      const primaryVendor = await this.prisma.userVendor.findFirst({
+        where: { userId, isPrimary: true },
         select: { vendorId: true },
       });
 
-      if (userRecord?.vendorId) {
+      if (primaryVendor) {
         const listing = await this.prisma.listing.findFirst({
-          where: { id: listingId, vendorId: userRecord.vendorId, deletedAt: null },
+          where: { id: listingId, vendorId: primaryVendor.vendorId, deletedAt: null },
         });
 
         if (listing) {

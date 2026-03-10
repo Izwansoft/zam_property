@@ -18,11 +18,7 @@ import { AgentService } from './agent.service';
  * - Performance stats tracking
  */
 @Module({
-  imports: [
-    DatabaseModule,
-    PartnerContextModule,
-    EventEmitterModule.forRoot(),
-  ],
+  imports: [DatabaseModule, PartnerContextModule, EventEmitterModule.forRoot()],
   controllers: [AgentController],
   providers: [AgentService],
   exports: [AgentService],

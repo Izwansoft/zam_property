@@ -3,7 +3,7 @@
  * Part 8 - Vertical Module Contract
  */
 
-import { IsString, IsOptional, IsBoolean, IsObject, IsArray, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsObject, IsArray, IsNumber, Min, IsDateString, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { Prisma } from '@prisma/client';
@@ -236,6 +236,66 @@ export class UpdatePartnerVerticalDto {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MAINTENANCE MODE DTOs
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class SetMaintenanceDto {
+  @ApiProperty({
+    description: 'Enable or disable maintenance mode',
+    example: true,
+  })
+  @IsBoolean()
+  enabled!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Maintenance start time (ISO 8601)',
+    example: '2026-03-08T02:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  startAt?: string;
+
+  @ApiPropertyOptional({
+    description: 'Expected maintenance end time (ISO 8601)',
+    example: '2026-03-08T06:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  endAt?: string;
+
+  @ApiPropertyOptional({
+    description: 'Maintenance message to display to users',
+    example: 'Scheduled system upgrade for improved performance',
+  })
+  @IsOptional()
+  @IsString()
+  message?: string;
+}
+
+export class MaintenanceStatusResponseDto {
+  @ApiProperty({ description: 'Vertical type', example: 'real_estate' })
+  type!: string;
+
+  @ApiProperty({ description: 'Vertical name', example: 'Real Estate' })
+  name!: string;
+
+  @ApiProperty({ description: 'Whether maintenance mode is active' })
+  isUnderMaintenance!: boolean;
+
+  @ApiPropertyOptional({ description: 'Maintenance message' })
+  message?: string | null;
+
+  @ApiPropertyOptional({ description: 'Maintenance start time' })
+  startAt?: Date | null;
+
+  @ApiPropertyOptional({ description: 'Expected maintenance end time' })
+  endAt?: Date | null;
+
+  @ApiPropertyOptional({ description: 'Estimated remaining time in milliseconds' })
+  estimatedRemainingMs?: number | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // QUERY DTOs
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -321,6 +381,22 @@ export class VerticalDefinitionResponseDto {
 
   @ApiProperty({ description: 'Is core vertical' })
   isCore!: boolean;
+
+  // Maintenance mode fields
+  @ApiProperty({ description: 'Whether vertical is under maintenance' })
+  maintenanceMode!: boolean;
+
+  @ApiPropertyOptional({ description: 'Maintenance start time' })
+  maintenanceStartAt?: Date | null;
+
+  @ApiPropertyOptional({ description: 'Expected maintenance end time' })
+  maintenanceEndAt?: Date | null;
+
+  @ApiPropertyOptional({ description: 'Maintenance message for users' })
+  maintenanceMessage?: string | null;
+
+  @ApiPropertyOptional({ description: 'User ID who scheduled maintenance' })
+  maintenanceScheduledBy?: string | null;
 
   @ApiProperty({ description: 'Created timestamp' })
   createdAt!: Date;

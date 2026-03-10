@@ -55,7 +55,7 @@ export class TenancyGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     ) ?? TenancyAccessLevel.SELF_ONLY;
 
-    const { role, sub: userId, partnerId, vendorId } = user;
+    const { role, sub: userId, partnerId } = user;
 
     // Super admin and partner admin have full access
     if (role === Role.SUPER_ADMIN || role === Role.PARTNER_ADMIN) {
@@ -71,8 +71,14 @@ export class TenancyGuard implements CanActivate {
         return this.handleTenantAccess(userId, partnerId, tenancyId);
 
       case Role.VENDOR_ADMIN:
-      case Role.VENDOR_STAFF:
-        return this.handleVendorAccess(vendorId, partnerId, tenancyId, requiredLevel);
+      case Role.VENDOR_STAFF: {
+        // Resolve vendorId from UserVendor junction table
+        const primaryVendor = await this.prisma.userVendor.findFirst({
+          where: { userId, isPrimary: true },
+          select: { vendorId: true },
+        });
+        return this.handleVendorAccess(primaryVendor?.vendorId, partnerId, tenancyId, requiredLevel);
+      }
 
       case Role.CUSTOMER:
         // Customers may be creating a tenancy for themselves

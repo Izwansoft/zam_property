@@ -1,3 +1,4 @@
+import { resolve } from 'path';
 import { Global, Module, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 
@@ -29,6 +30,10 @@ import { TypedConfigService } from './typed-config.service';
       isGlobal: true,
       cache: true, // Cache config values for performance
       expandVariables: true, // Support ${VAR} syntax in .env files
+      envFilePath: [
+        resolve(process.cwd(), '.env'),          // cwd/.env (when started from backend/)
+        resolve(process.cwd(), 'backend', '.env'), // cwd/backend/.env (when started from monorepo root)
+      ],
       validationSchema: configValidationSchema,
       validationOptions: {
         allowUnknown: true,

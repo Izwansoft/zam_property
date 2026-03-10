@@ -49,4 +49,9 @@ export class AgentQueryDto {
   @IsOptional()
   @IsString()
   sortDir?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({ description: 'Filter by vertical type (e.g. PROPERTY, AUTOMOTIVE)' })
+  @IsOptional()
+  @IsString()
+  verticalType?: string;
 }

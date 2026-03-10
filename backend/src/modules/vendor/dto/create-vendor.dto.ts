@@ -44,6 +44,14 @@ export class CreateVendorDto {
   vendorType?: VendorType;
 
   @ApiPropertyOptional({
+    description: 'Vertical type this vendor operates in (e.g. PROPERTY, AUTOMOTIVE)',
+    example: 'PROPERTY',
+  })
+  @IsString()
+  @IsOptional()
+  verticalType?: string;
+
+  @ApiPropertyOptional({
     description: 'Contact email',
     example: 'contact@abcproperty.com',
   })

@@ -3,16 +3,17 @@
  * Part 8 - Vertical Module Contract
  */
 
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 
 import { DatabaseModule } from '@/infrastructure/database';
 import { PartnerContextModule } from '@core/partner-context';
 
 import { VerticalDefinitionRepository, PartnerVerticalRepository } from './repositories';
-import { VerticalService } from './services';
+import { VerticalService, VerticalRegistryService } from './services';
 import { VerticalDefinitionController, PartnerVerticalController } from './controllers';
 import { VerticalGuard, AnyVerticalGuard } from './guards';
 
+@Global() // Make VerticalRegistryService globally available
 @Module({
   imports: [DatabaseModule, PartnerContextModule],
   controllers: [VerticalDefinitionController, PartnerVerticalController],
@@ -22,12 +23,14 @@ import { VerticalGuard, AnyVerticalGuard } from './guards';
     PartnerVerticalRepository,
     // Services
     VerticalService,
+    VerticalRegistryService,
     // Guards
     VerticalGuard,
     AnyVerticalGuard,
   ],
   exports: [
     VerticalService,
+    VerticalRegistryService,
     VerticalDefinitionRepository,
     PartnerVerticalRepository,
     VerticalGuard,

@@ -161,6 +161,33 @@ export class PricingConfigRepository {
     });
   }
 
+  async findRules(params: {
+    pricingConfigId?: string;
+    isActive?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ items: PricingRule[]; total: number }> {
+    const { pricingConfigId, isActive, page = 1, pageSize = 20 } = params;
+
+    const where: Prisma.PricingRuleWhereInput = {
+      ...(pricingConfigId && { pricingConfigId }),
+      ...(isActive !== undefined && { isActive }),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.pricingRule.findMany({
+        where,
+        include: { pricingConfig: { select: { id: true, name: true, model: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.pricingRule.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
   async findRuleById(id: string): Promise<PricingRule | null> {
     return this.prisma.pricingRule.findUnique({
       where: { id },

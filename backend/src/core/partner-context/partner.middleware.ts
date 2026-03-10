@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NestMiddleware,
   NotFoundException,
 } from '@nestjs/common';
@@ -16,6 +17,8 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 @Injectable()
 export class PartnerMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(PartnerMiddleware.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async use(req: Request, res: Response, next: NextFunction): Promise<void> {

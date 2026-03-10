@@ -16,6 +16,9 @@ import { PublicService } from './public.service';
 import { PublicSearchQueryDto, PublicSearchResponseDto } from './dto/public-search.dto';
 import { PublicListingResponseDto } from './dto/public-listing.dto';
 import { PublicVendorResponseDto } from './dto/public-vendor.dto';
+import { VerticalService } from '../vertical/services/vertical.service';
+import { MaintenanceStatusResponseDto } from '../vertical/dto/vertical.dto';
+import { ApiResponse as SuccessResponse } from '@shared/responses';
 
 @ApiTags('Public API')
 @Controller('public')
@@ -23,7 +26,10 @@ import { PublicVendorResponseDto } from './dto/public-vendor.dto';
 export class PublicController {
   private readonly logger = new Logger(PublicController.name);
 
-  constructor(private readonly publicService: PublicService) {}
+  constructor(
+    private readonly publicService: PublicService,
+    private readonly verticalService: VerticalService,
+  ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
   // SEARCH
@@ -196,5 +202,72 @@ export class PublicController {
         requestId: crypto.randomUUID(),
       },
     };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MAINTENANCE STATUS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get('maintenance')
+  @RateLimit(RateLimitPresets.PUBLIC_READ)
+  @ApiOperation({
+    summary: 'Get maintenance status for all verticals (public)',
+    description:
+      'Check maintenance status for all verticals. Used by public pages to show maintenance indicators.',
+  })
+  @ApiHeader({
+    name: 'X-Partner-ID',
+    description: 'Partner identifier (required)',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Maintenance statuses for all verticals',
+    type: [MaintenanceStatusResponseDto],
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded',
+  })
+  async getAllMaintenanceStatuses(): Promise<SuccessResponse<MaintenanceStatusResponseDto[]>> {
+    const statuses = await this.verticalService.getAllMaintenanceStatuses();
+    return { data: statuses };
+  }
+
+  @Get('maintenance/:type')
+  @RateLimit(RateLimitPresets.PUBLIC_READ)
+  @ApiOperation({
+    summary: 'Get maintenance status for a vertical (public)',
+    description:
+      'Check if a specific vertical is under maintenance. Used by public pages to show maintenance page.',
+  })
+  @ApiHeader({
+    name: 'X-Partner-ID',
+    description: 'Partner identifier (required)',
+    required: true,
+  })
+  @ApiParam({
+    name: 'type',
+    description: 'Vertical type (e.g., real_estate)',
+    example: 'real_estate',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Maintenance status for the vertical',
+    type: MaintenanceStatusResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Vertical not found',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Rate limit exceeded',
+  })
+  async getMaintenanceStatus(
+    @Param('type') type: string,
+  ): Promise<SuccessResponse<MaintenanceStatusResponseDto>> {
+    const status = await this.verticalService.getMaintenanceStatus(type);
+    return { data: status };
   }
 }

@@ -1,11 +1,16 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { Global, Module } from '@nestjs/common';
 
-import { databaseConfig } from './database.config';
 import { PrismaService } from './prisma.service';
 
+/**
+ * Database module providing PrismaService.
+ * Uses the global 'database' config registered in AppConfigModule (config/database.config.ts).
+ * No need for ConfigModule.forFeature — the config is already globally available.
+ *
+ * @Global() makes PrismaService available everywhere without explicit imports.
+ */
+@Global()
 @Module({
-  imports: [ConfigModule.forFeature(databaseConfig)],
   providers: [PrismaService],
   exports: [PrismaService],
 })

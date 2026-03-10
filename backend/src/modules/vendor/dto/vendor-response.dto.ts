@@ -21,6 +21,12 @@ export class VendorResponseDto {
   @ApiProperty({ description: 'Vendor type', enum: VendorType })
   vendorType!: VendorType;
 
+  @ApiPropertyOptional({
+    description: 'Vertical type (e.g. PROPERTY, AUTOMOTIVE)',
+    example: 'PROPERTY',
+  })
+  verticalType?: string | null;
+
   @ApiPropertyOptional({ description: 'Contact email' })
   email?: string | null;
 

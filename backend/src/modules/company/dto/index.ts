@@ -2,3 +2,8 @@ export * from './register-company.dto';
 export * from './update-company.dto';
 export * from './add-company-admin.dto';
 export * from './company-query.dto';
+export * from './update-company-profile.dto';
+export * from './update-company-branding.dto';
+export * from './update-company-settings.dto';
+export * from './company-document.dto';
+export * from './company-custom-role.dto';

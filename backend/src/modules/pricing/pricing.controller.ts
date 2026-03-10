@@ -25,6 +25,7 @@ import {
   UpdatePricingRuleDto,
   CalculateChargeDto,
   ListPricingConfigsDto,
+  ListPricingRulesDto,
   ListChargeEventsDto,
   PricingConfigResponseDto,
   ChargeCalculationResponseDto,
@@ -138,6 +139,30 @@ export class PricingController {
   // ─────────────────────────────────────────────────────────────────────────────
   // PRICING RULE ENDPOINTS
   // ─────────────────────────────────────────────────────────────────────────────
+
+  @Get('rules')
+  @ApiOperation({ summary: 'List pricing rules' })
+  @ApiResponse({ status: 200 })
+  async listRules(@Query() query: ListPricingRulesDto) {
+    const { items, total } = await this.pricingRepo.findRules({
+      pricingConfigId: query.pricingConfigId,
+      isActive: query.isActive,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+
+    return {
+      data: items,
+      meta: {
+        pagination: {
+          page: query.page || 1,
+          pageSize: query.pageSize || 20,
+          totalItems: total,
+          totalPages: Math.ceil(total / (query.pageSize || 20)),
+        },
+      },
+    };
+  }
 
   @Post('rules')
   @ApiOperation({ summary: 'Create pricing rule' })

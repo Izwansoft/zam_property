@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   Scope,
 } from '@nestjs/common';
-import { ListingStatus, Prisma } from '@prisma/client';
+import { ListingStatus, Prisma, Role } from '@prisma/client';
 
 import { PartnerContextService } from '@core/partner-context';
 import { ListingStateMachine } from '@core/workflows';
@@ -29,6 +30,7 @@ import {
   ListingListParams,
 } from './listing.repository';
 import { ListingValidationHelper } from './helpers';
+import { PrismaService } from '@infrastructure/database';
 
 export interface ListingListResult {
   items: ListingView[];
@@ -50,6 +52,7 @@ export class ListingService {
     private readonly eventBus: EventBusService,
     private readonly listingStateMachine: ListingStateMachine,
     private readonly validationHelper: ListingValidationHelper,
+    private readonly prisma: PrismaService,
   ) {}
 
   async listListings(params: {
@@ -160,7 +163,13 @@ export class ListingService {
     priceType?: string;
     location?: Prisma.InputJsonValue;
     attributes?: Prisma.InputJsonValue;
+    actor: {
+      userId: string;
+      role: Role;
+    };
   }): Promise<ListingView> {
+    await this.assertCreatePermission(data.actor.userId, data.actor.role, data.vendorId);
+
     // Validate attributes for draft (if vertical is registered and attributes provided)
     if (data.attributes && this.validationHelper.isVerticalRegistered(data.verticalType)) {
       this.validationHelper.validateOrThrow(
@@ -606,6 +615,88 @@ export class ListingService {
   // ─────────────────────────────────────────────────────────────────────────
   // HELPERS
   // ─────────────────────────────────────────────────────────────────────────
+
+  private async assertCreatePermission(userId: string, role: Role, vendorId: string): Promise<void> {
+    if (role === Role.SUPER_ADMIN || role === Role.PARTNER_ADMIN) {
+      return;
+    }
+
+    const vendor = await this.prisma.vendor.findFirst({
+      where: {
+        id: vendorId,
+        partnerId: this.PartnerContext.partnerId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    const vendorMembership = await this.prisma.userVendor.findUnique({
+      where: {
+        userId_vendorId: { userId, vendorId },
+      },
+      select: { userId: true },
+    });
+
+    if (role === Role.VENDOR_ADMIN) {
+      if (!vendorMembership) {
+        throw new ForbiddenException('Vendor admin can only submit listings for assigned vendors');
+      }
+      return;
+    }
+
+    if (role === Role.COMPANY_ADMIN) {
+      const companyAdmin = await this.prisma.companyAdmin.findFirst({
+        where: {
+          userId,
+          company: {
+            partnerId: this.PartnerContext.partnerId,
+            deletedAt: null,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!companyAdmin) {
+        throw new ForbiddenException('Company admin profile not found for this partner');
+      }
+
+      if (!vendorMembership) {
+        throw new ForbiddenException('Company admin can only submit listings for assigned vendors');
+      }
+
+      return;
+    }
+
+    if (role === Role.AGENT) {
+      const agentProfile = await this.prisma.agent.findFirst({
+        where: {
+          userId,
+          status: 'ACTIVE',
+          company: {
+            partnerId: this.PartnerContext.partnerId,
+            deletedAt: null,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!agentProfile) {
+        throw new ForbiddenException('Agent profile not found or inactive for this partner');
+      }
+
+      if (!vendorMembership) {
+        throw new ForbiddenException('Agent can only submit listings for assigned vendors');
+      }
+
+      return;
+    }
+
+    throw new ForbiddenException('You are not allowed to submit listings');
+  }
 
   private generateSlug(title: string): string {
     return title

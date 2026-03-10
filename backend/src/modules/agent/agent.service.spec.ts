@@ -6,11 +6,7 @@
  * referral code generation, suspend/reactivate.
  */
 
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AgentStatus } from '@prisma/client';
 import { AgentService } from './agent.service';
 
@@ -97,11 +93,7 @@ describe('AgentService', () => {
       emit: jest.fn(),
     };
 
-    service = new AgentService(
-      mockPrisma,
-      mockPartnerContext,
-      mockEventEmitter,
-    );
+    service = new AgentService(mockPrisma, mockPartnerContext, mockEventEmitter);
   });
 
   // ========================================
@@ -117,8 +109,15 @@ describe('AgentService', () => {
     };
 
     it('should register a new agent with referral code', async () => {
-      mockPrisma.company.findFirst.mockResolvedValue({ id: 'company-001', partnerId: 'partner-001' });
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-001', partnerId: 'partner-001', fullName: 'Ali' });
+      mockPrisma.company.findFirst.mockResolvedValue({
+        id: 'company-001',
+        partnerId: 'partner-001',
+      });
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 'user-001',
+        partnerId: 'partner-001',
+        fullName: 'Ali',
+      });
       mockPrisma.agent.findFirst.mockResolvedValue(null); // no duplicate
       const mockAgent = createMockAgent();
       mockPrisma.agent.create.mockResolvedValue(mockAgent);
@@ -162,9 +161,7 @@ describe('AgentService', () => {
     it('should throw ConflictException for duplicate agent', async () => {
       mockPrisma.company.findFirst.mockResolvedValue({ id: 'company-001' });
       mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-001', fullName: 'Ali' });
-      mockPrisma.agent.findFirst
-        .mockResolvedValueOnce(createMockAgent()) // duplicate check
-        ;
+      mockPrisma.agent.findFirst.mockResolvedValueOnce(createMockAgent()); // duplicate check
 
       await expect(service.registerAgent(dto)).rejects.toThrow(ConflictException);
     });
@@ -174,7 +171,11 @@ describe('AgentService', () => {
         userId: 'user-002',
         renNumber: 'REN-SOLO',
       };
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-002', partnerId: 'partner-001', fullName: 'Solo' });
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 'user-002',
+        partnerId: 'partner-001',
+        fullName: 'Solo',
+      });
       mockPrisma.agent.findFirst.mockResolvedValue(null); // no duplicate
       const mockAgent = createMockAgent({ companyId: null, company: null, userId: 'user-002' });
       mockPrisma.agent.create.mockResolvedValue(mockAgent);
@@ -352,9 +353,9 @@ describe('AgentService', () => {
     it('should throw NotFoundException if agent not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.updateAgentProfile('nonexistent', { renNumber: 'X' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.updateAgentProfile('nonexistent', { renNumber: 'X' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -367,7 +368,10 @@ describe('AgentService', () => {
 
     it('should assign agent to listing', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(createMockAgent());
-      mockPrisma.listing.findFirst.mockResolvedValue({ id: 'listing-001', partnerId: 'partner-001' });
+      mockPrisma.listing.findFirst.mockResolvedValue({
+        id: 'listing-001',
+        partnerId: 'partner-001',
+      });
       mockPrisma.agentListing.findFirst.mockResolvedValue(null); // no existing
       const mockAssignment = createMockAgentListing();
       mockPrisma.agentListing.create.mockResolvedValue(mockAssignment);
@@ -393,18 +397,14 @@ describe('AgentService', () => {
     it('should throw NotFoundException if agent not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(null);
 
-      await expect(service.assignToListing('nonexistent', dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.assignToListing('nonexistent', dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException if listing not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(createMockAgent());
       mockPrisma.listing.findFirst.mockResolvedValue(null);
 
-      await expect(service.assignToListing('agent-001', dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.assignToListing('agent-001', dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if already assigned', async () => {
@@ -412,9 +412,7 @@ describe('AgentService', () => {
       mockPrisma.listing.findFirst.mockResolvedValue({ id: 'listing-001' });
       mockPrisma.agentListing.findFirst.mockResolvedValue(createMockAgentListing());
 
-      await expect(service.assignToListing('agent-001', dto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.assignToListing('agent-001', dto)).rejects.toThrow(ConflictException);
     });
   });
 
@@ -449,18 +447,18 @@ describe('AgentService', () => {
     it('should throw NotFoundException if agent not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.unassignFromListing('nonexistent', 'listing-001'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.unassignFromListing('nonexistent', 'listing-001')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException if assignment not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(createMockAgent());
       mockPrisma.agentListing.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.unassignFromListing('agent-001', 'listing-999'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.unassignFromListing('agent-001', 'listing-999')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -485,9 +483,7 @@ describe('AgentService', () => {
     it('should throw NotFoundException if agent not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(null);
 
-      await expect(service.getAgentListings('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getAgentListings('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -497,12 +493,8 @@ describe('AgentService', () => {
 
   describe('suspendAgent', () => {
     it('should suspend an active agent', async () => {
-      mockPrisma.agent.findFirst.mockResolvedValue(
-        createMockAgent({ status: AgentStatus.ACTIVE }),
-      );
-      mockPrisma.agent.update.mockResolvedValue(
-        createMockAgent({ status: AgentStatus.SUSPENDED }),
-      );
+      mockPrisma.agent.findFirst.mockResolvedValue(createMockAgent({ status: AgentStatus.ACTIVE }));
+      mockPrisma.agent.update.mockResolvedValue(createMockAgent({ status: AgentStatus.SUSPENDED }));
 
       const result = await service.suspendAgent('agent-001');
 
@@ -514,17 +506,13 @@ describe('AgentService', () => {
         createMockAgent({ status: AgentStatus.SUSPENDED }),
       );
 
-      await expect(service.suspendAgent('agent-001')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.suspendAgent('agent-001')).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if agent not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(null);
 
-      await expect(service.suspendAgent('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.suspendAgent('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -537,9 +525,7 @@ describe('AgentService', () => {
       mockPrisma.agent.findFirst.mockResolvedValue(
         createMockAgent({ status: AgentStatus.SUSPENDED }),
       );
-      mockPrisma.agent.update.mockResolvedValue(
-        createMockAgent({ status: AgentStatus.ACTIVE }),
-      );
+      mockPrisma.agent.update.mockResolvedValue(createMockAgent({ status: AgentStatus.ACTIVE }));
 
       const result = await service.reactivateAgent('agent-001');
 
@@ -547,21 +533,15 @@ describe('AgentService', () => {
     });
 
     it('should throw BadRequestException if already active', async () => {
-      mockPrisma.agent.findFirst.mockResolvedValue(
-        createMockAgent({ status: AgentStatus.ACTIVE }),
-      );
+      mockPrisma.agent.findFirst.mockResolvedValue(createMockAgent({ status: AgentStatus.ACTIVE }));
 
-      await expect(service.reactivateAgent('agent-001')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.reactivateAgent('agent-001')).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if agent not found', async () => {
       mockPrisma.agent.findFirst.mockResolvedValue(null);
 
-      await expect(service.reactivateAgent('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.reactivateAgent('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 

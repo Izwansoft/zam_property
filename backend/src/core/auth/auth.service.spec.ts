@@ -13,6 +13,7 @@ import { Role, UserStatus } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { PartnerContextService } from '@core/partner-context';
 import { UserRepository } from '@core/user';
+import { PrismaService } from '@infrastructure/database';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -28,7 +29,6 @@ describe('AuthService', () => {
     fullName: 'Test User',
     role: Role.CUSTOMER,
     status: UserStatus.ACTIVE,
-    vendorId: null,
     avatarUrl: null,
     phone: null,
     preferences: {},
@@ -66,6 +66,14 @@ describe('AuthService', () => {
           useValue: {
             findByEmail: jest.fn(),
             create: jest.fn(),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            userVendor: {
+              findFirst: jest.fn().mockResolvedValue(null),
+            },
           },
         },
       ],

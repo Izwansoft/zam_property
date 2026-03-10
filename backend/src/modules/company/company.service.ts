@@ -17,12 +17,7 @@ import { CompanyStatus, CompanyAdminRole, Prisma } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { PartnerContextService } from '@core/partner-context/partner-context.service';
-import {
-  RegisterCompanyDto,
-  UpdateCompanyDto,
-  AddCompanyAdminDto,
-  CompanyQueryDto,
-} from './dto';
+import { RegisterCompanyDto, UpdateCompanyDto, AddCompanyAdminDto, CompanyQueryDto } from './dto';
 
 // ============================================
 // VIEW INTERFACES
@@ -34,6 +29,7 @@ export interface CompanyView {
   name: string;
   registrationNo: string;
   type: string;
+  verticalTypes: string[];
   email: string;
   phone: string;
   address: string | null;
@@ -231,6 +227,10 @@ export class CompanyService {
       where.status = query.status;
     }
 
+    if (query.verticalType) {
+      where.verticalTypes = { has: query.verticalType };
+    }
+
     if (query.search) {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },
@@ -404,9 +404,7 @@ export class CompanyService {
     });
 
     if (existingAdmin) {
-      throw new ConflictException(
-        `User ${dto.userId} is already an admin of company ${companyId}`,
-      );
+      throw new ConflictException(`User ${dto.userId} is already an admin of company ${companyId}`);
     }
 
     const admin = await this.prisma.companyAdmin.create({
@@ -423,9 +421,7 @@ export class CompanyService {
       },
     });
 
-    this.logger.log(
-      `Admin added to company ${companyId}: user ${dto.userId} as ${admin.role}`,
-    );
+    this.logger.log(`Admin added to company ${companyId}: user ${dto.userId} as ${admin.role}`);
 
     this.eventEmitter.emit(
       'company.admin.added',
@@ -459,9 +455,7 @@ export class CompanyService {
     });
 
     if (!admin) {
-      throw new NotFoundException(
-        `User ${userId} is not an admin of company ${companyId}`,
-      );
+      throw new NotFoundException(`User ${userId} is not an admin of company ${companyId}`);
     }
 
     // Prevent removing the owner
@@ -517,5 +511,479 @@ export class CompanyService {
     });
 
     return admins as CompanyAdminView[];
+  }
+
+  // ============================================
+  // COMPANY PROFILE
+  // ============================================
+
+  async getProfile(companyId: string) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+      include: { profile: true },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    return (
+      company.profile || {
+        bio: null,
+        website: null,
+        established: null,
+        teamSize: null,
+        specialties: [],
+        serviceAreas: [],
+        facebookUrl: null,
+        instagramUrl: null,
+        linkedinUrl: null,
+        youtubeUrl: null,
+        tiktokUrl: null,
+      }
+    );
+  }
+
+  async updateProfile(
+    companyId: string,
+    data: {
+      bio?: string;
+      website?: string;
+      established?: number;
+      teamSize?: number;
+      specialties?: string[];
+      serviceAreas?: string[];
+      facebookUrl?: string;
+      instagramUrl?: string;
+      linkedinUrl?: string;
+      youtubeUrl?: string;
+      tiktokUrl?: string;
+    },
+  ) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const profile = await this.prisma.companyProfile.upsert({
+      where: { companyId },
+      create: { companyId, ...data },
+      update: data,
+    });
+
+    this.logger.log(`Company profile updated: ${companyId}`);
+    return profile;
+  }
+
+  // ============================================
+  // COMPANY BRANDING
+  // ============================================
+
+  async getBranding(companyId: string) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+      include: { branding: true },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    return (
+      company.branding || {
+        logo: null,
+        logoIcon: null,
+        logoDark: null,
+        favicon: null,
+        primaryColor: null,
+      }
+    );
+  }
+
+  async updateBranding(
+    companyId: string,
+    data: {
+      logo?: string;
+      logoIcon?: string;
+      logoDark?: string;
+      favicon?: string;
+      primaryColor?: string;
+    },
+  ) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const branding = await this.prisma.companyBranding.upsert({
+      where: { companyId },
+      create: { companyId, ...data },
+      update: data,
+    });
+
+    this.logger.log(`Company branding updated: ${companyId}`);
+    return branding;
+  }
+
+  // ============================================
+  // COMPANY SETTINGS
+  // ============================================
+
+  async getSettings(companyId: string) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+      include: { settings: true },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    return (
+      company.settings || {
+        defaultCommissionRate: null,
+        commissionSplit: null,
+        notificationEmail: null,
+        enableEmailAlerts: true,
+        enableSmsAlerts: false,
+        bankName: null,
+        bankAccount: null,
+        bankAccountName: null,
+        bankSwiftCode: null,
+      }
+    );
+  }
+
+  async updateSettings(
+    companyId: string,
+    data: {
+      defaultCommissionRate?: number;
+      commissionSplit?: number;
+      notificationEmail?: string;
+      enableEmailAlerts?: boolean;
+      enableSmsAlerts?: boolean;
+      bankName?: string;
+      bankAccount?: string;
+      bankAccountName?: string;
+      bankSwiftCode?: string;
+    },
+  ) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const settings = await this.prisma.companySettings.upsert({
+      where: { companyId },
+      create: { companyId, ...data },
+      update: data,
+    });
+
+    this.logger.log(`Company settings updated: ${companyId}`);
+    return settings;
+  }
+
+  // ============================================
+  // COMPANY DOCUMENTS
+  // ============================================
+
+  async getDocuments(companyId: string) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    return this.prisma.companyDocument.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async addDocument(
+    companyId: string,
+    data: {
+      type:
+        | 'SSM_CERTIFICATE'
+        | 'BOVAEA_LICENSE'
+        | 'INSURANCE_CERTIFICATE'
+        | 'TAX_CERTIFICATE'
+        | 'BANK_STATEMENT'
+        | 'OTHER';
+      fileName: string;
+      fileUrl: string;
+      fileSize: number;
+      mimeType: string;
+      expiresAt?: Date;
+    },
+  ) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const document = await this.prisma.companyDocument.create({
+      data: { ...data, companyId },
+    });
+
+    this.logger.log(`Document added to company ${companyId}: ${data.type}`);
+    return document;
+  }
+
+  async deleteDocument(companyId: string, documentId: string) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const document = await this.prisma.companyDocument.findFirst({
+      where: { id: documentId, companyId },
+    });
+
+    if (!document) {
+      throw new NotFoundException(`Document ${documentId} not found`);
+    }
+
+    await this.prisma.companyDocument.delete({
+      where: { id: documentId },
+    });
+
+    this.logger.log(`Document deleted from company ${companyId}: ${documentId}`);
+  }
+
+  async verifyDocument(
+    companyId: string,
+    documentId: string,
+    verified: boolean,
+    verifiedBy: string,
+  ) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const document = await this.prisma.companyDocument.update({
+      where: { id: documentId },
+      data: {
+        verified,
+        verifiedAt: verified ? new Date() : null,
+        verifiedBy: verified ? verifiedBy : null,
+      },
+    });
+
+    this.logger.log(`Document ${documentId} verification status: ${verified}`);
+    return document;
+  }
+
+  // ============================================
+  // CUSTOM ROLES
+  // ============================================
+
+  async getCustomRoles(companyId: string) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    return this.prisma.companyCustomRole.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createCustomRole(
+    companyId: string,
+    data: { name: string; description?: string; permissions: string[] },
+  ) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    // Check for duplicate role name
+    const existing = await this.prisma.companyCustomRole.findFirst({
+      where: { companyId, name: data.name },
+    });
+
+    if (existing) {
+      throw new ConflictException(`Role "${data.name}" already exists`);
+    }
+
+    const role = await this.prisma.companyCustomRole.create({
+      data: {
+        companyId,
+        name: data.name,
+        description: data.description,
+        permissions: data.permissions,
+      },
+    });
+
+    this.logger.log(`Custom role created for company ${companyId}: ${data.name}`);
+    return role;
+  }
+
+  async updateCustomRole(
+    companyId: string,
+    roleId: string,
+    data: { name?: string; description?: string; permissions?: string[] },
+  ) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const role = await this.prisma.companyCustomRole.findFirst({
+      where: { id: roleId, companyId },
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Role ${roleId} not found`);
+    }
+
+    if (role.isDefault) {
+      throw new BadRequestException('Cannot modify default roles');
+    }
+
+    // Check for name conflict if updating name
+    if (data.name && data.name !== role.name) {
+      const existing = await this.prisma.companyCustomRole.findFirst({
+        where: { companyId, name: data.name, id: { not: roleId } },
+      });
+
+      if (existing) {
+        throw new ConflictException(`Role "${data.name}" already exists`);
+      }
+    }
+
+    const updatedRole = await this.prisma.companyCustomRole.update({
+      where: { id: roleId },
+      data: {
+        name: data.name,
+        description: data.description,
+        permissions: data.permissions,
+      },
+    });
+
+    this.logger.log(`Custom role updated for company ${companyId}: ${roleId}`);
+    return updatedRole;
+  }
+
+  async deleteCustomRole(companyId: string, roleId: string) {
+    const { partnerId } = this.PartnerContext.getContext();
+
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, partnerId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException(`Company ${companyId} not found`);
+    }
+
+    const role = await this.prisma.companyCustomRole.findFirst({
+      where: { id: roleId, companyId },
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Role ${roleId} not found`);
+    }
+
+    if (role.isDefault) {
+      throw new BadRequestException('Cannot delete default roles');
+    }
+
+    // Check if role is in use
+    const inUse = await this.prisma.companyAdminCustomRole.findFirst({
+      where: { customRoleId: roleId },
+    });
+
+    if (inUse) {
+      throw new BadRequestException('Cannot delete role that is assigned to users');
+    }
+
+    await this.prisma.companyCustomRole.delete({
+      where: { id: roleId },
+    });
+
+    this.logger.log(`Custom role deleted for company ${companyId}: ${roleId}`);
+  }
+
+  async assignCustomRole(companyAdminId: string, customRoleId: string) {
+    const assignment = await this.prisma.companyAdminCustomRole.create({
+      data: {
+        companyAdminId,
+        customRoleId,
+      },
+    });
+
+    this.logger.log(`Custom role ${customRoleId} assigned to admin ${companyAdminId}`);
+    return assignment;
+  }
+
+  async unassignCustomRole(companyAdminId: string, customRoleId: string) {
+    await this.prisma.companyAdminCustomRole.delete({
+      where: {
+        companyAdminId_customRoleId: {
+          companyAdminId,
+          customRoleId,
+        },
+      },
+    });
+
+    this.logger.log(`Custom role ${customRoleId} unassigned from admin ${companyAdminId}`);
   }
 }

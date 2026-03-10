@@ -6,6 +6,7 @@ import { UserModule } from '@core/user';
 import { FeatureFlagModule } from '@core/feature-flags';
 import { AuditModule } from '@core/audit';
 import { RequestIdMiddleware } from '@common/middleware';
+import { MaintenanceInterceptorModule } from '@common/interceptors';
 import { VendorModule } from '@modules/vendor';
 import { ListingModule } from '@modules/listing';
 import { MediaModule } from '@modules/media';
@@ -100,6 +101,7 @@ import { HealthModule } from './health';
     AdminModule,
     PublicModule,
     AccountModule,
+    MaintenanceInterceptorModule, // Must be after DatabaseModule
   ],
   controllers: [],
   providers: [],
@@ -117,6 +119,9 @@ export class AppModule implements NestModule {
         { path: 'api/docs/(.*)', method: RequestMethod.ALL },
         { path: 'health', method: RequestMethod.ALL },
         { path: 'health/(.*)', method: RequestMethod.ALL },
+        // Public maintenance endpoints - truly public, no partner context needed
+        { path: 'public/maintenance', method: RequestMethod.GET },
+        { path: 'public/maintenance/(.*)', method: RequestMethod.GET },
       )
       .forRoutes('*');
   }

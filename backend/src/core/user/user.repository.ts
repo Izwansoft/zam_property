@@ -81,7 +81,7 @@ export class UserRepository extends BasePartnerRepository {
     }>
   > {
     return this.prisma.user.findMany({
-      where: this.scopeWhere({ deletedAt: null }),
+      where: this.scopeWhere({ deletedAt: null, role: { not: 'SUPER_ADMIN' }, isSystem: false }),
       orderBy: { createdAt: 'desc' },
       skip: params.skip,
       take: params.take,
@@ -101,7 +101,7 @@ export class UserRepository extends BasePartnerRepository {
 
   async count(): Promise<number> {
     return this.prisma.user.count({
-      where: this.scopeWhere({ deletedAt: null }),
+      where: this.scopeWhere({ deletedAt: null, role: { not: 'SUPER_ADMIN' }, isSystem: false }),
     });
   }
 

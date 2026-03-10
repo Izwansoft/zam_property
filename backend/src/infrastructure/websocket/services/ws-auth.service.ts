@@ -96,8 +96,10 @@ export class WsAuthService {
           status: 'ACTIVE',
         },
         include: {
-          vendor: {
-            select: { id: true },
+          userVendors: {
+            where: { isPrimary: true },
+            select: { vendorId: true },
+            take: 1,
           },
         },
       });
@@ -113,7 +115,7 @@ export class WsAuthService {
         partnerId: partnerId,
         email: user.email,
         roles: [user.role],
-        vendorId: user.vendor?.id,
+        vendorId: user.userVendors[0]?.vendorId,
         permissions: payload.permissions ?? [],
       };
 

@@ -184,6 +184,128 @@ export class VerticalService {
     return updated;
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MAINTENANCE MODE
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Set maintenance mode for a vertical.
+   * When enabled, all partner portals and public pages for this vertical
+   * will show a maintenance message. Super Admin portal is NOT affected.
+   */
+  async setMaintenanceMode(
+    id: string,
+    enabled: boolean,
+    userId: string,
+    options?: {
+      startAt?: Date;
+      endAt?: Date;
+      message?: string;
+    },
+  ) {
+    const vertical = await this.getVerticalDefinitionById(id);
+
+    const updated = await this.verticalDefinitionRepo.update(id, {
+      maintenanceMode: enabled,
+      maintenanceStartAt: enabled ? options?.startAt ?? new Date() : null,
+      maintenanceEndAt: enabled ? options?.endAt ?? null : null,
+      maintenanceMessage: enabled ? options?.message ?? null : null,
+      maintenanceScheduledBy: enabled ? userId : null,
+    });
+
+    this.logger.log(
+      `${enabled ? 'Enabled' : 'Disabled'} maintenance mode for vertical: ${vertical.type}`,
+    );
+
+    this.eventEmitter.emit('vertical.maintenance', {
+      verticalId: updated.id,
+      verticalType: updated.type,
+      maintenanceMode: enabled,
+      startAt: updated.maintenanceStartAt,
+      endAt: updated.maintenanceEndAt,
+      message: updated.maintenanceMessage,
+      scheduledBy: userId,
+      timestamp: new Date(),
+    });
+
+    return updated;
+  }
+
+  /**
+   * Get maintenance status for a vertical (public endpoint).
+   * Used by all portals and public pages to check if they should show maintenance page.
+   */
+  async getMaintenanceStatus(verticalType: string) {
+    const vertical = await this.verticalDefinitionRepo.findByType(verticalType);
+    if (!vertical) {
+      throw new NotFoundException(`Vertical type '${verticalType}' not found`);
+    }
+
+    const now = new Date();
+    
+    // Check if maintenance is active:
+    // 1. maintenanceMode must be enabled
+    // 2. startAt must be in the past (or not set)
+    // 3. endAt must be in the future (or not set - indefinite maintenance)
+    const isUnderMaintenance =
+      vertical.maintenanceMode &&
+      (!vertical.maintenanceStartAt || new Date(vertical.maintenanceStartAt) <= now) &&
+      (!vertical.maintenanceEndAt || new Date(vertical.maintenanceEndAt) > now);
+
+    let estimatedRemainingMs: number | null = null;
+    if (isUnderMaintenance && vertical.maintenanceEndAt) {
+      const endTime = new Date(vertical.maintenanceEndAt).getTime();
+      const remaining = endTime - now.getTime();
+      estimatedRemainingMs = remaining > 0 ? remaining : null;
+    }
+
+    return {
+      type: vertical.type,
+      name: vertical.name,
+      isUnderMaintenance,
+      message: isUnderMaintenance ? vertical.maintenanceMessage : null,
+      startAt: vertical.maintenanceStartAt,
+      endAt: vertical.maintenanceEndAt,
+      estimatedRemainingMs,
+    };
+  }
+
+  /**
+   * Get maintenance status for all verticals (used by frontend to check multiple).
+   */
+  async getAllMaintenanceStatuses() {
+    const verticals = await this.verticalDefinitionRepo.findMany({});
+    const now = new Date();
+
+    return verticals.map((vertical) => {
+      // Check if maintenance is active:
+      // 1. maintenanceMode must be enabled
+      // 2. startAt must be in the past (or not set)
+      // 3. endAt must be in the future (or not set - indefinite maintenance)
+      const isUnderMaintenance =
+        vertical.maintenanceMode &&
+        (!vertical.maintenanceStartAt || new Date(vertical.maintenanceStartAt) <= now) &&
+        (!vertical.maintenanceEndAt || new Date(vertical.maintenanceEndAt) > now);
+
+      let estimatedRemainingMs: number | null = null;
+      if (isUnderMaintenance && vertical.maintenanceEndAt) {
+        const endTime = new Date(vertical.maintenanceEndAt).getTime();
+        const remaining = endTime - now.getTime();
+        estimatedRemainingMs = remaining > 0 ? remaining : null;
+      }
+
+      return {
+        type: vertical.type,
+        name: vertical.name,
+        isUnderMaintenance,
+        message: isUnderMaintenance ? vertical.maintenanceMessage : null,
+        startAt: vertical.maintenanceStartAt,
+        endAt: vertical.maintenanceEndAt,
+        estimatedRemainingMs,
+      };
+    });
+  }
+
   async deleteVerticalDefinition(id: string) {
     const vertical = await this.getVerticalDefinitionById(id);
 

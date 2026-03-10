@@ -11,12 +11,13 @@ import { DatabaseModule } from '@infrastructure/database';
 import { CacheModule } from '@infrastructure/cache';
 import { SearchModule } from '@infrastructure/search/search.module';
 
+import { VerticalModule } from '../vertical/vertical.module';
 import { PublicController } from './public.controller';
 import { PublicService } from './public.service';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 
 @Module({
-  imports: [DatabaseModule, CacheModule, SearchModule],
+  imports: [DatabaseModule, CacheModule, SearchModule, VerticalModule],
   controllers: [PublicController],
   providers: [PublicService, RateLimitGuard],
   exports: [PublicService],

@@ -414,12 +414,11 @@ export class PropertyMemberService {
 
     // VENDOR_ADMIN bypass for own vendor's listings
     if (requestUserRole === Role.VENDOR_ADMIN && vendorId) {
-      const user = await this.prisma.user.findFirst({
-        where: { id: requestUserId },
-        select: { vendorId: true },
+      const membership = await this.prisma.userVendor.findUnique({
+        where: { userId_vendorId: { userId: requestUserId, vendorId } },
       });
 
-      if (user?.vendorId === vendorId) {
+      if (membership) {
         return;
       }
     }

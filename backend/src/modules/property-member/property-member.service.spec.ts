@@ -66,6 +66,9 @@ describe('PropertyMemberService', () => {
       user: {
         findFirst: jest.fn(),
       },
+      userVendor: {
+        findUnique: jest.fn(),
+      },
     };
 
     mockPartnerContext = {
@@ -152,7 +155,7 @@ describe('PropertyMemberService', () => {
 
     it('should throw ForbiddenException if VENDOR_STAFF without PROPERTY_ADMIN role', async () => {
       mockPrisma.listing.findFirst.mockResolvedValue(createMockListing());
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-002', vendorId: 'other-vendor' });
+      mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-002', partnerId: PARTNER_ID });
       mockPrisma.propertyMember.findFirst.mockResolvedValue(null); // no PROPERTY_ADMIN
 
       await expect(
@@ -412,9 +415,8 @@ describe('PropertyMemberService', () => {
 
     it('VENDOR_ADMIN should have access to own vendor listings', async () => {
       mockPrisma.listing.findFirst.mockResolvedValue(createMockListing());
-      mockPrisma.user.findFirst
-        .mockResolvedValueOnce({ id: 'vendor-admin-001', vendorId: 'vendor-001' }) // auth check
-        .mockResolvedValueOnce({ id: 'user-002', partnerId: PARTNER_ID }); // user lookup
+      mockPrisma.userVendor.findUnique.mockResolvedValue({ userId: 'vendor-admin-001', vendorId: 'vendor-001', role: 'OWNER', isPrimary: true }); // auth check via UserVendor
+      mockPrisma.user.findFirst.mockResolvedValue({ id: 'user-002', partnerId: PARTNER_ID }); // user lookup
       mockPrisma.propertyMember.findFirst.mockResolvedValue(null);
       mockPrisma.propertyMember.create.mockResolvedValue(createMockMember());
 

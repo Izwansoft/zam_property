@@ -47,6 +47,10 @@ export const databaseConfig = registerAs('database', (): DatabaseConfig => {
 
   return {
     url,
-    ...parsed,
+    host: parsed.host,
+    port: parsed.port,
+    database: parsed.database,
+    username: parsed.username,
+    ssl: parsed.ssl,
   };
 });

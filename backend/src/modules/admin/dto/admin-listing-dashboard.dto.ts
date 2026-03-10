@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ListingStatus } from '@prisma/client';
+import { ListingStatus, ManagementType } from '@prisma/client';
 import type { Decimal } from '@prisma/client/runtime/library';
 
 export class AdminListingVendorDto {
@@ -46,6 +46,21 @@ export class AdminListingDashboardItemDto {
 
   @ApiProperty({ example: false })
   isFeatured!: boolean;
+
+  @ApiProperty({ enum: ManagementType, example: 'SELF_MANAGED' })
+  managementType!: ManagementType;
+
+  @ApiProperty({ description: 'Listing attributes JSON (propertyType, listingType, etc.)' })
+  attributes!: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: 'Primary image URL from media' })
+  primaryImage?: string | null;
+
+  @ApiPropertyOptional({ description: 'Assigned agent full name' })
+  agentName?: string | null;
+
+  @ApiPropertyOptional({ description: 'Assigned agent company name' })
+  agentCompanyName?: string | null;
 
   @ApiPropertyOptional()
   publishedAt?: Date | null;

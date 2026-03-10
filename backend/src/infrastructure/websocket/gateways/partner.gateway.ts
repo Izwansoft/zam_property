@@ -219,22 +219,22 @@ export class PartnerGateway implements OnGatewayInit, OnGatewayConnection, OnGat
         id: data.interactionId,
         partnerId: socket.data.partnerId,
       },
-      include: {
-        vendor: {
-          include: {
-            users: { where: { id: socket.data.userId }, select: { id: true } },
-          },
-        },
-      },
     });
 
     if (!interaction) {
       return { code: WsErrorCode.FORBIDDEN, message: 'Interaction not found' };
     }
 
-    // Check if user is a vendor user for this interaction's vendor
-    const isVendorUser = interaction.vendor.users.length > 0;
-    if (!isVendorUser) {
+    // Check if user is a vendor user for this interaction's vendor via UserVendor junction
+    const vendorMembership = await this.prisma.userVendor.findUnique({
+      where: {
+        userId_vendorId: {
+          userId: socket.data.userId!,
+          vendorId: interaction.vendorId,
+        },
+      },
+    });
+    if (!vendorMembership) {
       return { code: WsErrorCode.FORBIDDEN, message: 'Access denied' };
     }
 

@@ -45,13 +45,13 @@ import { TenancyView, TenancyDetailView, TenancyStatusHistoryView } from './tena
 import { TenancyGuard, TenancyAccess, TenancyAccessLevel } from './guards';
 import { ReconciliationService, StatementOfAccount } from '@modules/payment';
 import { StatementQueryDto } from '@modules/payment';
+import { PrismaService } from '@infrastructure/database';
 
 interface AuthenticatedRequest {
   user: {
     sub: string;
     partnerId: string;
     role: Role;
-    vendorId?: string;
   };
 }
 
@@ -63,6 +63,7 @@ export class TenancyController {
   constructor(
     private readonly tenancyService: TenancyService,
     private readonly reconciliationService: ReconciliationService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // =========================
@@ -101,7 +102,13 @@ export class TenancyController {
 
     // For VENDOR, filter to their properties
     if (req.user.role === Role.VENDOR_ADMIN || req.user.role === Role.VENDOR_STAFF) {
-      query.ownerId = req.user.vendorId;
+      const primaryVendor = await this.prisma.userVendor.findFirst({
+        where: { userId: req.user.sub, isPrimary: true },
+        select: { vendorId: true },
+      });
+      if (primaryVendor) {
+        query.ownerId = primaryVendor.vendorId;
+      }
     }
 
     const result = await this.tenancyService.list(query);

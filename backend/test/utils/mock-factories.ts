@@ -152,7 +152,6 @@ export function createMockJwtPayload(
     sub: string;
     partnerId: string;
     role: Role;
-    vendorId: string;
     tokenType: 'access' | 'refresh';
   }> = {},
 ) {
@@ -160,7 +159,6 @@ export function createMockJwtPayload(
     sub: overrides.sub ?? 'user-123',
     partnerId: overrides.partnerId ?? 'partner-123',
     role: overrides.role ?? Role.CUSTOMER,
-    vendorId: overrides.vendorId,
     tokenType: overrides.tokenType ?? 'access',
   };
 }
@@ -221,7 +219,6 @@ export function createMockRequest(
       id: string;
       partnerId: string;
       role: Role;
-      vendorId?: string;
     };
     headers: Record<string, string>;
     ip: string;

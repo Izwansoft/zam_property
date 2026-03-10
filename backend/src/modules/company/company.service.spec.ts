@@ -6,11 +6,7 @@
  * admin management, and listing/query functionality.
  */
 
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { CompanyStatus, CompanyAdminRole, CompanyType } from '@prisma/client';
 import { CompanyService } from './company.service';
 
@@ -103,11 +99,7 @@ describe('CompanyService', () => {
       emit: jest.fn(),
     };
 
-    service = new CompanyService(
-      mockPrisma,
-      mockPartnerContext,
-      mockEventEmitter,
-    );
+    service = new CompanyService(mockPrisma, mockPartnerContext, mockEventEmitter);
   });
 
   // ========================================
@@ -164,9 +156,7 @@ describe('CompanyService', () => {
     it('should throw ConflictException for duplicate registration number', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(createMockCompany());
 
-      await expect(service.registerCompany(dto, 'user-001')).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.registerCompany(dto, 'user-001')).rejects.toThrow(ConflictException);
     });
   });
 
@@ -191,9 +181,7 @@ describe('CompanyService', () => {
     it('should throw NotFoundException if company not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(null);
 
-      await expect(service.getCompany('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getCompany('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -299,9 +287,9 @@ describe('CompanyService', () => {
     it('should throw NotFoundException if company not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.updateCompany('nonexistent', { name: 'X' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.updateCompany('nonexistent', { name: 'X' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -345,9 +333,9 @@ describe('CompanyService', () => {
         createMockCompany({ status: CompanyStatus.ACTIVE }),
       );
 
-      await expect(
-        service.verifyCompany('company-001', 'admin-user'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.verifyCompany('company-001', 'admin-user')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if company is suspended', async () => {
@@ -355,17 +343,17 @@ describe('CompanyService', () => {
         createMockCompany({ status: CompanyStatus.SUSPENDED }),
       );
 
-      await expect(
-        service.verifyCompany('company-001', 'admin-user'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.verifyCompany('company-001', 'admin-user')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException if company not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.verifyCompany('nonexistent', 'admin-user'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.verifyCompany('nonexistent', 'admin-user')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -392,17 +380,13 @@ describe('CompanyService', () => {
         createMockCompany({ status: CompanyStatus.SUSPENDED }),
       );
 
-      await expect(service.suspendCompany('company-001')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.suspendCompany('company-001')).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if company not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(null);
 
-      await expect(service.suspendCompany('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.suspendCompany('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -453,18 +437,14 @@ describe('CompanyService', () => {
     it('should throw NotFoundException if company not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(null);
 
-      await expect(service.addAdmin('nonexistent', dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.addAdmin('nonexistent', dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException if user not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(createMockCompany());
       mockPrisma.user.findFirst.mockResolvedValue(null);
 
-      await expect(service.addAdmin('company-001', dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.addAdmin('company-001', dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if user is already an admin', async () => {
@@ -475,9 +455,7 @@ describe('CompanyService', () => {
       });
       mockPrisma.companyAdmin.findUnique.mockResolvedValue(createMockAdmin());
 
-      await expect(service.addAdmin('company-001', dto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.addAdmin('company-001', dto)).rejects.toThrow(ConflictException);
     });
   });
 
@@ -488,9 +466,7 @@ describe('CompanyService', () => {
   describe('removeAdmin', () => {
     it('should remove a non-owner admin', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(createMockCompany());
-      mockPrisma.companyAdmin.findUnique.mockResolvedValue(
-        createMockAdmin({ isOwner: false }),
-      );
+      mockPrisma.companyAdmin.findUnique.mockResolvedValue(createMockAdmin({ isOwner: false }));
       mockPrisma.companyAdmin.count.mockResolvedValue(2);
       mockPrisma.companyAdmin.delete.mockResolvedValue({});
 
@@ -511,41 +487,37 @@ describe('CompanyService', () => {
     it('should throw NotFoundException if company not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.removeAdmin('nonexistent', 'user-002'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.removeAdmin('nonexistent', 'user-002')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException if admin not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(createMockCompany());
       mockPrisma.companyAdmin.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.removeAdmin('company-001', 'user-999'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.removeAdmin('company-001', 'user-999')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException if trying to remove owner', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(createMockCompany());
-      mockPrisma.companyAdmin.findUnique.mockResolvedValue(
-        createMockAdmin({ isOwner: true }),
-      );
+      mockPrisma.companyAdmin.findUnique.mockResolvedValue(createMockAdmin({ isOwner: true }));
 
-      await expect(
-        service.removeAdmin('company-001', 'user-002'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.removeAdmin('company-001', 'user-002')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if trying to remove last admin', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(createMockCompany());
-      mockPrisma.companyAdmin.findUnique.mockResolvedValue(
-        createMockAdmin({ isOwner: false }),
-      );
+      mockPrisma.companyAdmin.findUnique.mockResolvedValue(createMockAdmin({ isOwner: false }));
       mockPrisma.companyAdmin.count.mockResolvedValue(1);
 
-      await expect(
-        service.removeAdmin('company-001', 'user-002'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.removeAdmin('company-001', 'user-002')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -575,9 +547,7 @@ describe('CompanyService', () => {
     it('should throw NotFoundException if company not found', async () => {
       mockPrisma.company.findFirst.mockResolvedValue(null);
 
-      await expect(service.getAdmins('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getAdmins('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 });

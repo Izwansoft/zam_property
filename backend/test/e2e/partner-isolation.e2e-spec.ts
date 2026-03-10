@@ -147,10 +147,18 @@ describe('Partner Isolation E2E Tests', () => {
         fullName: 'User A',
         role: Role.VENDOR_ADMIN,
         status: UserStatus.ACTIVE,
-        vendorId: partnerAVendorId,
       },
     });
     _partnerAUserId = userA.id;
+
+    await prisma.userVendor.create({
+      data: {
+        userId: userA.id,
+        vendorId: partnerAVendorId,
+        role: 'OWNER',
+        isPrimary: true,
+      },
+    });
 
     const listingA = await prisma.listing.create({
       data: {
@@ -217,10 +225,18 @@ describe('Partner Isolation E2E Tests', () => {
         fullName: 'User B',
         role: Role.VENDOR_ADMIN,
         status: UserStatus.ACTIVE,
-        vendorId: partnerBVendorId,
       },
     });
     partnerBUserId = userB.id;
+
+    await prisma.userVendor.create({
+      data: {
+        userId: userB.id,
+        vendorId: partnerBVendorId,
+        role: 'OWNER',
+        isPrimary: true,
+      },
+    });
 
     const listingB = await prisma.listing.create({
       data: {

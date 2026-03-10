@@ -55,4 +55,12 @@ export class VendorQueryDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by vertical type (e.g. PROPERTY, AUTOMOTIVE)',
+    example: 'PROPERTY',
+  })
+  @IsString()
+  @IsOptional()
+  verticalType?: string;
 }

@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 
 import { PartnerContextService } from '@core/partner-context';
 import { UserRepository } from '@core/user';
+import { PrismaService } from '@infrastructure/database';
 
 import type { JwtPayload } from './types/jwt-payload.type';
 
@@ -51,6 +52,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly PartnerContext: PartnerContextService,
     private readonly userRepository: UserRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async login(dto: { email: string; password: string }): Promise<{
@@ -190,11 +192,18 @@ export class AuthService {
     role: string;
     status: string;
     partnerId: string;
+    primaryVendorId: string | null;
   }> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
+
+    // Resolve primary vendor from UserVendor junction table
+    const primaryVendor = await this.prisma.userVendor.findFirst({
+      where: { userId, isPrimary: true },
+      select: { vendorId: true },
+    });
 
     return {
       id: user.id,
@@ -203,6 +212,7 @@ export class AuthService {
       role: user.role,
       status: user.status,
       partnerId: this.PartnerContext.partnerId,
+      primaryVendorId: primaryVendor?.vendorId ?? null,
     };
   }
 }

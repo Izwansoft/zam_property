@@ -127,9 +127,21 @@ export class CacheInvalidationService {
   // Listing Events
   // ───────────────────────────────────────────────────────────────────────────
 
+  @OnEvent('listing.listing.updated')
   @OnEvent('listing.updated')
-  async handleListingUpdated(event: ListingUpdatedEvent): Promise<void> {
-    const { partnerId, listingId, vendorId } = event;
+  async handleListingUpdated(
+    event: ListingUpdatedEvent | { partnerId: string; payload: { listingId: string; vendorId?: string } },
+  ): Promise<void> {
+    const payload = 'payload' in event ? event.payload : event;
+    const partnerId = event.partnerId;
+    const listingId = payload.listingId;
+    const vendorId = payload.vendorId;
+
+    if (!partnerId || !listingId) {
+      this.logger.warn('Skipping listing.updated cache invalidation: invalid event payload');
+      return;
+    }
+
     this.logger.debug(`Invalidating cache for listing.updated: ${partnerId}/${listingId}`);
 
     const invalidations = [
@@ -145,9 +157,21 @@ export class CacheInvalidationService {
     await Promise.all(invalidations);
   }
 
+  @OnEvent('listing.listing.published')
   @OnEvent('listing.published')
-  async handleListingPublished(event: ListingPublishedEvent): Promise<void> {
-    const { partnerId, listingId, vendorId } = event;
+  async handleListingPublished(
+    event: ListingPublishedEvent | { partnerId: string; payload: { listingId: string; vendorId: string } },
+  ): Promise<void> {
+    const payload = 'payload' in event ? event.payload : event;
+    const partnerId = event.partnerId;
+    const listingId = payload.listingId;
+    const vendorId = payload.vendorId;
+
+    if (!partnerId || !listingId || !vendorId) {
+      this.logger.warn('Skipping listing.published cache invalidation: invalid event payload');
+      return;
+    }
+
     this.logger.debug(`Invalidating cache for listing.published: ${partnerId}/${listingId}`);
 
     await Promise.all([

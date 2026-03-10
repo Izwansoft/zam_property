@@ -43,4 +43,11 @@ export class CompanyQueryDto {
   @IsOptional()
   @IsString()
   sortDir?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({
+    description: 'Filter by vertical type (companies operating in this vertical)',
+  })
+  @IsOptional()
+  @IsString()
+  verticalType?: string;
 }

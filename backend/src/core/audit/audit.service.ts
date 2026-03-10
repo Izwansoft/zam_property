@@ -521,21 +521,31 @@ export class AuditService {
     });
   }
 
+  @OnEvent('listing.listing.published')
   @OnEvent('listing.published')
   async handleListingPublished(payload: {
     partnerId: string;
     listingId: string;
     vendorId: string;
     actorId?: string;
+  } | {
+    partnerId: string;
+    actorId?: string;
+    payload: {
+      listingId: string;
+      vendorId: string;
+    };
   }): Promise<void> {
+    const eventPayload = 'payload' in payload ? payload.payload : payload;
+
     await this.log({
       partnerId: payload.partnerId,
       actorType: payload.actorId ? AuditActorType.USER : AuditActorType.SYSTEM,
       actorId: payload.actorId,
       actionType: AuditActionType.LISTING_PUBLISHED,
       targetType: AuditTargetType.LISTING,
-      targetId: payload.listingId,
-      metadata: { vendorId: payload.vendorId },
+      targetId: eventPayload.listingId,
+      metadata: { vendorId: eventPayload.vendorId },
     });
   }
 

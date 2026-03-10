@@ -159,7 +159,7 @@ export class AdminController {
     return { data: result };
   }
 
-  @Get('tenants/:id')
+  @Get('partners/:id')
   @Roles(Role.SUPER_ADMIN)
   @RequirePermission('admin:read')
   @ApiOperation({ summary: 'Get partner by ID (platform)' })
@@ -172,7 +172,7 @@ export class AdminController {
     return { data: partner };
   }
 
-  @Patch('tenants/:id/suspend')
+  @Patch('partners/:id/suspend')
   @Roles(Role.SUPER_ADMIN)
   @RequirePermission('admin:update')
   @ApiOperation({ summary: 'Suspend partner (platform)' })
@@ -186,7 +186,7 @@ export class AdminController {
     return { data: partner };
   }
 
-  @Patch('tenants/:id/reactivate')
+  @Patch('partners/:id/reactivate')
   @Roles(Role.SUPER_ADMIN)
   @RequirePermission('admin:update')
   @ApiOperation({ summary: 'Reactivate partner (platform)' })
@@ -199,7 +199,7 @@ export class AdminController {
     return { data: partner };
   }
 
-  @Patch('tenants/:id/deactivate')
+  @Patch('partners/:id/deactivate')
   @Roles(Role.SUPER_ADMIN)
   @RequirePermission('admin:update')
   @ApiOperation({ summary: 'Deactivate partner (platform)' })
@@ -213,7 +213,7 @@ export class AdminController {
     return { data: partner };
   }
 
-  @Patch('tenants/:id/settings')
+  @Patch('partners/:id/settings')
   @Roles(Role.SUPER_ADMIN)
   @RequirePermission('admin:update')
   @ApiOperation({ summary: 'Update partner settings (platform)' })

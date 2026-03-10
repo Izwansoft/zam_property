@@ -55,9 +55,12 @@ export function useSocket(): SocketContextValue {
 // ---------------------------------------------------------------------------
 
 function getBackendUrl(): string {
-  if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL) {
+  if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_BASE_URL) {
     // Strip trailing /api/v1 if present (Socket.IO connects to the root)
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "");
+    return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/api\/v1\/?$/, "");
   }
   return "http://localhost:3000";
 }

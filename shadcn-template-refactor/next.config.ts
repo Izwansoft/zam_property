@@ -8,6 +8,7 @@ config();
 // ---------------------------------------------------------------------------
 
 const isProd = process.env.NODE_ENV === "production";
+const isRealProd = process.env.NEXT_PUBLIC_APP_ENV === "production";
 
 /**
  * Resolve the backend origin for CSP connect-src.
@@ -63,7 +64,7 @@ const cspDirectives = [
   // Base URI: self only
   "base-uri 'self'",
   // Upgrade insecure requests in production
-  ...(isProd ? ["upgrade-insecure-requests"] : []),
+  ...(isRealProd ? ["upgrade-insecure-requests"] : []),
 ];
 
 const contentSecurityPolicy = cspDirectives.join("; ");
@@ -92,7 +93,7 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
   },
   // HSTS — enforce HTTPS for 1 year (includeSubDomains + preload)
-  ...(isProd
+  ...(isRealProd
     ? [
         {
           key: "Strict-Transport-Security",
@@ -100,9 +101,13 @@ const securityHeaders = [
         },
       ]
     : []),
-  // Prevent cross-origin information leakage
-  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  // Prevent cross-origin information leakage (HTTPS only — ignored on plain HTTP)
+  ...(isRealProd
+    ? [
+        { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+        { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+      ]
+    : []),
 ];
 
 // ---------------------------------------------------------------------------

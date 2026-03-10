@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output (will be created inside container)
+.next
+
+# Source control
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment files (secrets — use build args or runtime env instead)
+.env
+.env.local
+.env.*.local
+
+# Tests (not needed in prod image)
+test/
+e2e/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+vitest.config.ts
+playwright.config.ts
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Misc
+tmp/
+coverage/
+.turbo
